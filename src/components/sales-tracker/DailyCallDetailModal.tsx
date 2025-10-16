@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Button } from '@/components/ui/button';
 import { useSalesOpportunity } from '@/contexts/SalesOpportunityContext';
 import { DeleteLogConfirmationDialog } from './DeleteLogConfirmationDialog';
+import { BulkDeleteConfirmationDialog } from './BulkDeleteConfirmationDialog';
 
 interface DailyCallDetailModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ interface DailyCallDetailModalProps {
   onSelectContact: (contact: Contact) => void;
   onUpdateCallLogFeedback: (contactId: string, logId: string, newFeedback: CallLog['feedback']) => Promise<void>;
   onDeleteCallLog: (contactId: string, logId: string) => Promise<void>;
+  onDeleteMultipleCallLogs: (logsToDelete: { contactId: string; logId: string }[]) => Promise<void>;
 }
 
 const getFeedbackBadge = (feedback: CallLog['feedback']) => {
@@ -75,22 +77,23 @@ const DraggableContactCard = ({ call, isOverlay = false, onSelectContact, isSele
   );
 };
 
-const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected, onDelete }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void, onToggleSelect: (contactId: string) => void, isSelected: boolean, onDelete: () => void }) => {
+const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected, onDelete }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void, onToggleSelect: (logId: string) => void, isSelected: boolean, onDelete: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: call.log.originalIndex });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn(isDragging && "opacity-50")} onClick={() => onToggleSelect(call.contact.id)}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn(isDragging && "opacity-50")} onClick={() => onToggleSelect(call.log.originalIndex)}>
       <DraggableContactCard call={call} onSelectContact={onSelectContact} isSelected={isSelected} onDelete={onDelete} />
     </div>
   );
 };
 
-const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback, onDeleteCallLog }) => {
+const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback, onDeleteCallLog, onDeleteMultipleCallLogs }) => {
   const [columns, setColumns] = useState<Record<string, { contact: Contact; log: CallLog }[]>>({});
   const [activeDragItem, setActiveDragItem] = useState<{ contact: Contact; log: CallLog } | null>(null);
-  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [logToDelete, setLogToDelete] = useState<{ contact: Contact; log: CallLog } | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const { addOpportunitiesFromContacts } = useSalesOpportunity();
 
   useEffect(() => {
@@ -104,7 +107,7 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         return acc;
       }, {} as Record<string, { contact: Contact; log: CallLog }[]>);
       setColumns(grouped);
-      setSelectedContactIds(new Set());
+      setSelectedLogIds(new Set());
     }
   }, [data]);
 
@@ -164,28 +167,28 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
     onUpdateCallLogFeedback(callToMove.contact.id, callToMove.log.originalIndex, newFeedback);
   };
 
-  const handleToggleSelect = (contactId: string) => {
-    setSelectedContactIds(prev => {
+  const handleToggleSelect = (logId: string) => {
+    setSelectedLogIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(contactId)) {
-        newSet.delete(contactId);
+      if (newSet.has(logId)) {
+        newSet.delete(logId);
       } else {
-        newSet.add(contactId);
+        newSet.add(logId);
       }
       return newSet;
     });
   };
 
   const handleCreateOpportunities = () => {
-    if (selectedContactIds.size === 0 || !data) return;
+    if (selectedLogIds.size === 0 || !data) return;
     const selectedContacts = data.calls
-      .filter(call => selectedContactIds.has(call.contact.id))
+      .filter(call => selectedLogIds.has(call.log.originalIndex))
       .map(call => call.contact);
     
     const uniqueContacts = Array.from(new Map(selectedContacts.map(c => [c.id, c])).values());
     
     addOpportunitiesFromContacts(uniqueContacts);
-    setSelectedContactIds(new Set());
+    setSelectedLogIds(new Set());
   };
 
   const handleDeleteConfirm = () => {
@@ -195,16 +198,27 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
     }
   };
 
-  const allContactIdsInModal = useMemo(() => {
+  const handleConfirmBulkDelete = () => {
+    if (selectedLogIds.size === 0 || !data) return;
+    const logsToDelete = data.calls
+      .filter(call => selectedLogIds.has(call.log.originalIndex))
+      .map(call => ({ contactId: call.contact.id, logId: call.log.originalIndex }));
+    
+    onDeleteMultipleCallLogs(logsToDelete);
+    setSelectedLogIds(new Set());
+    setIsBulkDeleteOpen(false);
+  };
+
+  const allLogIdsInModal = useMemo(() => {
     if (!data) return new Set<string>();
-    return new Set(data.calls.map(call => call.contact.id));
+    return new Set(data.calls.map(call => call.log.originalIndex));
   }, [data]);
 
   const handleSelectAll = () => {
-    if (selectedContactIds.size === allContactIdsInModal.size) {
-      setSelectedContactIds(new Set());
+    if (selectedLogIds.size === allLogIdsInModal.size) {
+      setSelectedLogIds(new Set());
     } else {
-      setSelectedContactIds(allContactIdsInModal);
+      setSelectedLogIds(allLogIdsInModal);
     }
   };
 
@@ -233,7 +247,7 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
                             call={call} 
                             onSelectContact={onSelectContact}
                             onToggleSelect={handleToggleSelect}
-                            isSelected={selectedContactIds.has(call.contact.id)}
+                            isSelected={selectedLogIds.has(call.log.originalIndex)}
                             onDelete={() => setLogToDelete(call)}
                           />
                         ))}
@@ -253,14 +267,20 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
           <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                {selectedContactIds.size === allContactIdsInModal.size ? 'Deselect All' : 'Select All'}
+                {selectedLogIds.size === allLogIdsInModal.size ? 'Deselect All' : 'Select All'}
               </Button>
-              <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
+              <span className="text-sm font-medium">{selectedLogIds.size} log(s) selected</span>
             </div>
-            <Button onClick={handleCreateOpportunities} disabled={selectedContactIds.size === 0}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add to Opportunities
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setIsBulkDeleteOpen(true)} disabled={selectedLogIds.size === 0} variant="destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected
+              </Button>
+              <Button onClick={handleCreateOpportunities} disabled={selectedLogIds.size === 0}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add to Opportunities
+              </Button>
+            </div>
           </div>
         )}
       </DndContext>
@@ -269,6 +289,13 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         onOpenChange={(open) => !open && setLogToDelete(null)}
         onConfirm={handleDeleteConfirm}
         logDetails={logToDelete ? { contactName: logToDelete.contact.name, log: logToDelete.log } : null}
+      />
+      <BulkDeleteConfirmationDialog
+        open={isBulkDeleteOpen}
+        onOpenChange={setIsBulkDeleteOpen}
+        onConfirm={handleConfirmBulkDelete}
+        itemCount={selectedLogIds.size}
+        itemName="call logs"
       />
     </>
   );

@@ -426,6 +426,28 @@ export default function SalesTrackerPage() {
     }
   };
 
+  const handleDeleteMultipleCallLogs = async (logsToDelete: { contactId: string; logId: string }[]) => {
+    if (!user || logsToDelete.length === 0) return;
+
+    const updates: { [key: string]: null } = {};
+    logsToDelete.forEach(({ contactId, logId }) => {
+      updates[`contacts/${contactId}/callHistory/${logId}`] = null;
+    });
+
+    try {
+      await update(ref(rtdb), updates);
+      toast({ title: `${logsToDelete.length} call log(s) deleted.` });
+      if (detailModalData) {
+        const deletedLogIds = new Set(logsToDelete.map(l => l.logId));
+        const updatedCalls = detailModalData.calls.filter(call => !deletedLogIds.has(call.log.originalIndex));
+        setDetailModalData({ ...detailModalData, calls: updatedCalls });
+      }
+    } catch (error) {
+      console.error("Error deleting multiple call logs:", error);
+      toast({ title: "Failed to delete logs", variant: "destructive" });
+    }
+  };
+
   const handleMarkAsSent = async (contactId: string) => {
     if (!user) {
       toast({ title: "Authentication Error", variant: "destructive" });
@@ -674,6 +696,7 @@ export default function SalesTrackerPage() {
         onSelectContact={handleSelectContactFromDetail}
         onUpdateCallLogFeedback={handleUpdateCallLogFeedback}
         onDeleteCallLog={handleDeleteCallLog}
+        onDeleteMultipleCallLogs={handleDeleteMultipleCallLogs}
       />
 
       <ExportFilterDialog
