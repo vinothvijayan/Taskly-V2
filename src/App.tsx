@@ -53,6 +53,7 @@ import { getSafeNotificationId } from './lib/notificationId'; // Import the new 
 // Lazy load page components
 const SalesTrackerPage = lazy(() => import("./pages/SalesTrackerPage"));
 const SalesOpportunityPage = lazy(() => import("./pages/SalesOpportunityPage"));
+const SalesToolsPage = lazy(() => import("./pages/SalesToolsPage"));
 const TasksPage = lazy(() => import("./pages/TasksPage"));
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const TeamChatPage = lazy(() => import("./pages/TeamChatPage"));
@@ -371,6 +372,11 @@ function AppContent() {
                     <Route path="/sales-opportunity" element={
                       <AdminRoute>
                         <SalesOpportunityPage />
+                      </AdminRoute>
+                    } />
+                    <Route path="/sales-tools" element={
+                      <AdminRoute>
+                        <SalesToolsPage />
                       </AdminRoute>
                     } />
                     <Route path="/timer" element={<TimerPage />} />

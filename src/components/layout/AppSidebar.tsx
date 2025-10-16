@@ -13,7 +13,8 @@ import {
   Phone,
   DollarSign,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Wrench
 } from "lucide-react"
 import {
   Sidebar,
@@ -45,6 +46,7 @@ const navItems = [
     subItems: [
       { title: "Call Tracker", url: "/sales-tracker", icon: Phone },
       { title: "Opportunities", url: "/sales-opportunity", icon: Zap },
+      { title: "Sales Tools", url: "/sales-tools", icon: Wrench },
     ],
   },
   { title: "Focus Timer", url: "/timer", icon: Timer },
