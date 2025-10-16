@@ -28,42 +28,41 @@ const GoogleBusinessExtractor = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSearch = async () => {
-    if (!location || !placeType) {
-      toast.error("Location and Place Type are required.");
-      return;
-    }
-    setIsLoading(true);
-    setResults([]);
-
-    try {
-      // Securely call the backend Firebase Function with the required parameters
-      const result: any = await getGoogleBusinessData({ 
-        location, 
-        placeType, 
-        keyword 
-      });
-
-      // The data you returned from your Python function is in the `data` property
-      const responseData = result.data;
-
-      if (responseData.status === 'success') {
-        setResults(responseData.data);
-        toast.success(`Found ${responseData.data.length} businesses!`);
-      } else {
-        // This case is unlikely if the backend always uses HttpsError for failures
-        throw new Error(responseData.message || "An unknown server error occurred.");
+      if (!location || !placeType) {
+        toast.error("Location and Place Type are required.");
+        return;
       }
+      setIsLoading(true);
+      setResults([]);
 
-    } catch (error: any) {
-      // The Firebase SDK automatically parses the HttpsError message from your backend
-      console.error("Error fetching business data:", error);
-      toast.error("Failed to fetch data", { 
-        description: error.message || "An unexpected error occurred. Check the console for details." 
-      });
-    } finally {
-      setIsLoading(false);
-    }
+      try {
+        // --- THIS IS THE FIX ---
+        // Change the key from "placeType" to "place_type" to match the backend
+        const result: any = await getGoogleBusinessData({ 
+          location, 
+          place_type: placeType, // <-- Corrected key name
+          keyword 
+        });
+
+        const responseData = result.data;
+
+        if (responseData.status === 'success') {
+          setResults(responseData.data);
+          toast.success(`Found ${responseData.data.length} businesses!`);
+        } else {
+          throw new Error(responseData.message || "An unknown server error occurred.");
+        }
+
+      } catch (error: any) {
+        console.error("Error fetching business data:", error);
+        toast.error("Failed to fetch data", { 
+          description: error.message || "An unexpected error occurred. Check the console for details." 
+        });
+      } finally {
+        setIsLoading(false);
+      }
   };
+
 
   const handleExport = () => {
     if (results.length === 0) {
