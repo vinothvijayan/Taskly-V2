@@ -14,7 +14,7 @@ import * as XLSX from 'xlsx';
 // Anyone can view your key and use it, which could lead to unexpected charges.
 // The previous backend proxy implementation was more secure.
 // Replace "YOUR_GOOGLE_PLACES_API_KEY" with your actual key.
-const GOOGLE_PLACES_API_KEY = "YOUR_GOOGLE_PLACES_API_KEY";
+const GOOGLE_PLACES_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk";
 
 // Google Business Extractor Component
 const GoogleBusinessExtractor = () => {
