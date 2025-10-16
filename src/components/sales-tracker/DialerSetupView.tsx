@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Contact, CallLog } from "@/lib/sales-tracker-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Phone, Users, PlayCircle, ArrowRight, Trash2, Loader2, Filter, Calendar as CalendarIcon, X, ChevronDown } from "lucide-react";
+import { Search, Phone, Users, PlayCircle, ArrowRight, Trash2, Loader2, Filter, Calendar as CalendarIcon, X, ChevronDown, Upload, Save } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { rtdb } from "@/lib/firebase";
 import { ref, update } from "firebase/database";
@@ -16,22 +16,13 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEn
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { DateRange } from "react-day-picker";
-import { format, startOfDay, endOfDay } from "date-fns";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { FilterPanel } from './FilterPanel';
-import { useDebounce } from '@/hooks/usePerformance';
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
+import * as XLSX from 'xlsx';
 
 interface DialerSetupViewProps {
   contacts: Contact[];
+  onSaveImportedContacts: (contacts: Contact[]) => Promise<void>;
 }
-
-const ITEMS_PER_PAGE = 30;
 
 const SortableContactItem = ({ id, contact, children, onRemove }: { id: string, contact: Contact, children: React.ReactNode, onRemove: (id: string) => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -63,18 +54,16 @@ const DraggableContactItem = ({ contact, isSelected, onToggle, onAdd }: { contac
   );
 };
 
-export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts }) => {
+export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSaveImportedContacts }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [callQueue, setCallQueue] = useState<Contact[]>([]);
   const [isStartingSession, setIsStartingSession] = useState(false);
-  const [filters, setFilters] = useState<{ dateRange: DateRange | undefined; initialCallFeedback: string[]; followUpCallFeedback: string[] }>({
-    dateRange: undefined, initialCallFeedback: [], followUpCallFeedback: []
-  });
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [importedContacts, setImportedContacts] = useState<Contact[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: {
@@ -82,75 +71,15 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts }) =>
     },
   }));
 
-  const filteredContacts = useMemo(() => {
-    return contacts.filter(contact => {
-      if (debouncedSearchTerm && !(contact.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || contact.phone.includes(debouncedSearchTerm))) {
-        return false;
-      }
-
-      const { dateRange, initialCallFeedback, followUpCallFeedback } = filters;
-
-      if (dateRange?.from || dateRange?.to) {
-        const from = dateRange.from ? startOfDay(dateRange.from) : null;
-        const to = dateRange.to ? endOfDay(dateRange.to) : null;
-        const isInRange = contact.callHistory.some(log => {
-          const logDate = new Date(log.timestamp);
-          return (!from || logDate >= from) && (!to || logDate <= to);
-        });
-        if (!isInRange) return false;
-      }
-
-      const hasInitialFilter = initialCallFeedback.length > 0;
-      const hasFollowUpFilter = followUpCallFeedback.length > 0;
-
-      if (!hasInitialFilter && !hasFollowUpFilter) {
-        return true;
-      }
-
-      let matchesInitial = false;
-      if (hasInitialFilter) {
-        const initialCall = contact.callHistory.find(log => log.type === 'New Call');
-        if (initialCall && initialCallFeedback.includes(initialCall.feedback)) {
-          matchesInitial = true;
-        }
-      }
-
-      let matchesFollowUp = false;
-      if (hasFollowUpFilter) {
-        const hasMatchingFollowUp = contact.callHistory.some(log =>
-          log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback)
-        );
-        if (hasMatchingFollowUp) {
-          matchesFollowUp = true;
-        }
-      }
-
-      if (hasInitialFilter && hasFollowUpFilter) {
-        return matchesInitial || matchesFollowUp;
-      }
-      if (hasInitialFilter) {
-        return matchesInitial;
-      }
-      if (hasFollowUpFilter) {
-        return matchesFollowUp;
-      }
-
-      return true;
-    });
-  }, [contacts, debouncedSearchTerm, filters]);
-
-  useEffect(() => {
-    setVisibleCount(ITEMS_PER_PAGE);
-  }, [filteredContacts]);
-
   const availableContacts = useMemo(() => {
     const queueIds = new Set(callQueue.map(c => c.id));
-    return filteredContacts.filter(c => !queueIds.has(c.id));
-  }, [filteredContacts, callQueue]);
-
-  const visibleContacts = useMemo(() => {
-    return availableContacts.slice(0, visibleCount);
-  }, [availableContacts, visibleCount]);
+    const importedIds = new Set(importedContacts.map(c => c.id));
+    return contacts.filter(c => 
+      !queueIds.has(c.id) && 
+      !importedIds.has(c.id) &&
+      (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
+    );
+  }, [contacts, callQueue, importedContacts, searchTerm]);
 
   const handleToggleContact = (contactId: string) => {
     setSelectedContactIds(prev => {
@@ -161,12 +90,9 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts }) =>
     });
   };
 
-  const handleToggleSelectAll = (checked: boolean) => {
-    setSelectedContactIds(checked ? new Set(availableContacts.map(c => c.id)) : new Set());
-  };
-
   const handleAddToQueue = () => {
-    const contactsToAdd = contacts.filter(c => selectedContactIds.has(c.id));
+    const allContacts = [...contacts, ...importedContacts];
+    const contactsToAdd = allContacts.filter(c => selectedContactIds.has(c.id));
     const newQueue = [...callQueue];
     contactsToAdd.forEach(contact => {
       if (!newQueue.some(c => c.id === contact.id)) newQueue.push(contact);
@@ -207,77 +133,131 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts }) =>
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
-    const activeIsInQueue = callQueue.some(c => c.id === activeId);
-    const overIsInQueue = callQueue.some(c => c.id === overId);
+    
+    const allContacts = [...availableContacts, ...importedContacts];
+    const contactToMove = allContacts.find(c => c.id === activeId);
+    if (!contactToMove) return;
 
-    if (activeIsInQueue && overIsInQueue && activeId !== overId) {
-      setCallQueue(items => {
-        const oldIndex = items.findIndex(item => item.id === activeId);
-        const newIndex = items.findIndex(item => item.id === overId);
-        return arrayMove(items, oldIndex, newIndex);
-      });
-    } else if (!activeIsInQueue && (overIsInQueue || over.id === 'call-queue-droppable')) {
-      const contactToMove = availableContacts.find(c => c.id === activeId);
-      if (contactToMove) {
-        setCallQueue(prev => {
-          const newQueue = [...prev];
-          if (overIsInQueue) {
-            const overIndex = newQueue.findIndex(c => c.id === overId);
-            newQueue.splice(overIndex, 0, contactToMove);
-          } else {
-            newQueue.push(contactToMove);
-          }
-          return newQueue;
-        });
+    if (over.id === 'call-queue-droppable' || callQueue.some(c => c.id === overId)) {
+      if (!callQueue.some(c => c.id === activeId)) {
+        setCallQueue(prev => [...prev, contactToMove]);
       }
+    }
+  };
+
+  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const data = e.target?.result;
+      const workbook = XLSX.read(data, { type: 'binary' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+      const existingPhones = new Set(contacts.map(c => c.phone));
+      let newCount = 0;
+      let duplicateCount = 0;
+
+      const newContacts: Contact[] = json.map((row: any) => {
+        const phone = String(row.Phone || row.phone || row['Phone Number'] || '').trim();
+        const name = String(row.Name || row.name || 'Unknown').trim();
+        
+        if (!phone || !name) return null;
+
+        if (existingPhones.has(phone)) {
+          duplicateCount++;
+          return null;
+        }
+        
+        newCount++;
+        return {
+          id: phone, // Use phone as temporary ID
+          name,
+          phone,
+          callHistory: [],
+          status: 'New',
+          lastContacted: new Date().toISOString(),
+          callCount: 0,
+        };
+      }).filter((c): c is Contact => c !== null);
+
+      setImportedContacts(prev => [...prev, ...newContacts]);
+      toast({
+        title: "Import Complete",
+        description: `${newCount} new contacts imported. ${duplicateCount} duplicates were ignored.`,
+      });
+    };
+    reader.readAsBinaryString(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveImportedContacts(importedContacts);
+      setImportedContacts([]);
+    } catch (error) {
+      // Error toast is handled in parent
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={() => {}} onDragEnd={handleDragEnd}>
       <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border">
-        <ResizablePanel defaultSize={55} minSize={30}>
+        <ResizablePanel defaultSize={30} minSize={20}>
           <Card className="flex flex-col h-full border-0 shadow-none rounded-none">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Available Contacts</CardTitle>
-              <Input placeholder="Search contacts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full mt-2"><Filter className="h-4 w-4 mr-2" /> Advanced Filters <ChevronDown className="h-4 w-4 ml-auto" /></Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-4 space-y-4">
-                  <FilterPanel filters={filters} onFiltersChange={setFilters} />
-                </CollapsibleContent>
-              </Collapsible>
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox id="select-all" checked={selectedContactIds.size > 0 && selectedContactIds.size === availableContacts.length} onCheckedChange={handleToggleSelectAll} />
-                <label htmlFor="select-all" className="text-sm font-medium">Select All ({availableContacts.length})</label>
-              </div>
+              <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Imported Contacts</CardTitle>
+              <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx, .xls, .csv" className="hidden" />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-2" /> Import from File</Button>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-2">
-                  <SortableContext items={visibleContacts.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                    {visibleContacts.map(contact => (
-                      <DraggableContactItem key={contact.id} contact={contact} isSelected={selectedContactIds.has(contact.id)} onToggle={handleToggleContact} onAdd={handleClickToAdd} />
-                    ))}
-                  </SortableContext>
-                  {visibleCount < availableContacts.length && (
-                    <div className="flex justify-center py-4">
-                      <Button variant="outline" onClick={() => setVisibleCount(prev => prev + ITEMS_PER_PAGE)}>
-                        Load More
-                      </Button>
-                    </div>
-                  )}
+                  {importedContacts.map(contact => (
+                    <DraggableContactItem key={contact.id} contact={contact} isSelected={selectedContactIds.has(contact.id)} onToggle={handleToggleContact} onAdd={handleClickToAdd} />
+                  ))}
+                  {importedContacts.length === 0 && <div className="text-center py-16 text-muted-foreground"><p>Import contacts to get started.</p></div>}
+                </div>
+              </ScrollArea>
+            </CardContent>
+            {importedContacts.length > 0 && (
+              <div className="p-4 border-t">
+                <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                  {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save {importedContacts.length} Imported Contacts
+                </Button>
+              </div>
+            )}
+          </Card>
+        </ResizablePanel>
+        <ResizableHandle withHandle />
+        <ResizablePanel defaultSize={40} minSize={30}>
+          <Card className="flex flex-col h-full border-0 shadow-none rounded-none">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" /> Available Contacts</CardTitle>
+              <Input placeholder="Search contacts..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            </CardHeader>
+            <CardContent className="flex-1 overflow-hidden p-0">
+              <ScrollArea className="h-full">
+                <div className="p-4 space-y-2">
+                  {availableContacts.map(contact => (
+                    <DraggableContactItem key={contact.id} contact={contact} isSelected={selectedContactIds.has(contact.id)} onToggle={handleToggleContact} onAdd={handleClickToAdd} />
+                  ))}
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={45} minSize={30}>
+        <ResizablePanel defaultSize={30} minSize={20}>
           <Card className="flex flex-col h-full border-0 shadow-none rounded-none">
             <CardHeader><CardTitle className="flex items-center gap-2"><Phone className="h-5 w-5" /> Call Queue</CardTitle></CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
@@ -296,7 +276,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts }) =>
                       ))}
                     </AnimatePresence>
                   </SortableContext>
-                  {callQueue.length === 0 && (<div className="text-center py-16 text-muted-foreground"><p>Click or drag contacts here to build your queue.</p></div>)}
+                  {callQueue.length === 0 && (<div className="text-center py-16 text-muted-foreground"><p>Drag contacts here to build your queue.</p></div>)}
                 </div>
               </ScrollArea>
             </CardContent>

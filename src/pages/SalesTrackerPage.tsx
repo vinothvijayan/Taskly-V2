@@ -505,6 +505,39 @@ export default function SalesTrackerPage() {
     setSelectedForOppIds(new Set());
   };
 
+  const handleSaveImportedContacts = async (importedContacts: Contact[]) => {
+    if (!user || importedContacts.length === 0) return;
+
+    const updates: { [key: string]: any } = {};
+    importedContacts.forEach(contact => {
+      // Use phone number as the key for the contact
+      const contactPath = `contacts/${contact.phone}`;
+      updates[contactPath] = {
+        name: contact.name,
+        phoneNumber: contact.phone,
+        // Initialize other fields as needed
+        callCount: 0,
+        callHistory: {},
+      };
+    });
+
+    try {
+      await update(ref(rtdb), updates);
+      toast({
+        title: "Contacts Saved!",
+        description: `${importedContacts.length} new contacts have been saved to your main list.`,
+      });
+    } catch (error) {
+      console.error("Error saving imported contacts:", error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save the imported contacts to Firebase.",
+        variant: "destructive",
+      });
+      throw error; // Re-throw to be caught in the component
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -584,7 +617,7 @@ export default function SalesTrackerPage() {
             {activeView === 'live-call' ? (
               <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
             ) : activeView === 'dialer' ? (
-              <DialerSetupView contacts={contacts} />
+              <DialerSetupView contacts={contacts} onSaveImportedContacts={handleSaveImportedContacts} />
             ) : activeView === 'contacts' ? (
               isMobile ? (
                 <ContactsListView 
