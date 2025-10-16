@@ -9,7 +9,7 @@ import requests
 GOOGLE_PLACES_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 @https_fn.on_call(
-    cors=https_fn.CorsOptions(
+    cors=https_fn.HttpsOptions(
         cors_origins=["*"],  # Or specify your app's domain for better security
         cors_methods=["get", "post"],
     )
