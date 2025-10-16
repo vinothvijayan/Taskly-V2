@@ -4,7 +4,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Phone, User, Plus, CheckCircle } from "lucide-react";
+import { Phone, User, Plus, CheckCircle, Trash2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { Button } from '@/components/ui/button';
 import { useSalesOpportunity } from '@/contexts/SalesOpportunityContext';
+import { DeleteLogConfirmationDialog } from './DeleteLogConfirmationDialog';
 
 interface DailyCallDetailModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface DailyCallDetailModalProps {
   } | null;
   onSelectContact: (contact: Contact) => void;
   onUpdateCallLogFeedback: (contactId: string, logId: string, newFeedback: CallLog['feedback']) => Promise<void>;
+  onDeleteCallLog: (contactId: string, logId: string) => Promise<void>;
 }
 
 const getFeedbackBadge = (feedback: CallLog['feedback']) => {
@@ -37,43 +39,58 @@ const getFeedbackBadge = (feedback: CallLog['feedback']) => {
   }
 };
 
-const DraggableContactCard = ({ call, isOverlay = false, onSelectContact, isSelected }: { call: { contact: Contact; log: CallLog }, isOverlay?: boolean, onSelectContact?: (contact: Contact) => void, isSelected?: boolean }) => {
+const DraggableContactCard = ({ call, isOverlay = false, onSelectContact, isSelected, onDelete }: { call: { contact: Contact; log: CallLog }, isOverlay?: boolean, onSelectContact?: (contact: Contact) => void, isSelected?: boolean, onDelete?: () => void }) => {
   return (
     <div
-      onClick={() => onSelectContact && onSelectContact(call.contact)}
       className={cn(
-        "w-full text-left p-3 rounded-lg border bg-background shadow-sm relative",
+        "w-full text-left p-3 rounded-lg border bg-background shadow-sm relative group",
         isOverlay ? "cursor-grabbing" : "cursor-grab",
         !isOverlay && "hover:bg-muted/50 transition-colors",
         isSelected && "ring-2 ring-primary border-primary"
       )}
     >
-      {isSelected && <CheckCircle className="h-4 w-4 text-white bg-primary rounded-full absolute -top-1.5 -right-1.5" />}
-      <p className="font-medium text-sm flex items-center gap-2">
-        <User className="h-3.5 w-3.5" /> {call.contact.name}
-      </p>
-      <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-2">
-        <Phone className="h-3 w-3" /> {call.contact.phone}
-      </p>
+      {onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
+      <div onClick={() => onSelectContact && onSelectContact(call.contact)}>
+        {isSelected && <CheckCircle className="h-4 w-4 text-white bg-primary rounded-full absolute -top-1.5 -left-1.5" />}
+        <p className="font-medium text-sm flex items-center gap-2 pr-6">
+          <User className="h-3.5 w-3.5" /> {call.contact.name}
+        </p>
+        <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-2">
+          <Phone className="h-3 w-3" /> {call.contact.phone}
+        </p>
+      </div>
     </div>
   );
 };
 
-const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void, onToggleSelect: (contactId: string) => void, isSelected: boolean }) => {
+const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected, onDelete }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void, onToggleSelect: (contactId: string) => void, isSelected: boolean, onDelete: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: call.log.originalIndex });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn(isDragging && "opacity-50")} onClick={() => onToggleSelect(call.contact.id)}>
-      <DraggableContactCard call={call} onSelectContact={onSelectContact} isSelected={isSelected} />
+      <DraggableContactCard call={call} onSelectContact={onSelectContact} isSelected={isSelected} onDelete={onDelete} />
     </div>
   );
 };
 
-const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback }) => {
+const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback, onDeleteCallLog }) => {
   const [columns, setColumns] = useState<Record<string, { contact: Contact; log: CallLog }[]>>({});
   const [activeDragItem, setActiveDragItem] = useState<{ contact: Contact; log: CallLog } | null>(null);
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const [logToDelete, setLogToDelete] = useState<{ contact: Contact; log: CallLog } | null>(null);
   const { addOpportunitiesFromContacts } = useSalesOpportunity();
 
   useEffect(() => {
@@ -87,7 +104,7 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         return acc;
       }, {} as Record<string, { contact: Contact; log: CallLog }[]>);
       setColumns(grouped);
-      setSelectedContactIds(new Set()); // Reset selection when data changes
+      setSelectedContactIds(new Set());
     }
   }, [data]);
 
@@ -165,62 +182,77 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
       .filter(call => selectedContactIds.has(call.contact.id))
       .map(call => call.contact);
     
-    // Remove duplicates
     const uniqueContacts = Array.from(new Map(selectedContacts.map(c => [c.id, c])).values());
     
     addOpportunitiesFromContacts(uniqueContacts);
     setSelectedContactIds(new Set());
   };
 
+  const handleDeleteConfirm = () => {
+    if (logToDelete) {
+      onDeleteCallLog(logToDelete.contact.id, logToDelete.log.originalIndex);
+      setLogToDelete(null);
+    }
+  };
+
   const feedbackOrder: CallLog['feedback'][] = ['Interested', 'Follow Up', 'Callback', 'Not Interested', 'Not Picked', 'Send Details'];
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <ScrollArea className="h-full w-full">
-          <div className="flex space-x-4 pb-4">
-            {feedbackOrder.map((feedback) => {
-              const calls = columns[feedback] || [];
-              const { setNodeRef } = useSortable({ id: feedback });
-              return (
-                <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
-                  <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                    {getFeedbackBadge(feedback)}
-                    <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
-                  </div>
-                  <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-2">
-                      {calls.map((call) => (
-                        <SortableCallItem 
-                          key={call.log.originalIndex} 
-                          call={call} 
-                          onSelectContact={onSelectContact}
-                          onToggleSelect={handleToggleSelect}
-                          isSelected={selectedContactIds.has(call.contact.id)}
-                        />
-                      ))}
+    <>
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <ScrollArea className="h-full w-full">
+            <div className="flex space-x-4 pb-4">
+              {feedbackOrder.map((feedback) => {
+                const calls = columns[feedback] || [];
+                const { setNodeRef } = useSortable({ id: feedback });
+                return (
+                  <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
+                    <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                      {getFeedbackBadge(feedback)}
+                      <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
                     </div>
-                  </SortableContext>
-                </div>
-              );
-            })}
-          </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
-        <DragOverlay>
-          {activeDragItem ? <DraggableContactCard call={activeDragItem} isOverlay /> : null}
-        </DragOverlay>
-      </div>
-      {selectedContactIds.size > 0 && (
-        <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-between">
-          <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
-          <Button onClick={handleCreateOpportunities}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add to Opportunities
-          </Button>
+                    <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2">
+                        {calls.map((call) => (
+                          <SortableCallItem 
+                            key={call.log.originalIndex} 
+                            call={call} 
+                            onSelectContact={onSelectContact}
+                            onToggleSelect={handleToggleSelect}
+                            isSelected={selectedContactIds.has(call.contact.id)}
+                            onDelete={() => setLogToDelete(call)}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </div>
+                );
+              })}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+          <DragOverlay>
+            {activeDragItem ? <DraggableContactCard call={activeDragItem} isOverlay /> : null}
+          </DragOverlay>
         </div>
-      )}
-    </DndContext>
+        {selectedContactIds.size > 0 && (
+          <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-between">
+            <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
+            <Button onClick={handleCreateOpportunities}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add to Opportunities
+            </Button>
+          </div>
+        )}
+      </DndContext>
+      <DeleteLogConfirmationDialog
+        open={!!logToDelete}
+        onOpenChange={(open) => !open && setLogToDelete(null)}
+        onConfirm={handleDeleteConfirm}
+        logDetails={logToDelete ? { contactName: logToDelete.contact.name, log: logToDelete.log } : null}
+      />
+    </>
   );
 };
 

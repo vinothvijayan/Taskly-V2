@@ -407,6 +407,25 @@ export default function SalesTrackerPage() {
     }
   };
 
+  const handleDeleteCallLog = async (contactId: string, logId: string) => {
+    if (!user) {
+      toast({ title: "Authentication Error", variant: "destructive" });
+      return;
+    }
+    const logRef = ref(rtdb, `contacts/${contactId}/callHistory/${logId}`);
+    try {
+      await set(logRef, null);
+      toast({ title: "Call log deleted." });
+      if (detailModalData) {
+        const updatedCalls = detailModalData.calls.filter(call => call.log.originalIndex !== logId);
+        setDetailModalData({ ...detailModalData, calls: updatedCalls });
+      }
+    } catch (error) {
+      console.error("Error deleting call log:", error);
+      toast({ title: "Failed to delete log", variant: "destructive" });
+    }
+  };
+
   const handleMarkAsSent = async (contactId: string) => {
     if (!user) {
       toast({ title: "Authentication Error", variant: "destructive" });
@@ -654,6 +673,7 @@ export default function SalesTrackerPage() {
         data={detailModalData}
         onSelectContact={handleSelectContactFromDetail}
         onUpdateCallLogFeedback={handleUpdateCallLogFeedback}
+        onDeleteCallLog={handleDeleteCallLog}
       />
 
       <ExportFilterDialog
