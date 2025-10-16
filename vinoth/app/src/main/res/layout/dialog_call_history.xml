@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/dialog_background"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Title Bar -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <ImageView
+            android:id="@+id/personIcon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:src="@drawable/baseline_person_24"
+            app:tint="@color/colorPrimary" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="8dp"
+            android:layout_toEndOf="@id/personIcon"
+            android:text="Call History"
+            android:textColor="@android:color/black"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <ImageButton
+            android:id="@+id/closeDialogButton"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/baseline_close_24"
+            app:tint="#757575" />
+    </RelativeLayout>
+
+    <!-- Contact Info Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableStart="@drawable/baseline_call_24"
+                android:drawablePadding="8dp"
+                android:gravity="center_vertical"
+                android:text="Contact Info"
+                android:textColor="@android:color/black"
+                android:textStyle="bold"
+                app:drawableTint="@color/colorPrimary" />
+
+            <TextView
+                android:id="@+id/historyNameTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="NAME\nPlaceholder Name"
+                android:lineSpacingExtra="4dp"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/historyPhoneTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="PHONE\nPlaceholder Phone"
+                android:lineSpacingExtra="4dp"
+                android:textSize="16sp" />
+
+            <!-- NEW: TextView to display the total number of calls to this contact -->
+            <TextView
+                android:id="@+id/historyTotalCallsTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="TOTAL CALLS\n0"
+                android:lineSpacingExtra="4dp"
+                android:textSize="16sp" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Previous Calls Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="2dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/previousCallsTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableStart="@drawable/baseline_history_24"
+                android:drawablePadding="8dp"
+                android:gravity="center_vertical"
+                android:text="Previous Calls (0)"
+                android:textColor="@android:color/black"
+                android:textStyle="bold"
+                app:drawableTint="@color/colorPrimary" />
+
+            <!-- This is the container where your Java code will add a view for EVERY call record.
+                 It will show the full history as requested. -->
+            <LinearLayout
+                android:id="@+id/historyItemsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical" />
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Close Button at the bottom -->
+    <Button
+        android:id="@+id/dialogBottomCloseButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:backgroundTint="@color/colorPrimary"
+        android:paddingVertical="12dp"
+        android:text="Close"
+        android:textColor="@android:color/white"
+        android:textSize="16sp" />
+
+</LinearLayout>

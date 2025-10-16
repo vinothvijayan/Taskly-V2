@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="?attr/colorPrimary"
+        android:strokeWidth="1"
+        android:pathData="M12,19c-1.1,0 -2,-0.9 -2,-2s0.9,-2 2,-2 2,0.9 2,2 -0.9,2 -2,2zM6,1c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2L8,3c0,-1.1 -0.9,-2 -2,-2zM6,9c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2v-3c0,-1.1 -0.9,-2 -2,-2zM6,17c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2zM12,1c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2L14,3c0,-1.1 -0.9,-2 -2,-2zM18,1c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2L20,3c0,-1.1 -0.9,-2 -2,-2zM12,9c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2v-3c0,-1.1 -0.9,-2 -2,-2zM18,9c-1.1,0 -2,0.9 -2,2v3c0,1.1 0.9,2 2,2s2,-0.9 2,-2v-3c0,-1.1 -0.9,-2 -2,-2zM18,17c-1.1,0 -2,0.9 -2,2s0.9,2 2,2 2,-0.9 2,-2 -0.9,-2 -2,-2z"/>
+</vector>

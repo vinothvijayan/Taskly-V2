@@ -1,0 +1,47 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name">Sales Dialer</string>
+    <string name="select_file" tools:ignore="DuplicateDefinition">Select a file</string>
+    <string name="file_error">Error accessing the file</string>
+    <string name="contacts_uploaded">Contacts uploaded successfully</string>
+    <string name="error_reading_file">Error reading file: %1$s</string>
+    <string name="calling_contact">Calling: %1$s - %2$s</string>
+    <string name="no_contacts_available">No contacts available</string>
+    <string name="select_feedback">Please select feedback</string>
+    <string name="feedback_submitted">Feedback submitted: %1$s</string>
+    <string name="call_permission_denied">Call permission denied!</string>
+    <string name="upload_excel_file">Upload Excel File</string>
+    <string name="start_dialing">Start Dialing</string>
+    <string name="feedback">Feedback</string> <!-- Note: Changed from "Feedback:" to match UI -->
+    <string name="interested">Interested</string>
+    <string name="follow_up">Follow Up</string>
+    <string name="not_interested">Not Interested</string>
+    <string name="not_picked">Not Picked</string>
+    <string name="submit_feedback">Submit Feedback</string>
+    <string name="storage_permission_denied">Storage permission denied</string>
+    <string name="all_calls_completed">All calls completed.</string>
+    <string name="enter_message_optional" />
+    <string name="pause">Pause</string>
+    <string name="resume">Resume</string>
+
+    <!-- STRINGS FOR CALL HISTORY DIALOG -->
+    <string name="call_history_title">Call History</string>
+    <string name="contact_info_title">Contact Info</string>
+    <string name="previous_calls_title">Previous Calls</string>
+    <string name="close_button">Close</string>
+    <string name="create_and_dial">Create and Dial</string>
+    <!-- Strings for the main button states -->
+    <string name="accessibility_service_description">This service is used to enable call recording functionality by monitoring call states.</string>
+    <string name="resume_dialing">Resume Dialing</string>
+    <string name="pause_dialing">Pause Dialing</string>
+    <string name="start_new_list">Load New List to Start</string>
+
+    <!-- String for the call history dialog -->
+
+    <!-- STRINGS FOR CALL HISTORY ITEM -->
+    <string name="label_feedback">FEEDBACK</string>
+    <string name="label_message">MESSAGE</string>
+    <string name="label_follow_up_status">FOLLOW-UP STATUS</string>
+    <string name="label_follow_up_message">FOLLOW-UP MESSAGE</string>
+    <string name="label_follow_up_date_time">FOLLOW-UP DATE &amp; TIME</string>
+
+</resources>

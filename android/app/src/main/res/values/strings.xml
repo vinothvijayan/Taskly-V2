@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Taskly</string>
+    <string name="title_activity_main">Taskly</string>
+    <string name="package_name">com.lovable.dwellingcare</string>
+    <string name="custom_url_scheme">com.lovable.dwellingcare</string>
+    
+    <!-- Notification channel settings -->
+    <string name="notification_channel_name">Task Reminders</string>
+    <string name="notification_channel_description">Notifications for task reminders and updates</string>
+</resources>

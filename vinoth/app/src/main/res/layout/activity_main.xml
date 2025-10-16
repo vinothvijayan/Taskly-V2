@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="30dp">
+            
+            <Button
+                android:id="@+id/btnSignIn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sign In to Connect to Web"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                tools:visibility="visible"
+                android:backgroundTint="#FF6200EE"/>
+
+            <!-- In activity_main.xml -->
+            <Button
+                android:id="@+id/btnEnableRecording"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Enable Call Recording"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:backgroundTint="#6A5ACD"/>
+
+            <Button
+                android:id="@+id/btnSyncCsvToFirebase"
+                android:layout_width="319dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                android:paddingStart="24dp"
+                android:paddingEnd="12dp"
+                android:text="Sync Old CSV to Firebase"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/uploadButton" />
+            <Button
+                android:id="@+id/uploadButton"
+                android:layout_width="319dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                android:backgroundTint="#6A5ACD"
+                android:drawableStart="@drawable/baseline_cloud_upload_24"
+                android:drawablePadding="8dp"
+                android:gravity="center_vertical|start"
+                android:paddingStart="24dp"
+                android:paddingEnd="12dp"
+                android:text="@string/upload_excel_file"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF" />
+
+            <!-- NEW: Button for Filter & Dial Feature -->
+    <Button
+        android:id="@+id/btnDialFiltered"
+        style="?attr/materialButtonOutlinedStyle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:drawableStart="@drawable/baseline_filter_list_24"
+        android:drawablePadding="8dp"
+        android:gravity="center_vertical|start"
+        android:paddingStart="24dp"
+        android:paddingEnd="12dp"
+        android:text="Dial From Master List (Filter)"
+        android:textAllCaps="false" />
+
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/callingInfoCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:visibility="gone"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/currentNumberTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                tools:text="Calling: Unitone Arts Collective\n(7395951503)" />
+
+            <Button
+                android:id="@+id/viewHistoryButton"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:drawablePadding="8dp"
+                android:text="View Call History"
+                android:textAllCaps="false"
+                android:textColor="#6A5ACD"
+                app:drawableStartCompat="@drawable/baseline_history_24" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <Button
+        android:id="@+id/startButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:backgroundTint="#6A5ACD"
+        android:gravity="center"
+        android:padding="12dp"
+        android:text="@string/start_dialing"
+        android:textAllCaps="false"
+        android:textColor="#FFFFFF"
+        app:drawableLeftCompat="@drawable/baseline_play_arrow_24"
+        tools:ignore="VisualLintButtonSize" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:background="@drawable/round_border_feedback_container"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="@string/feedback"
+            android:textColor="#000000"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <RadioGroup
+            android:id="@+id/feedbackRadioGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/interestedRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/interested"
+                android:textColor="#000000" />
+
+            <RadioButton
+                android:id="@+id/followUpRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/follow_up"
+                android:textColor="#000000" />
+
+            <RadioButton
+                android:id="@+id/sendDetailsRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Send Details"
+                android:textColor="#000000" />
+
+            <RadioButton
+                android:id="@+id/radioCallback"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Callback"
+                android:textColor="#000000" />
+
+            <RadioButton
+                android:id="@+id/notInterestedRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/not_interested"
+                android:textColor="#000000" />
+
+            <RadioButton
+                android:id="@+id/notPickedRadioButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/not_picked"
+                android:textColor="#000000" />
+        </RadioGroup>
+
+        <LinearLayout
+            android:id="@+id/reminderLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <Button
+                android:id="@+id/setReminderButton"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Set Reminder Time"
+                android:textAllCaps="false"
+                app:icon="@drawable/baseline_add_alert_24" />
+
+            <TextView
+                android:id="@+id/reminderSetTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/colorPrimary"
+                tools:text="Reminder set for: Oct 26, 2024 at 11:30 AM" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/spokenToNameEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:autofillHints="name"
+            android:background="@drawable/round_border_edit_text"
+            android:hint="Spoken to (Optional)"
+            android:inputType="textPersonName|textCapWords"
+            android:minHeight="48dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:textColor="#000000"
+            android:textColorHint="#727272" />
+
+        <EditText
+            android:id="@+id/messageEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="25dp"
+            android:autofillHints="none"
+            android:background="@drawable/round_border_edit_text"
+            android:hint="Enter Message (optional)"
+            android:inputType="text"
+            android:minHeight="48dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:textColor="#000000"
+            android:textColorHint="#727272" />
+
+        <Button
+            android:id="@+id/submitFeedbackButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:backgroundTint="#6A5ACD"
+            android:gravity="center"
+            android:padding="12dp"
+            android:text="@string/submit_feedback"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            tools:ignore="VisualLintButtonSize" />
+    </LinearLayout>
+
+    <EditText
+        android:id="@+id/emailEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="16dp"
+        android:autofillHints="emailAddress"
+        android:background="@drawable/round_border_edit_text"
+        android:hint="Enter email address"
+        android:inputType="textEmailAddress"
+        android:minHeight="48dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="12dp"
+        android:textColor="#000000"
+        android:textColorHint="#727272"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/finishedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="32dp"
+        android:backgroundTint="#6A5ACD"
+        android:padding="12dp"
+        android:text="Finished"
+        android:textColor="#FFFFFF"
+        android:visibility="gone" />
+</LinearLayout>
+</ScrollView>
+
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80FFFFFF"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        tools:visibility="gone">
+
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+
+    </FrameLayout>
+
+<!-- NEW: Floating Action Button for Manual Dialing -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabManualDial"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:contentDescription="Manual Dial"
+        app:srcCompat="@drawable/baseline_dialpad_24" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

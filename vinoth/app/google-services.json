@@ -1,0 +1,77 @@
+{
+  "project_info": {
+    "project_number": "788189911710",
+    "firebase_url": "https://huddlely-default-rtdb.firebaseio.com",
+    "project_id": "huddlely",
+    "storage_bucket": "huddlely.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:788189911710:android:7b7959c1367bdd1bd5b98f",
+        "android_client_info": {
+          "package_name": "com.example.vinoth"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "788189911710-116qci5dmm007uqott3qh3o5cai6l35v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0qR59hILEEoEPtvaBXLF98CEynThMpl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "788189911710-116qci5dmm007uqott3qh3o5cai6l35v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:788189911710:android:863628b8de63d377d5b98f",
+        "android_client_info": {
+          "package_name": "com.lovable.dwellingcare"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "788189911710-t1p5ubccibse8f70fov5msrj7qgea2t4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lovable.dwellingcare",
+            "certificate_hash": "233b17cbc262152196eee56b2c94d71aec0523cb"
+          }
+        },
+        {
+          "client_id": "788189911710-116qci5dmm007uqott3qh3o5cai6l35v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0qR59hILEEoEPtvaBXLF98CEynThMpl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "788189911710-116qci5dmm007uqott3qh3o5cai6l35v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

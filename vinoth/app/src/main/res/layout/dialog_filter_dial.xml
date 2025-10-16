@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Create Filtered Calling List"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_gravity="center_horizontal"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Date Range (Optional)"
+        android:layout_marginTop="16dp"
+        android:textStyle="bold"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btnFromDate"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:text="From"
+            style="?attr/materialButtonOutlinedStyle"/>
+
+        <TextView
+            android:id="@+id/tvFromDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Not Set"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="8dp">
+
+        <Button
+            android:id="@+id/btnToDate"
+            android:layout_width="120dp"
+            android:layout_height="wrap_content"
+            android:text="To"
+            style="?attr/materialButtonOutlinedStyle"/>
+
+        <TextView
+            android:id="@+id/tvToDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="Not Set"/>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Call Status"
+        android:layout_marginTop="24dp"
+        android:textStyle="bold"/>
+
+    <RadioGroup
+        android:id="@+id/rgStatusFilter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp">
+        <RadioButton android:id="@+id/rbInterested" android:text="Interested"/>
+        <RadioButton android:id="@+id/rbFollowUp" android:text="Follow Up"/>
+        <RadioButton android:id="@+id/rbCallback" android:text="Callback"/>
+        <RadioButton android:id="@+id/rbNotPicked" android:text="Not Picked"/>
+        <RadioButton android:id="@+id/rbNotInterested" android:text="Not Interested"/>
+    </RadioGroup>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="24dp">
+
+        <Button
+            android:id="@+id/btnCancelFilter"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnApplyFilterAndDial"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/create_and_dial"/>
+    </LinearLayout>
+</LinearLayout>

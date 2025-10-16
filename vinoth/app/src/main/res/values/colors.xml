@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Your existing colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- NEW Colors for Call History UI -->
+    <color name="colorPrimary">#6A5ACD</color>
+    <color name="colorPrimaryDark">#483D8B</color>
+    <color name="colorAccent">#6A5ACD</color>
+
+    <color name="chip_follow_up_bg">#4A90E2</color>
+    <color name="chip_follow_up_text">#FFFFFF</color>
+
+    <color name="chip_not_interested_bg">#D0021B</color>
+    <color name="chip_not_interested_text">#FFFFFF</color>
+
+    <color name="chip_interested_bg">#34C759</color>
+    <color name="chip_interested_text">#FFFFFF</color>
+
+    <color name="chip_default_bg">#E0E0E0</color>
+    <color name="chip_default_text">#000000</color>
+
+    <!-- FIX: Darker gray for better accessibility contrast -->
+    <color name="text_label_color">#616161</color>
+
+</resources>

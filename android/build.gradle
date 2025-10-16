@@ -1,0 +1,47 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    // Part 1: Define a single Kotlin version for the entire project (You already did this correctly)
+    ext.kotlin_version = '1.8.22'
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // NOTE: Your Gradle Plugin version was very high. 8.2.1 is a more common stable version for Capacitor.
+        // If 8.7.2 works for you keep it, otherwise consider changing to 8.2.1 or 8.3.2.
+        classpath 'com.android.tools.build:gradle:8.2.1'
+        classpath "com.google.gms:google-services:4.4.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// --- THIS IS THE MISSING PIECE ---
+// Part 2: Force all sub-projects (plugins) to use the defined Kotlin version.
+// This ensures that older plugins are upgraded to the new version, resolving the conflict.
+subprojects {
+    project.configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            // Check if the requested library is any of the kotlin standard libraries
+            if (details.requested.group == 'org.jetbrains.kotlin' && details.requested.name.startsWith('kotlin-stdlib')) {
+                // If it is, force it to use the version we defined in ext.kotlin_version
+                details.useVersion "$kotlin_version"
+            }
+        }
+    }
+}
+
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
