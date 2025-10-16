@@ -9,7 +9,8 @@ from firebase_functions import https_fn
 GOOGLE_PLACES_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 @https_fn.on_call(
-    cors=True
+    # The cors=True parameter was causing the build to fail and is not needed.
+    # Callable functions have CORS enabled by default.
 )
 def get_google_business_data(req: https_fn.CallableRequest):
     """
