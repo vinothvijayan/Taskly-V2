@@ -538,6 +538,23 @@ export default function SalesTrackerPage() {
     }
   };
 
+  const handleFinishSession = async () => {
+    if (!user) {
+      toast({ title: "Authentication Error", variant: "destructive" });
+      return;
+    }
+    try {
+      const updates: { [key: string]: null } = {};
+      updates['liveCallStatus'] = null;
+      updates['dialerBridge/activeWebUser'] = null;
+      await update(ref(rtdb), updates);
+      toast({ title: "Call session finished." });
+    } catch (error) {
+      console.error("Failed to finish session:", error);
+      toast({ title: "Error", description: "Could not finish the session.", variant: "destructive" });
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -615,7 +632,7 @@ export default function SalesTrackerPage() {
             className="p-4 md:p-6 h-full"
           >
             {activeView === 'live-call' ? (
-              <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
+              <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} onFinishSession={handleFinishSession} />
             ) : activeView === 'dialer' ? (
               <DialerSetupView contacts={contacts} onSaveImportedContacts={handleSaveImportedContacts} />
             ) : activeView === 'contacts' ? (

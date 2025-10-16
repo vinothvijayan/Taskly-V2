@@ -1,10 +1,11 @@
-import React from 'react';
-import { Contact } from "@/lib/sales-tracker-data";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from 'react';
+import { Contact, CallLog } from "@/lib/sales-tracker-data";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Phone, User, Clock, Info, ChevronsRight, Users } from "lucide-react";
+import { Phone, User, Clock, Info, ChevronsRight, Users, PhoneOff, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ContactDetailPanel } from './ContactDetailPanel';
+import { Button } from '@/components/ui/button';
 
 interface LiveCallData {
   status: 'countdown' | 'calling';
@@ -17,9 +18,12 @@ interface LiveCallViewProps {
   liveCallData: LiveCallData | null;
   onUpdateCallLogMessage: (contactId: string, callLogIndex: string, newMessage: string) => Promise<void>;
   onMarkAsSent: (contactId: string) => Promise<void>;
+  onFinishSession: () => Promise<void>;
 }
 
-export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpdateCallLogMessage, onMarkAsSent }) => {
+export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpdateCallLogMessage, onMarkAsSent, onFinishSession }) => {
+  const [isFinishing, setIsFinishing] = useState(false);
+
   if (!liveCallData) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -34,6 +38,11 @@ export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpda
 
   const { status, currentContact, nextContact, queuePosition } = liveCallData;
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+  const handleFinishClick = async () => {
+    setIsFinishing(true);
+    await onFinishSession();
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
@@ -92,6 +101,17 @@ export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpda
               </Card>
             </div>
           </CardContent>
+          <CardFooter>
+            <Button 
+              variant="destructive" 
+              className="w-full"
+              onClick={handleFinishClick}
+              disabled={isFinishing}
+            >
+              {isFinishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PhoneOff className="mr-2 h-4 w-4" />}
+              Finish Session
+            </Button>
+          </CardFooter>
         </Card>
       </div>
 
