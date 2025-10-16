@@ -1,5 +1,9 @@
 firebase-functions
 firebase-admin
+google-generativeai
+google-cloud-firestore
+weasyprint
 Flask
 Flask-Cors
 requests
+beautifulsoup4

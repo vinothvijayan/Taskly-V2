@@ -1,0 +1,6 @@
+# functions/packages.txt
+
+libpango-1.0-0
+libpangoft2-1.0-0
+libfontconfig1
+libffi-dev

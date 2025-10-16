@@ -1,86 +1,24 @@
+import sys
 import os
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
-from firebase_functions import https_fn
-from firebase_admin import initialize_app
 
-# Initialize Firebase Admin SDK
-initialize_app()
+sys.path.append(os.path.dirname(__file__))
 
-app = Flask(__name__)
-# Allow requests from any origin. For production, you might want to restrict this
-# to your app's specific domain.
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+# Import functions from your meetly file
+from process_audio import process_audio_recording, reprocess_recording, get_recording_status
 
-# --- Google Places API Configuration ---
-# IMPORTANT: You must set this environment variable in your Firebase project.
-# Run this command in your terminal:
-# firebase functions:config:set google.places_api_key="YOUR_API_KEY_HERE"
-API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
+# Import the new function from your journal file
+from process_journal import process_journal_entry, exportJournalToPdf
 
-# --- API Endpoints ---
+# Import the new sales tools proxy function
+from sales_tools import sales_tools_proxy
 
-@app.route('/api/geocode', methods=['POST'])
-def geocode():
-    if not API_KEY:
-        return jsonify({"error": "API key is not configured on the server."}), 500
-    
-    data = request.get_json()
-    location_name = data.get('locationName')
-    if not location_name:
-        return jsonify({"error": "locationName is required"}), 400
 
-    params = {'key': API_KEY, 'address': location_name}
-    response = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params=params)
-    return jsonify(response.json())
-
-@app.route('/api/nearbysearch', methods=['POST'])
-def nearby_search():
-    if not API_KEY:
-        return jsonify({"error": "API key is not configured on the server."}), 500
-        
-    data = request.get_json()
-    location = data.get('location')
-    radius = data.get('radius', 10000)
-    place_type = data.get('type')
-    keyword = data.get('keyword')
-    pagetoken = data.get('pagetoken')
-
-    if not location or not place_type:
-        return jsonify({"error": "location and type are required"}), 400
-
-    params = {'key': API_KEY, 'location': location, 'radius': str(radius), 'type': place_type}
-    if keyword:
-        params['keyword'] = keyword
-    if pagetoken:
-        params['pagetoken'] = pagetoken
-        
-    response = requests.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", params=params)
-    return jsonify(response.json())
-
-@app.route('/api/placedetails', methods=['POST'])
-def place_details():
-    if not API_KEY:
-        return jsonify({"error": "API key is not configured on the server."}), 500
-        
-    data = request.get_json()
-    place_id = data.get('placeId')
-    if not place_id:
-        return jsonify({"error": "placeId is required"}), 400
-
-    params = {
-        'key': API_KEY,
-        'place_id': place_id,
-        'fields': "name,formatted_phone_number,vicinity,website,url"
-    }
-    response = requests.get("https://maps.googleapis.com/maps/api/place/details/json", params=params)
-    return jsonify(response.json())
-
-# --- Firebase Cloud Function Entry Point ---
-
-@https_fn.on_request(region="us-central1")
-def extract_google_business_data(req: https_fn.Request) -> https_fn.Response:
-    """Firebase Function to handle all proxied Google Places API requests."""
-    with app.request_context(req.environ):
-        return app.full_dispatch_request()
+# Export ALL functions so Firebase can discover them
+__all__ = [
+    'process_audio_recording', 
+    'reprocess_recording', 
+    'get_recording_status',
+    'process_journal_entry',
+    'exportJournalToPdf',
+    'sales_tools_proxy'
+]

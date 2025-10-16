@@ -7,13 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Search, Mail, Loader2, Download, Building, Wrench, Info } from "lucide-react";
+import { Search, Mail, Loader2, Download, Building, Wrench } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 
 // This is the name of the Firebase Function we will call
-const callProxy = httpsCallable(functions, 'extract_google_business_data');
+const callProxy = httpsCallable(functions, 'sales_tools_proxy');
 
 // Google Business Extractor Component
 const GoogleBusinessExtractor = () => {
@@ -29,7 +29,6 @@ const GoogleBusinessExtractor = () => {
       return response.data;
     } catch (error: any) {
       console.error(`Error calling proxy for ${endpoint}:`, error);
-      // Try to parse a more specific error message from the response
       const errorMessage = error.details?.message || error.message || "An unknown error occurred.";
       throw new Error(errorMessage);
     }
@@ -62,7 +61,6 @@ const GoogleBusinessExtractor = () => {
       nextPageToken = data.next_page_token || null;
       
       if (nextPageToken) {
-        // Google requires a short delay before fetching the next page
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     } while (nextPageToken);
@@ -185,19 +183,97 @@ const GoogleBusinessExtractor = () => {
 
 // Email Extractor Component
 const EmailExtractor = () => {
+  const [url, setUrl] = useState('');
+  const [emails, setEmails] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleExtract = async () => {
+    if (!url.trim()) {
+      toast.error("Please enter a website URL.");
+      return;
+    }
+    setIsLoading(true);
+    setEmails([]);
+    try {
+      const response: any = await callProxy({ endpoint: '/api/extract-emails', body: { url } });
+      
+      if (response.data.error) {
+        throw new Error(response.data.error);
+      }
+
+      const foundEmails = response.data.emails || [];
+      setEmails(foundEmails);
+      if (foundEmails.length > 0) {
+        toast.success(`Found ${foundEmails.length} email(s)!`);
+      } else {
+        toast.info("No emails found on that page.");
+      }
+    } catch (error: any) {
+      console.error("Error extracting emails:", error);
+      toast.error("Extraction Failed", { description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = () => {
+    if (emails.length === 0) {
+      toast.info("No emails to export.");
+      return;
+    }
+    const dataToExport = emails.map(email => ({ Email: email }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
+    XLSX.writeFile(workbook, "extracted_emails.xlsx");
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Extractor</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg bg-muted/30">
-          <Info className="h-10 w-10 text-muted-foreground mb-4" />
-          <h3 className="font-semibold">Technical Limitation</h3>
-          <p className="text-sm text-muted-foreground max-w-md mt-2">
-            The Email Extractor tool cannot be run directly in the browser due to web security policies (CORS). This feature requires a server-side component to scrape websites for email addresses.
-          </p>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="website-url">Website URL</Label>
+          <div className="flex gap-2">
+            <Input 
+              id="website-url" 
+              placeholder="e.g., example.com" 
+              value={url} 
+              onChange={(e) => setUrl(e.target.value)} 
+              onKeyPress={(e) => e.key === 'Enter' && handleExtract()}
+            />
+            <Button onClick={handleExtract} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              {isLoading ? "Extracting..." : "Extract"}
+            </Button>
+          </div>
         </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport} disabled={emails.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Export to Excel
+          </Button>
+        </div>
+        <ScrollArea className="h-72 border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Found Emails</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {emails.map((email, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{email}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          {emails.length === 0 && !isLoading && (
+            <div className="text-center p-8 text-muted-foreground">No emails found yet. Enter a URL to start.</div>
+          )}
+        </ScrollArea>
       </CardContent>
     </Card>
   );
