@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Phone, Calendar, Clock, UserCheck, Edit, Save, X, Loader2, MessageSquare, TrendingUp, Hash } from "lucide-react";
+import { User, Phone, Calendar, Clock, UserCheck, Edit, Save, X, Loader2, MessageSquare, TrendingUp, Hash, Send } from "lucide-react";
 import { format } from "date-fns";
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 interface ContactDetailPanelProps {
   contact: Contact | null;
   onUpdateCallLogMessage: (contactId: string, callLogIndex: string, newMessage: string) => Promise<void>;
+  onMarkAsSent: (contactId: string) => Promise<void>;
 }
 
 const getFeedbackBadge = (feedback: CallLog['feedback']) => {
@@ -33,7 +34,7 @@ const formatDuration = (seconds: number) => {
   return `${m}m ${s.toString().padStart(2, '0')}s`;
 };
 
-export const ContactDetailPanel: React.FC<ContactDetailPanelProps> = ({ contact, onUpdateCallLogMessage }) => {
+export const ContactDetailPanel: React.FC<ContactDetailPanelProps> = ({ contact, onUpdateCallLogMessage, onMarkAsSent }) => {
   const [editingLog, setEditingLog] = useState<{ originalIndex: string; content: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -86,6 +87,26 @@ export const ContactDetailPanel: React.FC<ContactDetailPanelProps> = ({ contact,
               </div>
             </CardContent>
           </Card>
+
+          {contact.status === 'Send Details' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                <Card className="shadow-sm bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800">
+                    <CardHeader>
+                        <CardTitle className="text-base text-blue-800 dark:text-blue-300">Action Required</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">This contact is waiting for details to be sent.</p>
+                        <Button 
+                            onClick={() => onMarkAsSent(contact.id)} 
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                            <Send className="h-4 w-4 mr-2" />
+                            Mark Details as Sent
+                        </Button>
+                    </CardContent>
+                </Card>
+            </motion.div>
+          )}
         </div>
 
         {/* Right Column: Call History Timeline */}

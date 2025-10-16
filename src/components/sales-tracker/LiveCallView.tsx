@@ -16,9 +16,10 @@ interface LiveCallData {
 interface LiveCallViewProps {
   liveCallData: LiveCallData | null;
   onUpdateCallLogMessage: (contactId: string, callLogIndex: string, newMessage: string) => Promise<void>;
+  onMarkAsSent: (contactId: string) => Promise<void>;
 }
 
-export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpdateCallLogMessage }) => {
+export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpdateCallLogMessage, onMarkAsSent }) => {
   if (!liveCallData) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -96,7 +97,7 @@ export const LiveCallView: React.FC<LiveCallViewProps> = ({ liveCallData, onUpda
 
       {/* Right Column: Contact Details */}
       <div className="h-full overflow-hidden rounded-lg border bg-background shadow-sm">
-        <ContactDetailPanel contact={currentContact} onUpdateCallLogMessage={onUpdateCallLogMessage} />
+        <ContactDetailPanel contact={currentContact} onUpdateCallLogMessage={onUpdateCallLogMessage} onMarkAsSent={onMarkAsSent} />
       </div>
     </div>
   );

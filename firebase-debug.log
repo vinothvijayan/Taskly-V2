@@ -1,0 +1,72 @@
+[debug] [2025-10-16T06:35:14.762Z] ----------------------------------------------------------------------
+[debug] [2025-10-16T06:35:14.765Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Vinoth Vijayan\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2025-10-16T06:35:14.765Z] CLI Version:   14.18.0
+[debug] [2025-10-16T06:35:14.766Z] Platform:      win32
+[debug] [2025-10-16T06:35:14.766Z] Node Version:  v20.17.0
+[debug] [2025-10-16T06:35:14.766Z] Time:          Thu Oct 16 2025 12:05:14 GMT+0530 (India Standard Time)
+[debug] [2025-10-16T06:35:14.766Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-10-16T06:35:14.987Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-10-16T06:35:14.987Z] > authorizing via signed-in user (vinowwayne@gmail.com)
+[debug] [2025-10-16T06:35:14.988Z] [iam] checking project huddlely for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-10-16T06:35:14.989Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:14.989Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:14.990Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/huddlely:testIamPermissions [none]
+[debug] [2025-10-16T06:35:14.990Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/huddlely:testIamPermissions x-goog-quota-user=projects/huddlely
+[debug] [2025-10-16T06:35:14.991Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/huddlely:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-10-16T06:35:16.365Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/huddlely:testIamPermissions 200
+[debug] [2025-10-16T06:35:16.365Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/huddlely:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-10-16T06:35:16.365Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:16.365Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:16.365Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/huddlely/serviceAccounts/huddlely@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-10-16T06:35:16.365Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/huddlely/serviceAccounts/huddlely@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-10-16T06:35:17.940Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/huddlely/serviceAccounts/huddlely@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-10-16T06:35:17.940Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/huddlely/serviceAccounts/huddlely@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'huddlely'...
+[info] 
+[info] i  deploying functions 
+[debug] [2025-10-16T06:35:17.943Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:17.943Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:17.944Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/huddlely [none]
+[debug] [2025-10-16T06:35:18.239Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/huddlely 200
+[debug] [2025-10-16T06:35:18.239Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/huddlely {"projectNumber":"788189911710","projectId":"huddlely","lifecycleState":"ACTIVE","name":"Huddely","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-08-10T11:18:53.638093Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-10-16T06:35:18.242Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:18.242Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:18.242Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/huddlely/adminSdkConfig [none]
+[debug] [2025-10-16T06:35:18.999Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/huddlely/adminSdkConfig 200
+[debug] [2025-10-16T06:35:18.999Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/huddlely/adminSdkConfig {"projectId":"huddlely","databaseURL":"https://huddlely-default-rtdb.firebaseio.com","storageBucket":"huddlely.firebasestorage.app"}
+[debug] [2025-10-16T06:35:19.000Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.000Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.000Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs [none]
+[debug] [2025-10-16T06:35:19.337Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs 200
+[debug] [2025-10-16T06:35:19.337Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs {"configs":[{"name":"projects/huddlely/configs/gemini"}]}
+[debug] [2025-10-16T06:35:19.338Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.338Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.338Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables [none]
+[debug] [2025-10-16T06:35:19.641Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables 200
+[debug] [2025-10-16T06:35:19.642Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables {"variables":[{"name":"projects/huddlely/configs/gemini/variables/api_key","updateTime":"2025-08-29T10:26:00.874790681Z"}]}
+[debug] [2025-10-16T06:35:19.642Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.642Z] Checked if tokens are valid: true, expires at: 1760598999975
+[debug] [2025-10-16T06:35:19.642Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables/api_key [none]
+[debug] [2025-10-16T06:35:20.116Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables/api_key 200
+[debug] [2025-10-16T06:35:20.116Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/huddlely/configs/gemini/variables/api_key {"name":"projects/huddlely/configs/gemini/variables/api_key","updateTime":"2025-08-29T10:26:00.874790681Z","text":"AIzaSyAwPyxCmxk6oovqNuwCyK5AOjdgepuTXzk"}
+[debug] [2025-10-16T06:35:20.117Z] Customer code is not Node
+[debug] [2025-10-16T06:35:20.118Z] Validating python source
+[debug] [2025-10-16T06:35:20.118Z] Building python source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2025-10-16T06:35:20.119Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-10-16T06:35:20.130Z] Running command with virtualenv: command="C:\Users\Vinoth Vijayan\dyad-apps\Huddlely-v2-main\functions\venv\Scripts\activate.bat", args=["","&&","python.exe","-c","\"import firebase_functions; import os; print(os.path.dirname(firebase_functions.__file__))\""]
+[debug] [2025-10-16T06:35:20.146Z] stderr: The system cannot find the path specified.
+
+[debug] [2025-10-16T06:35:20.149Z] Error: spawn "C:\Users\Vinoth Vijayan\dyad-apps\Huddlely-v2-main\functions\venv\Scripts\activate.bat" ENOENT
+    at notFoundError (C:\Users\Vinoth Vijayan\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\cross-spawn\lib\enoent.js:6:26)
+    at verifyENOENT (C:\Users\Vinoth Vijayan\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\cross-spawn\lib\enoent.js:40:16)
+    at cp.emit (C:\Users\Vinoth Vijayan\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\cross-spawn\lib\enoent.js:27:25)
+    at ChildProcess._handle.onexit (node:internal/child_process:294:12)
+[error] 
+[error] Error: An unexpected error has occurred.

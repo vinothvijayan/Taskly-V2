@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import React from "react"; // Import React for forwardRef
 import { useAuth } from "@/contexts/AuthContext";
 import { rtdb } from "@/lib/firebase";
-import { ref, onValue, set } from "firebase/database";
+import { ref, onValue, set, update, push } from "firebase/database";
 import { Contact, CallLog } from "@/lib/sales-tracker-data";
 import { AnalyticsView } from "@/components/sales-tracker/AnalyticsView";
 import { ContactDetailPanel } from "@/components/sales-tracker/ContactDetailPanel";
@@ -412,6 +412,43 @@ export default function SalesTrackerPage() {
     }
   };
 
+  const handleMarkAsSent = async (contactId: string) => {
+    if (!user) {
+      toast({ title: "Authentication Error", variant: "destructive" });
+      return;
+    }
+
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact || contact.status !== 'Send Details') {
+      toast({ title: "Invalid Action", description: "This action is only for contacts awaiting details.", variant: "destructive" });
+      return;
+    }
+
+    const newLogData = {
+      type: 'Follow-up' as const,
+      timestamp: new Date().toISOString(),
+      duration: 0,
+      feedback: 'Interested' as const,
+      message: 'Details sent. Status automatically updated to Interested.',
+      spokenTo: contact.callHistory[0]?.spokenTo || contact.name,
+    };
+
+    const contactRef = ref(rtdb, `contacts/${contactId}`);
+    const newLogKey = push(ref(rtdb, `contacts/${contactId}/callHistory`)).key;
+
+    const updates: { [key: string]: any } = {};
+    updates[`callHistory/${newLogKey}`] = newLogData;
+    updates['callCount'] = (contact.callCount || 0) + 1;
+
+    try {
+      await update(contactRef, updates);
+      toast({ title: "Status Updated!", description: `${contact.name} is now marked as Interested.` });
+    } catch (error) {
+      console.error("Error marking as sent:", error);
+      toast({ title: "Update Failed", variant: "destructive" });
+    }
+  };
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -489,7 +526,7 @@ export default function SalesTrackerPage() {
             className="p-4 md:p-6 h-full"
           >
             {activeView === 'live-call' ? (
-              <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} />
+              <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
             ) : activeView === 'dialer' ? (
               <DialerSetupView contacts={contacts} />
             ) : activeView === 'contacts' ? (
@@ -537,7 +574,7 @@ export default function SalesTrackerPage() {
                   <ResizableHandle withHandle />
                   <ResizablePanel defaultSize={60} minSize={40}>
                     {selectedContact ? (
-                      <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} />
+                      <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center text-muted-foreground">
@@ -568,7 +605,7 @@ export default function SalesTrackerPage() {
           <DrawerPortal>
             <DrawerOverlay className="fixed inset-0 bg-black/40" />
             <DrawerContent className="bg-background flex flex-col outline-none h-[90%] mt-24 fixed bottom-0 left-0 right-0 rounded-t-lg">
-              <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} />
+              <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
             </DrawerContent>
           </DrawerPortal>
         </Drawer>
@@ -590,7 +627,7 @@ export default function SalesTrackerPage() {
 
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
-          <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} />
+          <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
         </DialogContent>
       </Dialog>
     </div>
