@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Contact, CallLog } from "@/lib/sales-tracker-data";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -195,6 +195,19 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
     }
   };
 
+  const allContactIdsInModal = useMemo(() => {
+    if (!data) return new Set<string>();
+    return new Set(data.calls.map(call => call.contact.id));
+  }, [data]);
+
+  const handleSelectAll = () => {
+    if (selectedContactIds.size === allContactIdsInModal.size) {
+      setSelectedContactIds(new Set());
+    } else {
+      setSelectedContactIds(allContactIdsInModal);
+    }
+  };
+
   const feedbackOrder: CallLog['feedback'][] = ['Interested', 'Follow Up', 'Callback', 'Not Interested', 'Not Picked', 'Send Details'];
 
   return (
@@ -236,10 +249,15 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
             {activeDragItem ? <DraggableContactCard call={activeDragItem} isOverlay /> : null}
           </DragOverlay>
         </div>
-        {selectedContactIds.size > 0 && (
+        {data && data.calls.length > 0 && (
           <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-between">
-            <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
-            <Button onClick={handleCreateOpportunities}>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                {selectedContactIds.size === allContactIdsInModal.size ? 'Deselect All' : 'Select All'}
+              </Button>
+              <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
+            </div>
+            <Button onClick={handleCreateOpportunities} disabled={selectedContactIds.size === 0}>
               <Plus className="h-4 w-4 mr-2" />
               Add to Opportunities
             </Button>
