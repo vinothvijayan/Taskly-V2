@@ -4,13 +4,15 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Phone, User } from "lucide-react";
+import { Phone, User, Plus, CheckCircle } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { format } from "date-fns";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+import { useSalesOpportunity } from '@/contexts/SalesOpportunityContext';
 
 interface DailyCallDetailModalProps {
   isOpen: boolean;
@@ -35,33 +37,35 @@ const getFeedbackBadge = (feedback: CallLog['feedback']) => {
   }
 };
 
-const DraggableContactCard = ({ call, isOverlay = false, onSelectContact }: { call: { contact: Contact; log: CallLog }, isOverlay?: boolean, onSelectContact?: (contact: Contact) => void }) => {
+const DraggableContactCard = ({ call, isOverlay = false, onSelectContact, isSelected }: { call: { contact: Contact; log: CallLog }, isOverlay?: boolean, onSelectContact?: (contact: Contact) => void, isSelected?: boolean }) => {
   return (
-    <button
+    <div
       onClick={() => onSelectContact && onSelectContact(call.contact)}
       className={cn(
-        "w-full text-left p-3 rounded-lg border bg-background shadow-sm",
+        "w-full text-left p-3 rounded-lg border bg-background shadow-sm relative",
         isOverlay ? "cursor-grabbing" : "cursor-grab",
-        !isOverlay && "hover:bg-muted/50 transition-colors"
+        !isOverlay && "hover:bg-muted/50 transition-colors",
+        isSelected && "ring-2 ring-primary border-primary"
       )}
     >
+      {isSelected && <CheckCircle className="h-4 w-4 text-white bg-primary rounded-full absolute -top-1.5 -right-1.5" />}
       <p className="font-medium text-sm flex items-center gap-2">
         <User className="h-3.5 w-3.5" /> {call.contact.name}
       </p>
       <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-2">
         <Phone className="h-3 w-3" /> {call.contact.phone}
       </p>
-    </button>
+    </div>
   );
 };
 
-const SortableCallItem = ({ call, onSelectContact }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void }) => {
+const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected }: { call: { contact: Contact; log: CallLog }, onSelectContact: (contact: Contact) => void, onToggleSelect: (contactId: string) => void, isSelected: boolean }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: call.log.originalIndex });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn(isDragging && "opacity-50")}>
-      <DraggableContactCard call={call} onSelectContact={onSelectContact} />
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={cn(isDragging && "opacity-50")} onClick={() => onToggleSelect(call.contact.id)}>
+      <DraggableContactCard call={call} onSelectContact={onSelectContact} isSelected={isSelected} />
     </div>
   );
 };
@@ -69,6 +73,8 @@ const SortableCallItem = ({ call, onSelectContact }: { call: { contact: Contact;
 const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback }) => {
   const [columns, setColumns] = useState<Record<string, { contact: Contact; log: CallLog }[]>>({});
   const [activeDragItem, setActiveDragItem] = useState<{ contact: Contact; log: CallLog } | null>(null);
+  const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
+  const { addOpportunitiesFromContacts } = useSalesOpportunity();
 
   useEffect(() => {
     if (data) {
@@ -81,6 +87,7 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         return acc;
       }, {} as Record<string, { contact: Contact; log: CallLog }[]>);
       setColumns(grouped);
+      setSelectedContactIds(new Set()); // Reset selection when data changes
     }
   }, [data]);
 
@@ -126,7 +133,6 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
     const callToMove = columns[activeColumnId].find(c => c.log.originalIndex === activeId);
     if (!callToMove) return;
 
-    // Optimistic update
     setColumns(prev => {
       const newColumns = { ...prev };
       newColumns[activeColumnId] = newColumns[activeColumnId].filter(c => c.log.originalIndex !== activeId);
@@ -137,42 +143,83 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
       return newColumns;
     });
 
-    // Persist change to Firebase
     const newFeedback = overColumnId as CallLog['feedback'];
     onUpdateCallLogFeedback(callToMove.contact.id, callToMove.log.originalIndex, newFeedback);
+  };
+
+  const handleToggleSelect = (contactId: string) => {
+    setSelectedContactIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contactId)) {
+        newSet.delete(contactId);
+      } else {
+        newSet.add(contactId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCreateOpportunities = () => {
+    if (selectedContactIds.size === 0 || !data) return;
+    const selectedContacts = data.calls
+      .filter(call => selectedContactIds.has(call.contact.id))
+      .map(call => call.contact);
+    
+    // Remove duplicates
+    const uniqueContacts = Array.from(new Map(selectedContacts.map(c => [c.id, c])).values());
+    
+    addOpportunitiesFromContacts(uniqueContacts);
+    setSelectedContactIds(new Set());
   };
 
   const feedbackOrder: CallLog['feedback'][] = ['Interested', 'Follow Up', 'Callback', 'Not Interested', 'Not Picked', 'Send Details'];
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <ScrollArea className="h-full w-full">
-        <div className="flex space-x-4 pb-4">
-          {feedbackOrder.map((feedback) => {
-            const calls = columns[feedback] || [];
-            const { setNodeRef } = useSortable({ id: feedback });
-            return (
-              <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
-                <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                  {getFeedbackBadge(feedback)}
-                  <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
-                </div>
-                <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {calls.map((call) => (
-                      <SortableCallItem key={call.log.originalIndex} call={call} onSelectContact={onSelectContact} />
-                    ))}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <ScrollArea className="h-full w-full">
+          <div className="flex space-x-4 pb-4">
+            {feedbackOrder.map((feedback) => {
+              const calls = columns[feedback] || [];
+              const { setNodeRef } = useSortable({ id: feedback });
+              return (
+                <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
+                  <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+                    {getFeedbackBadge(feedback)}
+                    <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
                   </div>
-                </SortableContext>
-              </div>
-            );
-          })}
+                  <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {calls.map((call) => (
+                        <SortableCallItem 
+                          key={call.log.originalIndex} 
+                          call={call} 
+                          onSelectContact={onSelectContact}
+                          onToggleSelect={handleToggleSelect}
+                          isSelected={selectedContactIds.has(call.contact.id)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </div>
+              );
+            })}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+        <DragOverlay>
+          {activeDragItem ? <DraggableContactCard call={activeDragItem} isOverlay /> : null}
+        </DragOverlay>
+      </div>
+      {selectedContactIds.size > 0 && (
+        <div className="flex-shrink-0 p-4 border-t bg-background flex items-center justify-between">
+          <span className="text-sm font-medium">{selectedContactIds.size} contact(s) selected</span>
+          <Button onClick={handleCreateOpportunities}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add to Opportunities
+          </Button>
         </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
-      <DragOverlay>
-        {activeDragItem ? <DraggableContactCard call={activeDragItem} isOverlay /> : null}
-      </DragOverlay>
+      )}
     </DndContext>
   );
 };
@@ -184,18 +231,16 @@ export const DailyCallDetailModal: React.FC<DailyCallDetailModalProps> = (props)
   if (isMobile) {
     return (
       <Drawer open={isOpen} onOpenChange={onOpenChange}>
-        <DrawerContent className="p-4 h-[85vh]">
+        <DrawerContent className="p-4 h-[85vh] flex flex-col">
           <DrawerHeader className="flex-shrink-0 text-left">
             <DrawerTitle>
               Call Details for {data ? format(new Date(data.date), 'MMMM d, yyyy') : ''}
             </DrawerTitle>
             <DrawerDescription>
-              Drag and drop contacts to update their status.
+              Drag and drop contacts to update their status. Tap to select.
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex-1 overflow-hidden mt-4">
-            <KanbanContent {...props} />
-          </div>
+          <KanbanContent {...props} />
         </DrawerContent>
       </Drawer>
     );
@@ -209,12 +254,10 @@ export const DailyCallDetailModal: React.FC<DailyCallDetailModalProps> = (props)
             Call Details for {data ? format(new Date(data.date), 'MMMM d, yyyy') : ''}
           </DialogTitle>
           <DialogDescription>
-            Drag and drop contacts between columns to update their status.
+            Drag and drop contacts between columns to update their status. Click to select.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden mt-4">
-          <KanbanContent {...props} />
-        </div>
+        <KanbanContent {...props} />
       </DialogContent>
     </Dialog>
   );

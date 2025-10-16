@@ -16,7 +16,7 @@ import { Drawer, DrawerContent, DrawerPortal, DrawerOverlay, DrawerTrigger, Draw
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall } from "lucide-react";
+import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall, Plus } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,10 +30,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LiveCallView } from "@/components/sales-tracker/LiveCallView";
 import { DialerSetupView } from "@/components/sales-tracker/DialerSetupView";
 import { useContacts } from "@/contexts/ContactsContext";
+import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const ITEMS_PER_PAGE = 30;
 
-// Helper component for the filter trigger button
 const FilterTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ComponentPropsWithoutRef<typeof Button> & { activeFilterCount: number }
@@ -48,7 +49,6 @@ const FilterTrigger = React.forwardRef<
 ));
 FilterTrigger.displayName = 'FilterTrigger';
 
-// Props for the ContactsListView component
 interface ContactsListViewProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -65,25 +65,14 @@ interface ContactsListViewProps {
   setVisibleCount: (updater: (prev: number) => number) => void;
   isMobile: boolean;
   activeFilterCount: number;
+  selectedForOppIds: Set<string>;
+  onToggleSelection: (contactId: string) => void;
 }
 
-// Standalone component for the contacts list view to prevent re-renders
 const ContactsListView: React.FC<ContactsListViewProps> = ({
-  searchTerm,
-  setSearchTerm,
-  isFilterOpen,
-  setIsFilterOpen,
-  filters,
-  setFilters,
-  loading,
-  visibleContacts,
-  handleSelectContact,
-  selectedContact,
-  visibleCount,
-  filteredContacts,
-  setVisibleCount,
-  isMobile,
-  activeFilterCount,
+  searchTerm, setSearchTerm, isFilterOpen, setIsFilterOpen, filters, setFilters, loading,
+  visibleContacts, handleSelectContact, selectedContact, visibleCount, filteredContacts,
+  setVisibleCount, isMobile, activeFilterCount, selectedForOppIds, onToggleSelection
 }) => {
   return (
     <div className="h-full flex flex-col">
@@ -122,15 +111,22 @@ const ContactsListView: React.FC<ContactsListViewProps> = ({
           ) : visibleContacts.length > 0 ? (
             <>
               {visibleContacts.map(contact => (
-                <button
+                <div
                   key={contact.id}
                   onClick={() => handleSelectContact(contact)}
                   className={cn(
-                    "w-full text-left p-4 bg-background rounded-lg border hover:bg-muted/50 transition-colors flex items-center justify-between",
-                    selectedContact?.id === contact.id && "bg-muted/50 border-primary"
+                    "w-full text-left p-4 bg-background rounded-lg border hover:bg-muted/50 transition-colors flex items-center justify-between cursor-pointer",
+                    selectedContact?.id === contact.id && "bg-muted/50 border-primary",
+                    selectedForOppIds.has(contact.id) && "ring-2 ring-primary border-primary"
                   )}
                 >
-                  <div>
+                  <Checkbox
+                    checked={selectedForOppIds.has(contact.id)}
+                    onCheckedChange={() => onToggleSelection(contact.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mr-4"
+                  />
+                  <div className="flex-1">
                     <p className="font-semibold">{contact.name}</p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                       <span className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {contact.phone}</span>
@@ -140,7 +136,7 @@ const ContactsListView: React.FC<ContactsListViewProps> = ({
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </button>
+                </div>
               ))}
               {visibleCount < filteredContacts.length && (
                 <div className="flex justify-center py-4">
@@ -170,6 +166,7 @@ export default function SalesTrackerPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { contacts, loading } = useContacts();
+  const { addOpportunitiesFromContacts } = useSalesOpportunity();
   const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'contacts' | 'analytics' | 'live-call' | 'dialer'>('contacts');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -187,6 +184,7 @@ export default function SalesTrackerPage() {
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [liveCallData, setLiveCallData] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedForOppIds, setSelectedForOppIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -295,7 +293,6 @@ export default function SalesTrackerPage() {
     const filtered = contacts.filter(contact => {
         const { dateRange, initialCallFeedback, followUpCallFeedback } = exportFilters;
 
-        // Date range filter
         if (dateRange?.from || dateRange?.to) {
             const from = dateRange.from ? startOfDay(dateRange.from) : null;
             const to = dateRange.to ? endOfDay(dateRange.to) : null;
@@ -306,7 +303,6 @@ export default function SalesTrackerPage() {
             if (!isInRange) return false;
         }
 
-        // Initial Call Feedback filter
         if (initialCallFeedback.length > 0) {
             const initialCall = contact.callHistory.find(log => log.type === 'New Call');
             if (!initialCall || !initialCallFeedback.includes(initialCall.feedback)) {
@@ -314,7 +310,6 @@ export default function SalesTrackerPage() {
             }
         }
 
-        // Follow-up Call Feedback filter
         if (followUpCallFeedback.length > 0) {
             const hasMatchingFollowUp = contact.callHistory.some(log => 
                 log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback)
@@ -451,6 +446,24 @@ export default function SalesTrackerPage() {
     }
   };
 
+  const handleToggleSelection = (contactId: string) => {
+    setSelectedForOppIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contactId)) {
+        newSet.delete(contactId);
+      } else {
+        newSet.add(contactId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleCreateOpportunities = () => {
+    const selected = contacts.filter(c => selectedForOppIds.has(c.id));
+    addOpportunitiesFromContacts(selected);
+    setSelectedForOppIds(new Set());
+  };
+
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
@@ -517,7 +530,7 @@ export default function SalesTrackerPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeView}
@@ -549,6 +562,8 @@ export default function SalesTrackerPage() {
                   setVisibleCount={setVisibleCount}
                   isMobile={isMobile}
                   activeFilterCount={activeFilterCount}
+                  selectedForOppIds={selectedForOppIds}
+                  onToggleSelection={handleToggleSelection}
                 />
               ) : (
                 <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border">
@@ -570,6 +585,8 @@ export default function SalesTrackerPage() {
                         setVisibleCount={setVisibleCount}
                         isMobile={isMobile}
                         activeFilterCount={activeFilterCount}
+                        selectedForOppIds={selectedForOppIds}
+                        onToggleSelection={handleToggleSelection}
                       />
                     </div>
                   </ResizablePanel>
@@ -596,6 +613,24 @@ export default function SalesTrackerPage() {
               </ScrollArea>
             )}
           </motion.div>
+        </AnimatePresence>
+        <AnimatePresence>
+          {selectedForOppIds.size > 0 && activeView === 'contacts' && (
+            <motion.div
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10"
+            >
+              <div className="flex items-center gap-4 bg-background p-3 rounded-lg shadow-lg border">
+                <span className="text-sm font-medium">{selectedForOppIds.size} contact(s) selected</span>
+                <Button onClick={handleCreateOpportunities}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add to Opportunities
+                </Button>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
 

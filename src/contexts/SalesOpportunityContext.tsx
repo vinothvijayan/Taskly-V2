@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, arrayUnion } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, arrayUnion, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
-import { Opportunity, Note } from "@/types";
+import { Opportunity, Note, Contact } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface SalesOpportunityContextType {
@@ -12,6 +12,7 @@ interface SalesOpportunityContextType {
   updateOpportunity: (id: string, data: Partial<Opportunity>) => Promise<void>;
   deleteOpportunity: (id: string) => Promise<void>;
   addNoteToOpportunity: (opportunityId: string, noteContent: string) => Promise<void>;
+  addOpportunitiesFromContacts: (contacts: Contact[]) => Promise<void>; // New function
 }
 
 const SalesOpportunityContext = createContext<SalesOpportunityContextType | undefined>(undefined);
@@ -67,6 +68,45 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     }
   };
 
+  const addOpportunitiesFromContacts = async (contacts: Contact[]) => {
+    if (!user || !userProfile?.teamId || contacts.length === 0) return;
+
+    const existingContactNames = new Set(opportunities.map(opp => opp.contact));
+    const newOpportunities = contacts.filter(contact => !existingContactNames.has(contact.name));
+
+    if (newOpportunities.length === 0) {
+      toast({ title: "No new opportunities to add", description: "All selected contacts already exist in the pipeline." });
+      return;
+    }
+
+    const batch = writeBatch(db);
+    const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
+
+    newOpportunities.forEach(contact => {
+      const newOppRef = doc(opportunitiesCollectionRef);
+      const opportunityData = {
+        title: `Opportunity for ${contact.name}`,
+        contact: contact.name,
+        value: 0,
+        closeDate: new Date().toISOString(),
+        stage: 'Lead' as const,
+        teamId: userProfile.teamId,
+        createdBy: user.uid,
+        createdAt: new Date().toISOString(),
+        notes: [],
+      };
+      batch.set(newOppRef, opportunityData);
+    });
+
+    try {
+      await batch.commit();
+      toast({ title: "Success!", description: `${newOpportunities.length} contact(s) added as new leads.` });
+    } catch (error) {
+      console.error("Error adding opportunities from contacts:", error);
+      toast({ title: "Error", description: "Could not create opportunities.", variant: "destructive" });
+    }
+  };
+
   const updateOpportunity = async (id: string, data: Partial<Opportunity>) => {
     if (!user || !userProfile?.teamId) return;
 
@@ -77,7 +117,6 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     const updatedOpportunity = { ...opportunityToUpdate, ...data };
     const newOpportunities = originalOpportunities.map(o => o.id === id ? updatedOpportunity : o);
     
-    // Optimistic UI update
     setOpportunities(newOpportunities);
 
     try {
@@ -86,7 +125,6 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     } catch (error) {
       console.error("Error updating opportunity:", error);
       toast({ title: "Update Failed", description: "Could not save changes. Reverting.", variant: "destructive" });
-      // Rollback on failure
       setOpportunities(originalOpportunities);
     }
   };
@@ -126,7 +164,7 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     }
   };
 
-  const value = { opportunities, loading, addOpportunity, updateOpportunity, deleteOpportunity, addNoteToOpportunity };
+  const value = { opportunities, loading, addOpportunity, updateOpportunity, deleteOpportunity, addNoteToOpportunity, addOpportunitiesFromContacts };
 
   return (
     <SalesOpportunityContext.Provider value={value}>
