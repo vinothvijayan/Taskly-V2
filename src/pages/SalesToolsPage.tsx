@@ -9,11 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Search, Mail, Loader2, Download, Building, Wrench, Info } from "lucide-react";
 import * as XLSX from 'xlsx';
+import { functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 
-// API URLs
-const NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
-const PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
-const GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
+// This is the name of the Firebase Function we will call
+const callProxy = httpsCallable(functions, 'extract_google_business_data');
 
 // Google Business Extractor Component
 const GoogleBusinessExtractor = () => {
@@ -22,12 +22,21 @@ const GoogleBusinessExtractor = () => {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
+  const callApi = async (endpoint: string, body: object) => {
+    try {
+      const response = await callProxy({ endpoint, body });
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error calling proxy for ${endpoint}:`, error);
+      // Try to parse a more specific error message from the response
+      const errorMessage = error.details?.message || error.message || "An unknown error occurred.";
+      throw new Error(errorMessage);
+    }
+  };
 
   const getLatLngFromLocation = async (locationName: string) => {
-    const params = new URLSearchParams({ key: API_KEY, address: locationName });
-    const response = await fetch(`${GEOCODING_URL}?${params}`);
-    const data = await response.json();
+    const data: any = await callApi('/api/geocode', { locationName });
     if (data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location;
       return `${location.lat},${location.lng}`;
@@ -37,44 +46,36 @@ const GoogleBusinessExtractor = () => {
 
   const getNearbyPlaces = async (location: string, radius: number, type: string, keyword?: string) => {
     let allPlaces: any[] = [];
-    const params = new URLSearchParams({ key: API_KEY, location, radius: radius.toString(), type });
-    if (keyword) params.append("keyword", keyword);
+    let nextPageToken: string | null = null;
 
-    let url = `${NEARBY_SEARCH_URL}?${params}`;
+    do {
+      const body: any = { location, radius, type };
+      if (keyword) body.keyword = keyword;
+      if (nextPageToken) body.pagetoken = nextPageToken;
 
-    while (url) {
-      const response = await fetch(url);
-      const data = await response.json();
-      allPlaces.push(...data.results);
+      const data: any = await callApi('/api/nearbysearch', body);
       
-      if (data.next_page_token) {
+      if (data.results) {
+        allPlaces.push(...data.results);
+      }
+      
+      nextPageToken = data.next_page_token || null;
+      
+      if (nextPageToken) {
         // Google requires a short delay before fetching the next page
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const nextParams = new URLSearchParams({ key: API_KEY, pagetoken: data.next_page_token });
-        url = `${NEARBY_SEARCH_URL}?${nextParams}`;
-      } else {
-        url = "";
       }
-    }
+    } while (nextPageToken);
+
     return allPlaces;
   };
 
   const getPlaceDetails = async (placeId: string) => {
-    const params = new URLSearchParams({
-      key: API_KEY,
-      place_id: placeId,
-      fields: "name,formatted_phone_number,vicinity,website,url"
-    });
-    const response = await fetch(`${PLACE_DETAILS_URL}?${params}`);
-    const data = await response.json();
+    const data: any = await callApi('/api/placedetails', { placeId });
     return data.result || {};
   };
 
   const handleSearch = async () => {
-    if (!API_KEY) {
-      toast.error("API Key Missing", { description: "Please set your VITE_GOOGLE_PLACES_API_KEY in the .env file." });
-      return;
-    }
     if (!location || !placeType) {
       toast.error("Location and Place Type are required.");
       return;
