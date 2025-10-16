@@ -25,10 +25,11 @@ def get_google_business_data(req: https_fn.CallableRequest):
             message="Missing required parameters: location and place_type."
         )
 
-    if not GOOGLE_PLACES_API_KEY or "AIza" not in GOOGLE_PLACES_API_KEY:
+    # A more specific check for the placeholder key
+    if not GOOGLE_PLACES_API_KEY or GOOGLE_PLACES_API_KEY == "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk":
          raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-            message="The Google Places API key is not configured correctly on the server. Please replace the placeholder key."
+            message="The Google Places API key is not configured on the server. Please replace the placeholder key."
         )
 
     try:
