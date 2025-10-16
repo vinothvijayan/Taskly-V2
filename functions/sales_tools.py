@@ -9,7 +9,7 @@ import requests
 GOOGLE_PLACES_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 @https_fn.on_call(
-    cors=True # This is the correct and simpler way to allow all origins for callable functions
+    cors=True
 )
 def get_google_business_data(req: https_fn.CallableRequest):
     """
@@ -25,10 +25,10 @@ def get_google_business_data(req: https_fn.CallableRequest):
             message="Missing required parameters: location and place_type."
         )
 
-    if not GOOGLE_PLACES_API_KEY or GOOGLE_PLACES_API_KEY == "YOUR_GOOGLE_PLACES_API_KEY":
+    if not GOOGLE_PLACES_API_KEY or "AIza" not in GOOGLE_PLACES_API_KEY:
          raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-            message="Google Places API key is not configured on the server."
+            message="The Google Places API key is not configured correctly on the server. Please replace the placeholder key."
         )
 
     try:
@@ -39,8 +39,16 @@ def get_google_business_data(req: https_fn.CallableRequest):
         geocode_res.raise_for_status()
         geocode_data = geocode_res.json()
 
-        if geocode_data["status"] != "OK" or not geocode_data["results"]:
+        if geocode_data["status"] != "OK":
+            error_message = geocode_data.get("error_message", f"Geocoding API failed with status: {geocode_data['status']}")
+            print(f"Geocoding API Error: {error_message}")
             raise https_fn.HttpsError(
+                code=https_fn.FunctionsErrorCode.INTERNAL,
+                message=f"Could not process location. Reason: {error_message}"
+            )
+        
+        if not geocode_data.get("results"):
+             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.NOT_FOUND,
                 message=f"Could not find coordinates for location: {location}"
             )
@@ -64,17 +72,15 @@ def get_google_business_data(req: https_fn.CallableRequest):
         places_data = places_res.json()
 
         if places_data["status"] not in ["OK", "ZERO_RESULTS"]:
+            error_message = places_data.get("error_message", f"Places API failed with status: {places_data['status']}")
+            print(f"Places API Error: {error_message}")
             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.INTERNAL,
-                message=f"Google Places API error: {places_data.get('error_message', places_data['status'])}"
+                message=f"Could not find places. Reason: {error_message}"
             )
 
         all_places = places_data.get("results", [])
         
-        # Note: Handling pagination for nearby search can be complex and might exceed function timeouts.
-        # This implementation fetches only the first page of results for simplicity and reliability.
-
-        # 3. Get details for each place
         details_results = []
         for place in all_places:
             place_id = place.get("place_id")
