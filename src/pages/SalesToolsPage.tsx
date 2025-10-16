@@ -1,6 +1,4 @@
 import { useState } from 'react';
-import { functions } from '@/lib/firebase';
-import { httpsCallable } from 'firebase/functions';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Search, Mail, Loader2, Download, Upload, Building, Wrench } from "lucide-react";
+import { Search, Mail, Loader2, Download, Building, Wrench, Info } from "lucide-react";
 import * as XLSX from 'xlsx';
+
+// API URLs
+const NEARBY_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/nearbysearch/json";
+const PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json";
+const GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
 // Google Business Extractor Component
 const GoogleBusinessExtractor = () => {
@@ -19,8 +22,59 @@ const GoogleBusinessExtractor = () => {
   const [keyword, setKeyword] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const API_KEY = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+
+  const getLatLngFromLocation = async (locationName: string) => {
+    const params = new URLSearchParams({ key: API_KEY, address: locationName });
+    const response = await fetch(`${GEOCODING_URL}?${params}`);
+    const data = await response.json();
+    if (data.results && data.results.length > 0) {
+      const location = data.results[0].geometry.location;
+      return `${location.lat},${location.lng}`;
+    }
+    return null;
+  };
+
+  const getNearbyPlaces = async (location: string, radius: number, type: string, keyword?: string) => {
+    let allPlaces: any[] = [];
+    const params = new URLSearchParams({ key: API_KEY, location, radius: radius.toString(), type });
+    if (keyword) params.append("keyword", keyword);
+
+    let url = `${NEARBY_SEARCH_URL}?${params}`;
+
+    while (url) {
+      const response = await fetch(url);
+      const data = await response.json();
+      allPlaces.push(...data.results);
+      
+      if (data.next_page_token) {
+        // Google requires a short delay before fetching the next page
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const nextParams = new URLSearchParams({ key: API_KEY, pagetoken: data.next_page_token });
+        url = `${NEARBY_SEARCH_URL}?${nextParams}`;
+      } else {
+        url = "";
+      }
+    }
+    return allPlaces;
+  };
+
+  const getPlaceDetails = async (placeId: string) => {
+    const params = new URLSearchParams({
+      key: API_KEY,
+      place_id: placeId,
+      fields: "name,formatted_phone_number,vicinity,website,url"
+    });
+    const response = await fetch(`${PLACE_DETAILS_URL}?${params}`);
+    const data = await response.json();
+    return data.result || {};
+  };
 
   const handleSearch = async () => {
+    if (!API_KEY) {
+      toast.error("API Key Missing", { description: "Please set your VITE_GOOGLE_PLACES_API_KEY in the .env file." });
+      return;
+    }
     if (!location || !placeType) {
       toast.error("Location and Place Type are required.");
       return;
@@ -28,10 +82,28 @@ const GoogleBusinessExtractor = () => {
     setIsLoading(true);
     setResults([]);
     try {
-      const extractData = httpsCallable(functions, 'extract_google_business_data');
-      const response: any = await extractData({ location, placeType, keyword });
-      setResults(response.data.data);
-      toast.success(`Found ${response.data.data.length} businesses!`);
+      const latLng = await getLatLngFromLocation(location);
+      if (!latLng) {
+        throw new Error(`Could not find coordinates for location: ${location}`);
+      }
+
+      const places = await getNearbyPlaces(latLng, 10000, placeType, keyword);
+      const uniquePlaces = Array.from(new Map(places.map(p => [p.place_id, p])).values());
+      
+      const detailedResults = await Promise.all(
+        uniquePlaces.map(place => getPlaceDetails(place.place_id))
+      );
+
+      const finalResults = detailedResults.map(details => ({
+        name: details.name || "N/A",
+        address: details.vicinity || "N/A",
+        phone: details.formatted_phone_number || "N/A",
+        website: details.website || "N/A",
+        google_url: details.url || "N/A",
+      }));
+
+      setResults(finalResults);
+      toast.success(`Found ${finalResults.length} businesses!`);
     } catch (error: any) {
       console.error("Error fetching business data:", error);
       toast.error("Failed to fetch data", { description: error.message });
@@ -112,110 +184,19 @@ const GoogleBusinessExtractor = () => {
 
 // Email Extractor Component
 const EmailExtractor = () => {
-  const [results, setResults] = useState<Record<string, string[]>>({});
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const data = new Uint8Array(e.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const json: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-      
-      const urlColumnIndex = json[0].findIndex((header: string) => header.toLowerCase().includes('website'));
-      if (urlColumnIndex === -1) {
-        toast.error("Excel file must have a column with 'Website' in the header.");
-        return;
-      }
-
-      const urls = json.slice(1).map(row => row[urlColumnIndex]).filter(Boolean);
-      if (urls.length > 0) {
-        await extractEmails(urls);
-      } else {
-        toast.info("No URLs found in the selected file.");
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const extractEmails = async (urls: string[]) => {
-    setIsLoading(true);
-    setResults({});
-    try {
-      const extractEmailsFn = httpsCallable(functions, 'extract_emails_from_urls');
-      const response: any = await extractEmailsFn({ urls });
-      setResults(response.data.data);
-      toast.success(`Extraction complete for ${urls.length} URLs.`);
-    } catch (error: any) {
-      console.error("Error extracting emails:", error);
-      toast.error("Failed to extract emails", { description: error.message });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleExport = () => {
-    if (Object.keys(results).length === 0) {
-      toast.info("No data to export.");
-      return;
-    }
-    const dataToExport = Object.entries(results).map(([url, emails]) => ({
-      'Website URL': url,
-      'Emails': emails.join(', '),
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
-    XLSX.writeFile(workbook, "email_export.xlsx");
-  };
-
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Extractor</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="file-upload">Upload Excel File</Label>
-          <Input id="file-upload" type="file" accept=".xlsx, .xls" onChange={handleFileChange} />
-          <p className="text-xs text-muted-foreground">
-            Your Excel file must contain a column with the header "Website URL".
+      <CardContent>
+        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed rounded-lg bg-muted/30">
+          <Info className="h-10 w-10 text-muted-foreground mb-4" />
+          <h3 className="font-semibold">Technical Limitation</h3>
+          <p className="text-sm text-muted-foreground max-w-md mt-2">
+            The Email Extractor tool cannot be run directly in the browser due to web security policies (CORS). This feature requires a server-side component to scrape websites for email addresses.
           </p>
         </div>
-        <Button variant="outline" onClick={handleExport} disabled={Object.keys(results).length === 0}>
-          <Download className="mr-2 h-4 w-4" /> Export to Excel
-        </Button>
-        <ScrollArea className="h-96 border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Website URL</TableHead>
-                <TableHead>Extracted Emails</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.entries(results).map(([url, emails]) => (
-                <TableRow key={url}>
-                  <TableCell className="font-medium">{url}</TableCell>
-                  <TableCell>{emails.join(', ')}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {Object.keys(results).length === 0 && !isLoading && (
-            <div className="text-center p-8 text-muted-foreground">Upload a file to see results.</div>
-          )}
-          {isLoading && (
-            <div className="flex justify-center items-center p-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-          )}
-        </ScrollArea>
       </CardContent>
     </Card>
   );
