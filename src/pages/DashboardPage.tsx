@@ -50,7 +50,7 @@ const containerVariants = {
     opacity: 1,
     transition: {
       staggerChildren: 0.1,
-    } as any, // Cast to any
+    } as any,
   },
 };
 
@@ -62,9 +62,53 @@ const itemVariants = {
     transition: {
       type: "spring",
       stiffness: 100,
-    } as any, // Cast to any
+    } as any,
   },
 };
+
+const StatCard = ({ title, value, icon: Icon, colorClass, bgColorClass }: any) => (
+  <motion.div variants={itemVariants}>
+    <Card className="shadow-elegant overflow-hidden">
+      <CardContent className="p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
+          <p className={cn("text-xl sm:text-2xl font-bold", colorClass)}>{value}</p>
+        </div>
+        <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center", bgColorClass)}>
+          <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", colorClass)} />
+        </div>
+      </CardContent>
+    </Card>
+  </motion.div>
+);
+
+const FilterControls = ({ filters, setFilters, isMobile, inDrawer = false }: { filters: FilterState, setFilters: (filters: FilterState) => void, isMobile: boolean, inDrawer?: boolean }) => (
+  <div className={cn("grid gap-4", inDrawer ? "grid-cols-1 p-4" : "sm:grid-cols-2 lg:grid-cols-4")}>
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
+    </div>
+    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value as FilterState["status"] })}>
+      <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
+      <SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="todo">To Do</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent>
+    </Select>
+    <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value as FilterState["priority"] })}>
+      <SelectTrigger><SelectValue placeholder="Filter by priority" /></SelectTrigger>
+      <SelectContent><SelectItem value="all">All Priority</SelectItem><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent>
+    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange.from && "text-muted-foreground")}>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {filters.dateRange.from ? filters.dateRange.to ? `${format(filters.dateRange.from, "LLL dd")} - ${format(filters.dateRange.to, "LLL dd")}` : format(filters.dateRange.from, "LLL dd, y") : <span>Pick a date range</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar initialFocus mode="range" selected={filters.dateRange} onSelect={(range) => setFilters({ ...filters, dateRange: { from: range?.from, to: range?.to } })} numberOfMonths={isMobile ? 1 : 2} />
+      </PopoverContent>
+    </Popover>
+  </div>
+);
 
 export default function DashboardPage() {
   const {
@@ -175,50 +219,6 @@ export default function DashboardPage() {
     );
   }
 
-  const StatCard = ({ title, value, icon: Icon, colorClass, bgColorClass }: any) => (
-    <motion.div variants={itemVariants}>
-      <Card className="shadow-elegant overflow-hidden">
-        <CardContent className="p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
-            <p className={cn("text-xl sm:text-2xl font-bold", colorClass)}>{value}</p>
-          </div>
-          <div className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-lg flex items-center justify-center", bgColorClass)}>
-            <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", colorClass)} />
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-
-  const FilterControls = ({ inDrawer = false }: { inDrawer?: boolean }) => (
-    <div className={cn("grid gap-4", inDrawer ? "grid-cols-1 p-4" : "sm:grid-cols-2 lg:grid-cols-4")}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
-      </div>
-      <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value as FilterState["status"] })}>
-        <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
-        <SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="todo">To Do</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent>
-      </Select>
-      <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value as FilterState["priority"] })}>
-        <SelectTrigger><SelectValue placeholder="Filter by priority" /></SelectTrigger>
-        <SelectContent><SelectItem value="all">All Priority</SelectItem><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent>
-      </Select>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange.from && "text-muted-foreground")}>
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {filters.dateRange.from ? filters.dateRange.to ? `${format(filters.dateRange.from, "LLL dd")} - ${format(filters.dateRange.to, "LLL dd")}` : format(filters.dateRange.from, "LLL dd, y") : <span>Pick a date range</span>}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar initialFocus mode="range" selected={filters.dateRange} onSelect={(range) => setFilters({ ...filters, dateRange: { from: range?.from, to: range?.to } })} numberOfMonths={isMobile ? 1 : 2} />
-        </PopoverContent>
-      </Popover>
-    </div>
-  );
-
   return (
     <>
       <div className="container max-w-7xl mx-auto p-4 md:p-6 space-y-6">
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                         </DrawerTrigger>
                         <DrawerContent>
                            <DrawerHeader><DrawerTitle>Filter Tasks</DrawerTitle></DrawerHeader>
-                           <FilterControls inDrawer={true} />
+                           <FilterControls inDrawer={true} filters={filters} setFilters={setFilters} isMobile={isMobile} />
                            <DrawerFooter className="flex-row gap-2">
                               <DrawerClose asChild><Button variant="outline" className="flex-1">Close</Button></DrawerClose>
                               <Button onClick={clearFilters} variant="destructive" className="flex-1">Clear Filters</Button>
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                         </DrawerContent>
                      </Drawer>
                   </div>
-                ) : <FilterControls />}
+                ) : <FilterControls filters={filters} setFilters={setFilters} isMobile={isMobile} />}
                 
                 <ScrollArea className="h-[500px]">
                   {filteredTasks.length === 0 ? (
