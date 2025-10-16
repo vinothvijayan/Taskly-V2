@@ -9,10 +9,7 @@ import requests
 GOOGLE_PLACES_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 @https_fn.on_call(
-    cors=https_fn.HttpsOptions(
-        cors_origins=["*"],  # Or specify your app's domain for better security
-        cors_methods=["get", "post"],
-    )
+    cors=True # This is the correct and simpler way to allow all origins for callable functions
 )
 def get_google_business_data(req: https_fn.CallableRequest):
     """
