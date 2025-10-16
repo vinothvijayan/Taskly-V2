@@ -1,0 +1,9 @@
+# Required for Firebase Cloud Functions
+firebase-functions
+firebase-admin
+
+# Required for making HTTP requests
+requests
+
+# Required for parsing HTML (for the email extractor)
+beautifulsoup4
