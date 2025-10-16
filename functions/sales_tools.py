@@ -4,7 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from firebase_functions import https_fn
 from firebase_admin import initialize_app, _apps
-from flask import Flask, request, jsonify
+from flask import jsonify
 
 # Initialize Firebase Admin if not already initialized
 if not _apps:
@@ -13,36 +13,53 @@ if not _apps:
 # Google Places API key from environment
 API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY")
 
-# -------------------------------
-# Helper function to make JSON responses
-# -------------------------------
-def make_json_response(data, status=200):
-    return jsonify(data), status
+# --- CORS Helper ---
+# A centralized place to define headers for consistency
+def _build_cors_preflight_response():
+    """Handles CORS preflight OPTIONS requests."""
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Max-Age": "3600",
+    }
+    return ("", 204, headers)
+
+def _build_cors_main_response(response):
+    """Adds the required CORS header to a main response."""
+    response.headers.set("Access-Control-Allow-Origin", "*")
+    return response
 
 # -------------------------------
 # /api/geocode
 # -------------------------------
 @https_fn.on_request(region="us-central1")
 def geocode(request):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     if not API_KEY:
-        return make_json_response({"error": "API key is not configured on the server."}, 500)
+        return _build_cors_main_response(jsonify({"error": "API key is not configured on the server."}))
 
     data = request.get_json()
     location_name = data.get("locationName")
     if not location_name:
-        return make_json_response({"error": "locationName is required"}, 400)
+        return _build_cors_main_response(jsonify({"error": "locationName is required"}))
 
     params = {"key": API_KEY, "address": location_name}
     response = requests.get("https://maps.googleapis.com/maps/api/geocode/json", params=params)
-    return jsonify(response.json())
+    return _build_cors_main_response(jsonify(response.json()))
 
 # -------------------------------
 # /api/nearbysearch
 # -------------------------------
 @https_fn.on_request(region="us-central1")
 def nearby_search(request):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     if not API_KEY:
-        return make_json_response({"error": "API key is not configured on the server."}, 500)
+        return _build_cors_main_response(jsonify({"error": "API key is not configured on the server."}))
 
     data = request.get_json()
     location = data.get("location")
@@ -52,7 +69,7 @@ def nearby_search(request):
     pagetoken = data.get("pagetoken")
 
     if not location or not place_type:
-        return make_json_response({"error": "location and type are required"}, 400)
+        return _build_cors_main_response(jsonify({"error": "location and type are required"}))
 
     params = {"key": API_KEY, "location": location, "radius": str(radius), "type": place_type}
     if keyword:
@@ -61,20 +78,23 @@ def nearby_search(request):
         params["pagetoken"] = pagetoken
 
     response = requests.get("https://maps.googleapis.com/maps/api/place/nearbysearch/json", params=params)
-    return jsonify(response.json())
+    return _build_cors_main_response(jsonify(response.json()))
 
 # -------------------------------
 # /api/placedetails
 # -------------------------------
 @https_fn.on_request(region="us-central1")
 def place_details(request):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     if not API_KEY:
-        return make_json_response({"error": "API key is not configured on the server."}, 500)
+        return _build_cors_main_response(jsonify({"error": "API key is not configured on the server."}))
 
     data = request.get_json()
     place_id = data.get("placeId")
     if not place_id:
-        return make_json_response({"error": "placeId is required"}, 400)
+        return _build_cors_main_response(jsonify({"error": "placeId is required"}))
 
     params = {
         "key": API_KEY,
@@ -82,17 +102,20 @@ def place_details(request):
         "fields": "name,formatted_phone_number,vicinity,website,url",
     }
     response = requests.get("https://maps.googleapis.com/maps/api/place/details/json", params=params)
-    return jsonify(response.json())
+    return _build_cors_main_response(jsonify(response.json()))
 
 # -------------------------------
 # /api/extract-emails
 # -------------------------------
 @https_fn.on_request(region="us-central1")
 def extract_emails(request):
+    if request.method == "OPTIONS":
+        return _build_cors_preflight_response()
+
     data = request.get_json()
     url = data.get("url")
     if not url:
-        return make_json_response({"error": "URL is required"}, 400)
+        return _build_cors_main_response(jsonify({"error": "URL is required"}))
 
     try:
         if not url.startswith(("http://", "https://")):
@@ -109,9 +132,9 @@ def extract_emails(request):
         emails = re.findall(email_regex, soup.get_text())
         unique_emails = sorted(list(set(emails)))
 
-        return jsonify({"emails": unique_emails})
+        return _build_cors_main_response(jsonify({"emails": unique_emails}))
 
     except requests.exceptions.RequestException as e:
-        return make_json_response({"error": f"Failed to fetch URL: {str(e)}"}, 500)
+        return _build_cors_main_response(jsonify({"error": f"Failed to fetch URL: {str(e)}"}))
     except Exception as e:
-        return make_json_response({"error": f"An error occurred: {str(e)}"}, 500)
+        return _build_cors_main_response(jsonify({"error": f"An error occurred: {str(e)}"}))

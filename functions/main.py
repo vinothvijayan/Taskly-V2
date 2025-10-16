@@ -9,16 +9,20 @@ from process_audio import process_audio_recording, reprocess_recording, get_reco
 # Import the new function from your journal file
 from process_journal import process_journal_entry, exportJournalToPdf
 
-# Import the new sales tools proxy function
-from sales_tools import sales_tools_proxy
+# Import the new sales tools functions
+from sales_tools import geocode, nearby_search, place_details, extract_emails
 
 
 # Export ALL functions so Firebase can discover them
 __all__ = [
-    'process_audio_recording', 
-    'reprocess_recording', 
+    'process_audio_recording',
+    'reprocess_recording',
     'get_recording_status',
     'process_journal_entry',
     'exportJournalToPdf',
-    'sales_tools_proxy'
+    # Add your new sales tools functions here
+    'geocode',
+    'nearby_search',
+    'place_details',
+    'extract_emails',
 ]
