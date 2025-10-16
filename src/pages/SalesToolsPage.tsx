@@ -8,11 +8,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { Search, Loader2, Download, Building, Wrench } from "lucide-react";
 import * as XLSX from 'xlsx';
-import { functions } from "@/lib/firebase";
-import { httpsCallable } from "firebase/functions";
 
-// This is the name of the Firebase Function we will call
-const callProxy = httpsCallable(functions, 'sales_tools_proxy');
+// --- SECURITY WARNING ---
+// It is NOT recommended to store API keys in frontend code.
+// Anyone can view your key and use it, which could lead to unexpected charges.
+// The previous backend proxy implementation was more secure.
+// Replace "YOUR_GOOGLE_PLACES_API_KEY" with your actual key.
+const GOOGLE_PLACES_API_KEY = "YOUR_GOOGLE_PLACES_API_KEY";
 
 // Google Business Extractor Component
 const GoogleBusinessExtractor = () => {
@@ -22,19 +24,38 @@ const GoogleBusinessExtractor = () => {
   const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const callApi = async (endpoint: string, body: object) => {
+  const callApi = async (endpoint: string, params: Record<string, string>) => {
+    // NOTE: Direct browser requests to Google Places API are blocked by CORS.
+    // A proxy is required. Using a public proxy for demonstration.
+    // For production, you should host your own CORS proxy.
+    const proxyUrl = "https://cors-anywhere.herokuapp.com/";
+    const baseUrl = "https://maps.googleapis.com/maps/api";
+    const url = new URL(`${proxyUrl}${baseUrl}${endpoint}/json`);
+    
+    url.searchParams.append("key", GOOGLE_PLACES_API_KEY);
+    for (const key in params) {
+      url.searchParams.append(key, params[key]);
+    }
+
     try {
-      const response = await callProxy({ endpoint, body });
-      return response.data;
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error_message || `HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        throw new Error(data.error_message || data.status);
+      }
+      return data;
     } catch (error: any) {
-      console.error(`Error calling proxy for ${endpoint}:`, error);
-      const errorMessage = error.details?.message || error.message || "An unknown error occurred.";
-      throw new Error(errorMessage);
+      console.error(`Error calling Google API for ${endpoint}:`, error);
+      throw new Error(error.message || "An unknown error occurred.");
     }
   };
 
   const getLatLngFromLocation = async (locationName: string) => {
-    const data: any = await callApi('/api/geocode', { locationName });
+    const data: any = await callApi('/geocode', { address: locationName });
     if (data.results && data.results.length > 0) {
       const location = data.results[0].geometry.location;
       return `${location.lat},${location.lng}`;
@@ -47,11 +68,11 @@ const GoogleBusinessExtractor = () => {
     let nextPageToken: string | null = null;
 
     do {
-      const body: any = { location, radius, type };
-      if (keyword) body.keyword = keyword;
-      if (nextPageToken) body.pagetoken = nextPageToken;
+      const params: any = { location, radius: String(radius), type };
+      if (keyword) params.keyword = keyword;
+      if (nextPageToken) params.pagetoken = nextPageToken;
 
-      const data: any = await callApi('/api/nearbysearch', body);
+      const data: any = await callApi('/place/nearbysearch', params);
       
       if (data.results) {
         allPlaces.push(...data.results);
@@ -68,11 +89,18 @@ const GoogleBusinessExtractor = () => {
   };
 
   const getPlaceDetails = async (placeId: string) => {
-    const data: any = await callApi('/api/placedetails', { placeId });
+    const data: any = await callApi('/place/details', { 
+      place_id: placeId,
+      fields: "name,formatted_phone_number,vicinity,website,url"
+    });
     return data.result || {};
   };
 
   const handleSearch = async () => {
+    if (GOOGLE_PLACES_API_KEY === "YOUR_GOOGLE_PLACES_API_KEY") {
+      toast.error("API Key Missing", { description: "Please add your Google Places API key in SalesToolsPage.tsx." });
+      return;
+    }
     if (!location || !placeType) {
       toast.error("Location and Place Type are required.");
       return;
