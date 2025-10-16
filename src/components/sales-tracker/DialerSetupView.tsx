@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import * as XLSX from 'xlsx';
 
+const DIALER_ITEMS_PER_PAGE = 20;
+
 interface DialerSetupViewProps {
   contacts: Contact[];
   onSaveImportedContacts: (contacts: Contact[]) => Promise<void>;
@@ -64,6 +66,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
   const [importedContacts, setImportedContacts] = useState<Contact[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [visibleAvailableCount, setVisibleAvailableCount] = useState(DIALER_ITEMS_PER_PAGE);
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: {
@@ -80,6 +83,14 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
     );
   }, [contacts, callQueue, importedContacts, searchTerm]);
+
+  const visibleAvailableContacts = useMemo(() => {
+    return availableContacts.slice(0, visibleAvailableCount);
+  }, [availableContacts, visibleAvailableCount]);
+
+  useEffect(() => {
+    setVisibleAvailableCount(DIALER_ITEMS_PER_PAGE);
+  }, [searchTerm]);
 
   const handleToggleContact = (contactId: string) => {
     setSelectedContactIds(prev => {
@@ -248,9 +259,19 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
             <CardContent className="flex-1 overflow-hidden p-0">
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-2">
-                  {availableContacts.map(contact => (
+                  {visibleAvailableContacts.map(contact => (
                     <DraggableContactItem key={contact.id} contact={contact} isSelected={selectedContactIds.has(contact.id)} onToggle={handleToggleContact} onAdd={handleClickToAdd} />
                   ))}
+                  {visibleAvailableCount < availableContacts.length && (
+                    <div className="flex justify-center py-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setVisibleAvailableCount(prev => prev + DIALER_ITEMS_PER_PAGE)}
+                      >
+                        Load More
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </CardContent>
