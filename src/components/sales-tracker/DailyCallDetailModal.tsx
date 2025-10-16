@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Phone, User } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { format } from "date-fns";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -116,7 +116,8 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
     const overId = over.id as string;
 
     const activeColumnId = findColumnForCall(activeId);
-    const overColumnId = findColumnForCall(overId) || overId;
+    const overIsColumn = feedbackOrder.includes(overId as any);
+    const overColumnId = overIsColumn ? overId : findColumnForCall(overId);
 
     if (!activeColumnId || !overColumnId || activeColumnId === overColumnId) {
       return;
@@ -149,8 +150,9 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         <div className="flex space-x-4 pb-4">
           {feedbackOrder.map((feedback) => {
             const calls = columns[feedback] || [];
+            const { setNodeRef } = useSortable({ id: feedback });
             return (
-              <div key={feedback} id={feedback} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
+              <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
                 <div className="flex items-center gap-2 mb-3 flex-shrink-0">
                   {getFeedbackBadge(feedback)}
                   <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
