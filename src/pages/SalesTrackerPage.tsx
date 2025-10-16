@@ -419,29 +419,31 @@ export default function SalesTrackerPage() {
     }
 
     const contact = contacts.find(c => c.id === contactId);
-    if (!contact || contact.status !== 'Send Details') {
+    const latestLog = contact?.callHistory?.[0];
+
+    if (!contact || !latestLog || latestLog.feedback !== 'Send Details') {
       toast({ title: "Invalid Action", description: "This action is only for contacts awaiting details.", variant: "destructive" });
       return;
     }
 
-    const newLogData = {
-      type: 'Follow-up' as const,
-      timestamp: new Date().toISOString(),
-      duration: 0,
-      feedback: 'Interested' as const,
-      message: 'Details sent. Status automatically updated to Interested.',
-      spokenTo: contact.callHistory[0]?.spokenTo || contact.name,
+    const logIndex = latestLog.originalIndex;
+    if (!logIndex) {
+        toast({ title: "Data Error", description: "Cannot find the original call log to update.", variant: "destructive" });
+        return;
+    }
+
+    const logRef = ref(rtdb, `contacts/${contactId}/callHistory/${logIndex}`);
+    
+    const originalMessage = latestLog.message || "";
+    const updateMessage = `[Details Sent on ${new Date().toLocaleDateString()}] ${originalMessage}`.trim();
+
+    const updates = {
+      feedback: 'Interested',
+      message: updateMessage,
     };
 
-    const contactRef = ref(rtdb, `contacts/${contactId}`);
-    const newLogKey = push(ref(rtdb, `contacts/${contactId}/callHistory`)).key;
-
-    const updates: { [key: string]: any } = {};
-    updates[`callHistory/${newLogKey}`] = newLogData;
-    updates['callCount'] = (contact.callCount || 0) + 1;
-
     try {
-      await update(contactRef, updates);
+      await update(logRef, updates);
       toast({ title: "Status Updated!", description: `${contact.name} is now marked as Interested.` });
     } catch (error) {
       console.error("Error marking as sent:", error);
