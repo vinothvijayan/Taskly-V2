@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Search, Mail, Loader2, Download, Building, Wrench } from "lucide-react";
+import { Search, Loader2, Download, Building, Wrench } from "lucide-react";
 import * as XLSX from 'xlsx';
 import { functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
@@ -181,104 +180,6 @@ const GoogleBusinessExtractor = () => {
   );
 };
 
-// Email Extractor Component
-const EmailExtractor = () => {
-  const [url, setUrl] = useState('');
-  const [emails, setEmails] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleExtract = async () => {
-    if (!url.trim()) {
-      toast.error("Please enter a website URL.");
-      return;
-    }
-    setIsLoading(true);
-    setEmails([]);
-    try {
-      const response: any = await callProxy({ endpoint: '/api/extract-emails', body: { url } });
-      
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-
-      const foundEmails = response.data.emails || [];
-      setEmails(foundEmails);
-      if (foundEmails.length > 0) {
-        toast.success(`Found ${foundEmails.length} email(s)!`);
-      } else {
-        toast.info("No emails found on that page.");
-      }
-    } catch (error: any) {
-      console.error("Error extracting emails:", error);
-      toast.error("Extraction Failed", { description: error.message });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleExport = () => {
-    if (emails.length === 0) {
-      toast.info("No emails to export.");
-      return;
-    }
-    const dataToExport = emails.map(email => ({ Email: email }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Emails");
-    XLSX.writeFile(workbook, "extracted_emails.xlsx");
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Extractor</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="website-url">Website URL</Label>
-          <div className="flex gap-2">
-            <Input 
-              id="website-url" 
-              placeholder="e.g., example.com" 
-              value={url} 
-              onChange={(e) => setUrl(e.target.value)} 
-              onKeyPress={(e) => e.key === 'Enter' && handleExtract()}
-            />
-            <Button onClick={handleExtract} disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-              {isLoading ? "Extracting..." : "Extract"}
-            </Button>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={emails.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Export to Excel
-          </Button>
-        </div>
-        <ScrollArea className="h-72 border rounded-md">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Found Emails</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {emails.map((email, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{email}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {emails.length === 0 && !isLoading && (
-            <div className="text-center p-8 text-muted-foreground">No emails found yet. Enter a URL to start.</div>
-          )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  );
-};
-
 const SalesToolsPage = () => {
   return (
     <div className="container max-w-7xl mx-auto p-6">
@@ -291,18 +192,7 @@ const SalesToolsPage = () => {
           Powerful tools to extract business leads and contact information.
         </p>
       </div>
-      <Tabs defaultValue="google-business" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="google-business">Google Business Extractor</TabsTrigger>
-          <TabsTrigger value="email-extractor">Email Extractor</TabsTrigger>
-        </TabsList>
-        <TabsContent value="google-business" className="mt-6">
-          <GoogleBusinessExtractor />
-        </TabsContent>
-        <TabsContent value="email-extractor" className="mt-6">
-          <EmailExtractor />
-        </TabsContent>
-      </Tabs>
+      <GoogleBusinessExtractor />
     </div>
   );
 };

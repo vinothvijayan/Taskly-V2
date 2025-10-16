@@ -10,7 +10,7 @@ from process_audio import process_audio_recording, reprocess_recording, get_reco
 from process_journal import process_journal_entry, exportJournalToPdf
 
 # Import the new sales tools functions
-from sales_tools import geocode, nearby_search, place_details, extract_emails
+from sales_tools import geocode, nearby_search, place_details
 
 
 # Export ALL functions so Firebase can discover them
@@ -24,5 +24,4 @@ __all__ = [
     'geocode',
     'nearby_search',
     'place_details',
-    'extract_emails',
 ]

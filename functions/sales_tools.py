@@ -103,38 +103,3 @@ def place_details(request):
     }
     response = requests.get("https://maps.googleapis.com/maps/api/place/details/json", params=params)
     return _build_cors_main_response(jsonify(response.json()))
-
-# -------------------------------
-# /api/extract-emails
-# -------------------------------
-@https_fn.on_request(region="us-central1")
-def extract_emails(request):
-    if request.method == "OPTIONS":
-        return _build_cors_preflight_response()
-
-    data = request.get_json()
-    url = data.get("url")
-    if not url:
-        return _build_cors_main_response(jsonify({"error": "URL is required"}))
-
-    try:
-        if not url.startswith(("http://", "https://")):
-            url = "https://" + url
-
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        email_regex = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-        emails = re.findall(email_regex, soup.get_text())
-        unique_emails = sorted(list(set(emails)))
-
-        return _build_cors_main_response(jsonify({"emails": unique_emails}))
-
-    except requests.exceptions.RequestException as e:
-        return _build_cors_main_response(jsonify({"error": f"Failed to fetch URL: {str(e)}"}))
-    except Exception as e:
-        return _build_cors_main_response(jsonify({"error": f"An error occurred: {str(e)}"}))
