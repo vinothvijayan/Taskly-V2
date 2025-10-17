@@ -15,7 +15,7 @@ HARDCODED_GEMINI_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 # The top-level import is removed to fix the ModuleNotFoundError on startup.
 # All imports are moved into the functions that use them.
-import google.generativeai as genai 
+# import google.generativeai as genai 
 
 from firebase_admin import initialize_app, storage, firestore, _apps
 # --- 1. ADD https_fn TO THIS IMPORT ---
@@ -254,7 +254,7 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
         uploaded_file = genai.upload_file(path=audio_file_path, mime_type="audio/mp3")
         while uploaded_file.state.name == "PROCESSING": time.sleep(2); uploaded_file = genai.get_file(uploaded_file.name)
         if uploaded_file.state.name != "ACTIVE": raise ValueError("File processing failed on Gemini's servers.")
-        model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
         transcript_res = model.generate_content(["Provide a clean and accurate transcript for this audio file.", uploaded_file])
         translation_res = model.generate_content(["Translate the following transcript into clear and accurate English...", transcript_res.text])
         return {'transcript': transcript_res.text, 'translated_transcript': translation_res.text}
@@ -271,7 +271,7 @@ def get_wellness_analysis(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
     analysis_prompt = f"""
         You are Taskly's AI Wellness Coach. Your tone is supportive, insightful, and encouraging. You are speaking directly to the user.
         Analyze the user's combined journal entries for the day based on the following transcript.
@@ -303,7 +303,7 @@ def get_detailed_narrative(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
     
     analysis_prompt = f"""
         You are an AI journaling assistant. Your task is to synthesize the following journal entries from a single day into a single, detailed, and cohesive narrative.
