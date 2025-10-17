@@ -152,7 +152,11 @@ def process_meeting_with_gemini(audio_chunk_paths: list[str], display_name: str)
         uploaded_file = None
         try:
             # Upload chunk
-            uploaded_file = genai.upload_file(path=chunk_path, mime_type="audio/mp3")
+            uploaded_file = genai.upload_file(
+                path=chunk_path, 
+                display_name=f"chunk_{i}_{display_name}", 
+                mime_type="audio/mp3"
+            )
             while uploaded_file.state.name == "PROCESSING":
                 time.sleep(5) # Increased sleep time for larger files
                 uploaded_file = genai.get_file(uploaded_file.name)

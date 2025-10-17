@@ -251,7 +251,11 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
     uploaded_file = None
     try:
-        uploaded_file = genai.upload_file(path=audio_file_path, mime_type="audio/mp3")
+        uploaded_file = genai.upload_file(
+            path=audio_file_path, 
+            display_name=os.path.basename(audio_file_path), 
+            mime_type="audio/mp3"
+        )
         while uploaded_file.state.name == "PROCESSING": time.sleep(2); uploaded_file = genai.get_file(uploaded_file.name)
         if uploaded_file.state.name != "ACTIVE": raise ValueError("File processing failed on Gemini's servers.")
         model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
