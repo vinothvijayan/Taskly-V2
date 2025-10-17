@@ -7,6 +7,7 @@ from typing import Dict
 from datetime import timedelta, datetime
 import uuid
 from urllib.parse import quote
+import re
 
 # --- SECURITY WARNING: Hardcoding API keys is dangerous. Use Secret Manager instead. ---
 # Using a placeholder for the requested hardcoded key. 
@@ -251,9 +252,13 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
     uploaded_file = None
     try:
+        # Sanitize the display name to remove invalid characters
+        base_name = os.path.basename(audio_file_path)
+        sanitized_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', base_name)
+        
         uploaded_file = genai.upload_file(
             path=audio_file_path, 
-            display_name=os.path.basename(audio_file_path), 
+            display_name=sanitized_name, 
             mime_type="audio/mp3"
         )
         while uploaded_file.state.name == "PROCESSING": time.sleep(2); uploaded_file = genai.get_file(uploaded_file.name)
