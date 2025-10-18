@@ -15,7 +15,9 @@ import {
   Edit,
   Trash2,
   MoreVertical,
-  MessageCircle
+  MessageCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Task, UserProfile } from '../../types';
 import { useSwipeGestures, useHapticFeedback } from '../../hooks/useTouchGestures';
@@ -162,12 +164,40 @@ export const MobileTaskCard = memo(function MobileTaskCard({
           </div>
         </div>
 
-        {(commentCount > 0 || (task.subtasks && task.subtasks.length > 0)) && (
-          <div className="px-3 pb-2 border-t border-border/30" data-no-edit-on-click>
-            {task.subtasks && (task.subtasks.length > 0 || !isCompleted) && <SubtasksSection task={task} />}
-            <TaskComments taskId={task.id} isExpanded={isCommentsExpanded} onToggleExpanded={() => { setIsCommentsExpanded(!isCommentsExpanded); if (task.lastCommentedAt) setTaskAsViewed(task.id, task.lastCommentedAt); }} />
-          </div>
-        )}
+        <div className="px-3 pb-2 border-t border-border/30" data-no-edit-on-click>
+          {(!isCompleted || (task.subtasks && task.subtasks.length > 0)) && <SubtasksSection task={task} />}
+          
+          <Button
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCommentsExpanded(!isCommentsExpanded);
+              if (task.lastCommentedAt) {
+                setTaskAsViewed(task.id, task.lastCommentedAt);
+              }
+            }}
+            className="w-full justify-between py-1 px-2 h-auto hover:bg-muted/30 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">
+                Comments {commentCount > 0 && `(${commentCount})`}
+              </span>
+              {isRecentlyCommented && !isCommentsExpanded && <div className="w-2 h-2 bg-primary rounded-full" />}
+            </div>
+            {isCommentsExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+
+          <TaskComments 
+            taskId={task.id} 
+            isExpanded={isCommentsExpanded} 
+            onToggleExpanded={() => setIsCommentsExpanded(!isCommentsExpanded)} 
+          />
+        </div>
 
         {isTimeTracking && <div className="absolute top-3 right-3"><div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-glow" /></div>}
       </Card>
