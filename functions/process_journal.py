@@ -252,12 +252,10 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
     uploaded_file = None
     try:
-        # --- FIX: Use a simple, unique name for the upload ---
-        unique_display_name = f"journal_upload_{int(time.time())}"
-        
+        # --- THIS IS THE FIX ---
+        # Removed the 'display_name' parameter from the upload call.
         uploaded_file = genai.upload_file(
             path=audio_file_path, 
-            display_name=unique_display_name, 
             mime_type="audio/mp3"
         )
         while uploaded_file.state.name == "PROCESSING": time.sleep(2); uploaded_file = genai.get_file(uploaded_file.name)
