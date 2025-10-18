@@ -668,3 +668,11 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }
+
+export function useTasks() {
+  const context = useContext(TasksContext);
+  if (context === undefined) {
+    throw new Error("useTasks must be used within a TasksContextProvider");
+  }
+  return context;
+}
