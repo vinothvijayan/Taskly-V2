@@ -1,4 +1,4 @@
-import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Sun, ListTodo, CalendarClock, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -22,6 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
+type ViewFilter = 'my-day' | 'incomplete' | 'overdue' | 'all';
+
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
   const { startTaskTimer } = useTimer();
@@ -31,6 +33,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewFilter, setViewFilter] = useState<ViewFilter>('my-day');
 
   useEffect(() => {
     const isFormActive = !!editingTask;
@@ -49,39 +52,50 @@ export default function TasksPage() {
   };
 
   const { todoTasks, completedTasks } = useMemo(() => {
-    const tasksForSelectedDate = tasks.filter(task => {
-      const isCompletedOnDate = task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate);
-      if (isCompletedOnDate) {
-        return true;
-      }
+    let baseTasks: Task[];
 
-      if (!isToday(currentDate)) {
-        return task.dueDate && isSameDay(new Date(task.dueDate), currentDate) && task.status !== 'completed';
-      }
+    switch (viewFilter) {
+      case 'my-day':
+        baseTasks = tasks.filter(task => {
+          if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
+            return true;
+          }
+          if (task.status === 'completed') {
+            return false;
+          }
+          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+            return true;
+          }
+          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+            return true;
+          }
+          if (isToday(currentDate) && !task.dueDate) {
+            return true;
+          }
+          return false;
+        });
+        break;
+      case 'incomplete':
+        baseTasks = tasks.filter(task => task.status !== 'completed');
+        break;
+      case 'overdue':
+        baseTasks = tasks.filter(task => task.dueDate && new Date(task.dueDate) < startOfDay(new Date()) && task.status !== 'completed');
+        break;
+      case 'all':
+        baseTasks = tasks;
+        break;
+      default:
+        baseTasks = tasks;
+    }
 
-      if (task.status === 'completed') return false;
-
-      if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-        return true;
-      }
-      if (task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-        return true;
-      }
-      if (!task.dueDate) {
-        return true;
-      }
-
-      return false;
-    });
-
-    const allTodoTasks = tasksForSelectedDate.filter(task => task.status !== 'completed');
-    const allCompletedTasks = tasksForSelectedDate.filter(task => task.status === 'completed');
+    const allTodoTasks = baseTasks.filter(task => task.status !== 'completed');
+    const allCompletedTasks = baseTasks.filter(task => task.status === 'completed');
 
     return {
       todoTasks: allTodoTasks,
       completedTasks: allCompletedTasks
     };
-  }, [tasks, currentDate]);
+  }, [tasks, currentDate, viewFilter]);
 
   const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user?.uid) return;
@@ -157,6 +171,27 @@ export default function TasksPage() {
     }
   }, [user?.uid, addTask, createTaskOffline, currentDate]);
 
+  const FilterButtons = ({ activeFilter, onFilterChange }: { activeFilter: ViewFilter, onFilterChange: (filter: ViewFilter) => void }) => (
+    <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+      <Button size="sm" variant={activeFilter === 'my-day' ? 'default' : 'ghost'} onClick={() => onFilterChange('my-day')} className="gap-2 px-2 h-7">
+        <Sun className="h-4 w-4" />
+        <span className={cn(isMobile && "hidden", "md:inline")}>My Day</span>
+      </Button>
+      <Button size="sm" variant={activeFilter === 'incomplete' ? 'default' : 'ghost'} onClick={() => onFilterChange('incomplete')} className="gap-2 px-2 h-7">
+        <ListTodo className="h-4 w-4" />
+        <span className={cn(isMobile && "hidden", "md:inline")}>Incomplete</span>
+      </Button>
+      <Button size="sm" variant={activeFilter === 'overdue' ? 'default' : 'ghost'} onClick={() => onFilterChange('overdue')} className="gap-2 px-2 h-7">
+        <CalendarClock className="h-4 w-4" />
+        <span className={cn(isMobile && "hidden", "md:inline")}>Overdue</span>
+      </Button>
+      <Button size="sm" variant={activeFilter === 'all' ? 'default' : 'ghost'} onClick={() => onFilterChange('all')} className="gap-2 px-2 h-7">
+        <List className="h-4 w-4" />
+        <span className={cn(isMobile && "hidden", "md:inline")}>All</span>
+      </Button>
+    </div>
+  );
+
   if (loading) {
     return <TasksPageSkeleton />;
   }
@@ -185,10 +220,15 @@ export default function TasksPage() {
             <div className="flex-1 min-h-0 overflow-hidden">
               <div className="space-y-4 pb-24 px-2">
                 <div className="flex flex-col space-y-3">
-                  <div className="flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
-                    <CheckSquare className="h-5 w-5 text-primary" />
-                    <h2 className="text-base font-semibold text-primary">Active Tasks</h2>
+                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
+                    <div className="flex items-center gap-3">
+                      <CheckSquare className="h-5 w-5 text-primary" />
+                      <h2 className="text-base font-semibold text-primary">Active Tasks</h2>
+                    </div>
                     <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
+                  </div>
+                  <div className="px-1">
+                    <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} />
                   </div>
                   <div className="space-y-3">
                     {todoTasks.length === 0 && completedTasks.length === 0 ? (
@@ -258,6 +298,7 @@ export default function TasksPage() {
                     <h2 className="text-lg font-semibold">Active Tasks</h2>
                     <Badge variant="secondary">{todoTasks.length}</Badge>
                   </div>
+                  <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} />
                   <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
                     <Plus className="h-4 w-4 text-muted-foreground" />
                     <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
