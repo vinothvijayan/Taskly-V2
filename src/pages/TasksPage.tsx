@@ -124,9 +124,7 @@ export default function TasksPage() {
         <div className="h-full overflow-y-auto scrollbar-hide touch-pan-y">
           <div className="container max-w-7xl mx-auto p-4 flex flex-col flex-1 min-h-0">
             <div className="text-center space-y-2 mb-4 px-2">
-              <div className="flex items-center justify-center gap-4">
-                <h1 className="font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent text-2xl">My Day</h1>
-              </div>
+              <h1 className="font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent text-2xl">My Day</h1>
               <p className="text-muted-foreground text-sm px-4">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
