@@ -63,18 +63,18 @@ export function TopPerformer() {
   }
 
   return (
-    <div className="flex items-center gap-2 p-2 pr-3 bg-yellow-400/10 border border-yellow-400/20 rounded-full text-yellow-700 dark:text-yellow-300">
-      <Award className="h-5 w-5 text-yellow-500" />
-      <span className="text-sm font-medium">Today's Top Performer:</span>
+    <div className="flex items-center gap-2 p-2 pr-3 bg-background border border-border rounded-lg text-sm shadow-sm">
+      <Award className="h-5 w-5 text-primary" />
+      <span className="text-muted-foreground font-medium">Top Performer:</span>
       <Avatar className="h-6 w-6">
         <AvatarImage src={topPerformer.avatarUrl} />
-        <AvatarFallback className="text-xs bg-yellow-400/20">
+        <AvatarFallback className="text-xs bg-muted">
           {topPerformer.name.split(' ').map(n => n[0]).join('').toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <span className="font-bold text-sm">{topPerformer.name}</span>
+      <span className="font-semibold text-foreground">{topPerformer.name}</span>
       {topPerformer.totalTimeSpent > 0 && (
-        <Badge variant="outline" className="text-xs font-mono bg-background/50 border-yellow-400/30 flex items-center gap-1">
+        <Badge variant="secondary" className="text-xs font-mono flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {formatTime(topPerformer.totalTimeSpent)}
         </Badge>
