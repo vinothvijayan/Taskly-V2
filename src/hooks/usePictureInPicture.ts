@@ -63,10 +63,11 @@ export function usePictureInPicture() {
 
       // Listen for the window being closed by the user
       newPipWindow.addEventListener('pagehide', () => {
+        // FIX: Set state to null first to prevent race conditions
+        setPipWindow(null);
         if (newPipWindow.reactRoot) {
           newPipWindow.reactRoot.unmount();
         }
-        setPipWindow(null);
       });
 
       return newPipWindow;
@@ -77,9 +78,10 @@ export function usePictureInPicture() {
 
   const closePipWindow = useCallback(() => {
     if (pipWindow) {
+      // FIX: Set state to null first to prevent race conditions
+      setPipWindow(null);
       pipWindow.reactRoot?.unmount();
       pipWindow.close();
-      setPipWindow(null);
     }
   }, [pipWindow]);
 
