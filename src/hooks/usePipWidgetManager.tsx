@@ -14,7 +14,6 @@ export function usePipWidgetManager() {
   const [isPipOpen, setIsPipOpen] = useState(false);
   const [pipWindow, setPipWindow] = useState<PipWindow | null>(null);
   
-  // Get data from contexts to pass to the widget
   const tasksContext = useTasks();
   const timeTrackerContext = useTaskTimeTracker();
 
@@ -40,23 +39,25 @@ export function usePipWidgetManager() {
         height: 480,
       });
 
-      // --- THIS IS THE FIX ---
-      // Copy all <link rel="stylesheet"> tags from the main document to the PiP window
-      const stylesheets = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'));
-      stylesheets.forEach(link => {
-        const newLink = newPipWindow.document.createElement('link');
-        newLink.rel = 'stylesheet';
-        newLink.href = link.href;
-        newPipWindow.document.head.appendChild(newLink);
+      // --- THE CORRECT FIX ---
+      // 1. Copy all <link> and <style> elements from the main document's head.
+      const styleElements = document.head.querySelectorAll('style, link[rel="stylesheet"]');
+      styleElements.forEach(el => {
+        newPipWindow.document.head.appendChild(el.cloneNode(true));
       });
 
-      // Also, let's add a basic body style to ensure a good starting point
-      const style = newPipWindow.document.createElement('style');
-      style.textContent = `
+      // 2. Copy the theme class (e.g., "dark") from the main <html> element.
+      if (document.documentElement.classList.contains('dark')) {
+        newPipWindow.document.documentElement.classList.add('dark');
+      }
+      
+      // 3. Add a basic body style.
+      const bodyStyle = newPipWindow.document.createElement('style');
+      bodyStyle.textContent = `
         body { margin: 0; overflow: hidden; }
         #root { height: 100vh; width: 100vw; }
       `;
-      newPipWindow.document.head.appendChild(style);
+      newPipWindow.document.head.appendChild(bodyStyle);
       // --- END OF FIX ---
 
       const mountPoint = newPipWindow.document.createElement('div');
