@@ -74,6 +74,7 @@ export function usePictureInPicture() {
 
   const closePipWindow = useCallback(() => {
     if (pipWindow) {
+      pipWindow.reactRoot?.unmount();
       pipWindow.close();
       setPipWindow(null);
     }

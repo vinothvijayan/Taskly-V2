@@ -54,12 +54,12 @@ export function TimeTrackingWidget() {
     getFormattedTime 
   } = useTaskTimeTracker();
   
-  const { isPipSupported, isPipOpen, openPipWindow, closePipWindow } = usePictureInPicture();
+  const { isPipSupported, isPipOpen, pipWindow, openPipWindow, closePipWindow } = usePictureInPicture();
 
-  // This effect keeps the PiP window's content up-to-date
+  // This effect now correctly re-renders the content inside the existing PiP window
   useEffect(() => {
-    if (isPipOpen && trackingTask) {
-      openPipWindow(
+    if (isPipOpen && pipWindow?.reactRoot && trackingTask) {
+      pipWindow.reactRoot.render(
         <PipTimeTrackerUI
           taskTitle={trackingTask.title}
           isTracking={isTracking}
@@ -68,11 +68,10 @@ export function TimeTrackingWidget() {
           onStop={handleStopAndClose}
           onPopIn={closePipWindow}
           getFormattedTime={getFormattedTime}
-        />,
-        { width: 320, height: 72 } // Adjusted size for better fit
+        />
       );
     }
-  }, [isPipOpen, trackingTask, isTracking, currentSessionElapsedSeconds]);
+  }, [isPipOpen, pipWindow, trackingTask, isTracking, currentSessionElapsedSeconds]);
 
   if (!trackingTask) {
     if (isPipOpen) closePipWindow();
@@ -96,7 +95,7 @@ export function TimeTrackingWidget() {
         onPopIn={closePipWindow}
         getFormattedTime={getFormattedTime}
       />,
-      { width: 320, height: 72 } // Adjusted size for better fit
+      { width: 320, height: 72 }
     );
   };
 
