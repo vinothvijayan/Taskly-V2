@@ -7,6 +7,7 @@ import { TaskCard } from "@/components/tasks/TaskCard"
 import { MobileTaskCard } from "@/components/tasks/MobileTaskCard"
 import { TaskForm } from "@/components/tasks/TaskForm"
 import { FloatingActionButton } from "@/components/tasks/FloatingActionButton"
+import { TopPerformer } from "@/components/tasks/TopPerformer"
 
 import { AnimatedContainer, StaggeredList } from "@/components/ui/smooth-transitions"
 import { useTasks } from "@/contexts/TasksContext"
@@ -158,12 +159,15 @@ export default function TasksPage() {
               "text-center space-y-2",
               isMobile ? "mb-4 px-2" : "mb-6"
             )}>
-              <h1 className={cn(
-                "font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent",
-                isMobile ? "text-2xl" : "text-3xl md:text-4xl"
-              )}>
-                My Day
-              </h1>
+              <div className="flex items-center justify-center gap-4">
+                <h1 className={cn(
+                  "font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent",
+                  isMobile ? "text-2xl" : "text-3xl md:text-4xl"
+                )}>
+                  My Day
+                </h1>
+                {!isMobile && <TopPerformer />}
+              </div>
               <p className={cn(
                 "text-muted-foreground",
                 isMobile ? "text-sm px-4" : "text-base md:text-lg"

@@ -32,6 +32,7 @@ import { MobileTaskCard } from "@/components/tasks/MobileTaskCard";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { DashboardSkeleton } from "@/components/skeletons";
+import { Leaderboard } from "@/components/dashboard/Leaderboard";
 
 interface FilterState {
   status: "all" | Task["status"];
@@ -324,44 +325,9 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Team Collaboration */}
+          {/* Team Leaderboard */}
           <motion.div variants={itemVariants} initial="hidden" animate="visible">
-            <Card className="shadow-elegant">
-              <CardHeader><CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Team Collaboration</CardTitle></CardHeader>
-              <CardContent className="space-y-6 p-4 md:p-6">
-                {userProfile?.teamId && teamMembers.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-success/5 border border-success/20 rounded-lg"><div className="flex items-center gap-2 mb-1"><Users className="h-4 w-4 text-success" /><span className="font-medium text-success text-base">Active Team</span></div><div className="text-sm text-muted-foreground">{teamMembers.length} member{teamMembers.length !== 1 ? 's' : ''} collaborating</div></div>
-                    <div>
-                      <h4 className="font-medium mb-3 text-base">Team Members</h4>
-                      <div className="space-y-2">
-                        {teamMembers.slice(0, 4).map((member) => (
-                          <div key={member.uid} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                            <Avatar className="h-8 w-8"><AvatarImage src={member.photoURL || ""} /><AvatarFallback className="text-xs bg-primary/20 text-primary">{member.displayName?.slice(0, 2).toUpperCase() || member.email.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
-                            <div className="flex-1 min-w-0"><p className="font-medium truncate text-sm">{member.displayName || "Team Member"}</p><p className="text-xs text-muted-foreground truncate">{member.email}</p></div>
-                            {member.uid === user?.uid && <Badge variant="secondary" className="text-xs px-1 py-0">You</Badge>}
-                          </div>
-                        ))}
-                        {teamMembers.length > 4 && <div className="text-center py-1"><Badge variant="outline" className="text-xs">+{teamMembers.length - 4} more</Badge></div>}
-                      </div>
-                    </div>
-                    <Button onClick={() => navigate('/profile')} variant="outline" className="w-full hover-scale"><UserPlus className="h-4 w-4 mr-2" />Invite More Members</Button>
-                  </div>
-                ) : (
-                  <div className="text-center space-y-4">
-                    <div className="bg-gradient-to-br from-primary/10 to-focus/10 rounded-2xl flex items-center justify-center h-16 w-16 mx-auto shadow-elegant"><Users className="h-8 w-8 text-muted-foreground/50" /></div>
-                    <div>
-                      <h3 className="text-lg font-medium text-muted-foreground mb-1">No Team Yet</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">Invite members to collaborate on tasks and boost productivity.</p>
-                    </div>
-                    <div className="space-y-3 pt-2">
-                       <Button onClick={() => navigate('/profile')} variant="focus" className="w-full hover-scale"><UserPlus className="h-4 w-4 mr-2" />Invite Team Member</Button>
-                       <div className="text-xs text-muted-foreground/80 pt-2">Assign tasks, track progress, and collaborate in real-time.</div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <Leaderboard />
           </motion.div>
         </div>
       </div>

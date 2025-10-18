@@ -1,0 +1,153 @@
+import { useState, useMemo } from "react";
+import { useTasks } from "@/contexts/TasksContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { AnimatePresence, motion } from "framer-motion";
+import { Crown, Award, Medal, TrendingUp } from "lucide-react";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { cn } from "@/lib/utils";
+import { LeaderboardSkeleton } from "@/components/skeletons";
+import { Task } from "@/types";
+
+type TimeFrame = "day" | "week" | "month";
+
+interface ScoreData {
+  userId: string;
+  name: string;
+  avatarUrl?: string;
+  score: number;
+  tasksCompleted: number;
+}
+
+const calculateScore = (tasks: Task[]): number => {
+  return tasks.reduce((totalScore, task) => {
+    let score = 10; // Base score for a completed task
+    if (task.priority === "high") score += 5;
+    if (task.priority === "medium") score += 2;
+    return totalScore + score;
+  }, 0);
+};
+
+const getRankIcon = (rank: number) => {
+  if (rank === 0) return <Crown className="h-5 w-5 text-yellow-400" />;
+  if (rank === 1) return <Award className="h-5 w-5 text-gray-400" />;
+  if (rank === 2) return <Medal className="h-5 w-5 text-orange-400" />;
+  return <span className="text-sm font-bold w-5 text-center">{rank + 1}</span>;
+};
+
+export function Leaderboard() {
+  const { tasks, teamMembers, loading } = useTasks();
+  const { userProfile } = useAuth();
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>("week");
+
+  const leaderboardData = useMemo((): ScoreData[] => {
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = endOfDay(now);
+
+    if (timeFrame === "day") {
+      startDate = startOfDay(now);
+    } else if (timeFrame === "week") {
+      startDate = startOfWeek(now);
+    } else { // month
+      startDate = startOfMonth(now);
+    }
+
+    const relevantTasks = tasks.filter(task => {
+      if (task.status !== "completed" || !task.completedAt) return false;
+      const completedDate = new Date(task.completedAt as string);
+      return completedDate >= startDate && completedDate <= endDate;
+    });
+
+    const scores = teamMembers.map(member => {
+      const memberTasks = relevantTasks.filter(task => task.createdBy === member.uid);
+      return {
+        userId: member.uid,
+        name: member.displayName || member.email,
+        avatarUrl: member.photoURL,
+        score: calculateScore(memberTasks),
+        tasksCompleted: memberTasks.length,
+      };
+    });
+
+    return scores.sort((a, b) => b.score - a.score);
+  }, [tasks, teamMembers, timeFrame]);
+
+  if (loading) {
+    return <LeaderboardSkeleton />;
+  }
+
+  if (teamMembers.length <= 1) {
+    return null; // Don't show leaderboard if user is alone
+  }
+
+  return (
+    <Card className="shadow-elegant">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Team Leaderboard
+          </CardTitle>
+          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+            {(["day", "week", "month"] as TimeFrame[]).map((frame) => (
+              <Button
+                key={frame}
+                size="sm"
+                variant={timeFrame === frame ? "default" : "ghost"}
+                onClick={() => setTimeFrame(frame)}
+                className="capitalize text-xs h-7 px-2"
+              >
+                {frame}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <AnimatePresence>
+          <motion.ul
+            key={timeFrame}
+            className="space-y-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, transition: { staggerChildren: 0.07 } }}
+          >
+            {leaderboardData.length > 0 ? leaderboardData.slice(0, 5).map((user, index) => (
+              <motion.li
+                key={user.userId}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={cn(
+                  "flex items-center gap-4 p-2 rounded-lg transition-colors",
+                  user.userId === userProfile?.uid && "bg-primary/10"
+                )}
+              >
+                <div className="w-6 flex items-center justify-center">{getRankIcon(index)}</div>
+                <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+                  <AvatarImage src={user.avatarUrl} />
+                  <AvatarFallback className="bg-muted text-xs">
+                    {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.tasksCompleted} tasks</p>
+                </div>
+                <Badge variant="secondary" className="font-bold text-base px-3 py-1 rounded-full">
+                  {user.score}
+                </Badge>
+              </motion.li>
+            )) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>No completed tasks for this period yet.</p>
+              </div>
+            )}
+          </motion.ul>
+        </AnimatePresence>
+      </CardContent>
+    </Card>
+  );
+}
