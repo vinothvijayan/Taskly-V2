@@ -25,8 +25,6 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, Drawer
 import { motion, AnimatePresence } from "framer-motion";
 
 interface FilterState {
-  status: "all" | "todo" | "in-progress";
-  priority: "all" | Task["priority"];
   search: string;
 }
 
@@ -39,10 +37,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
-    status: "all",
-    priority: "all",
     search: "",
   });
 
@@ -92,8 +87,6 @@ export default function TasksPage() {
     const allCompletedTasks = tasksForSelectedDate.filter(task => task.status === 'completed');
 
     const filteredTodo = allTodoTasks.filter(task => {
-      if (filters.status !== "all" && task.status !== filters.status) return false;
-      if (filters.priority !== "all" && task.priority !== filters.priority) return false;
       if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
       return true;
     });
@@ -210,6 +203,10 @@ export default function TasksPage() {
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <div className="space-y-4 pb-24 px-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
+                </div>
                 <div className="flex flex-col space-y-3">
                   <div className="flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
                     <CheckSquare className="h-5 w-5 text-primary" />
@@ -289,28 +286,9 @@ export default function TasksPage() {
                     <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="relative col-span-3 sm:col-span-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
-                  </div>
-                  <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value as FilterState["status"] })}>
-                    <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="todo">To Do</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value as FilterState["priority"] })}>
-                    <SelectTrigger><SelectValue placeholder="Filter by priority" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Priority</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
                 </div>
               </div>
               <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
