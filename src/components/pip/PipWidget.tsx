@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { TASK_COMPLETE_SOUND_URL } from '@/lib/utils';
 
 interface PipWidgetProps {
   tasks: Task[];
@@ -34,6 +35,27 @@ export const PipWidget = ({
 }: PipWidgetProps) => {
   const [isTaskListVisible, setIsTaskListVisible] = useState(true);
   const todoTasks = tasks.filter(t => t.status !== 'completed');
+
+  const playSoundInPip = useCallback((url: string) => {
+    try {
+      // 'window' here refers to the PiP window's global object
+      const audio = new window.Audio(url);
+      audio.play().catch(e => console.error("PiP audio play failed:", e));
+    } catch (error) {
+      console.error("PiP sound playback failed:", error);
+    }
+  }, []);
+
+  const handleToggleStatusWithSound = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    const isCompleting = task?.status !== 'completed';
+
+    onToggleStatus(taskId);
+
+    if (isCompleting) {
+      playSoundInPip(TASK_COMPLETE_SOUND_URL);
+    }
+  };
 
   return (
     <div className="h-full w-full bg-gray-900 text-gray-100 font-sans flex flex-col p-3 overflow-hidden">
@@ -107,7 +129,7 @@ export const PipWidget = ({
                       <Checkbox
                         id={`pip-task-${task.id}`}
                         checked={task.status === 'completed'}
-                        onCheckedChange={() => onToggleStatus(task.id)}
+                        onCheckedChange={() => handleToggleStatusWithSound(task.id)}
                         className="border-gray-500 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                       />
                       <label htmlFor={`pip-task-${task.id}`} className="text-sm flex-1 truncate cursor-pointer">
