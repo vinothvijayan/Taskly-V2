@@ -13,7 +13,7 @@ import { AnimatedContainer, StaggeredList } from "@/components/ui/smooth-transit
 import { useTasks } from "@/contexts/TasksContext";
 import { useTimer } from "@/contexts/TimerContext";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Task, UserProfile } from "@/types";
