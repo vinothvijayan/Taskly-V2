@@ -190,7 +190,7 @@ export function SubtasksSection({ task }: SubtasksSectionProps) {
                   onChange={(e) => setNewSubtaskTitle(e.target.value)}
                   onKeyPress={handleKeyPress}
                   onClick={(e) => e.stopPropagation()}
-                  className="flex-1 h-9 focus-visible:ring-1 focus-visible:ring-offset-0"
+                  className="flex-1 h-9 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <Button size="icon" onClick={handleAddSubtask} disabled={!newSubtaskTitle.trim()} className="h-9 w-9">
                   <Plus className="h-4 w-4" />
