@@ -3,17 +3,8 @@ import { useTasks } from "@/contexts/TasksContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Award, Clock } from "lucide-react";
 import { startOfDay, endOfDay } from "date-fns";
-import { Task } from "@/types";
 import { Badge } from "@/components/ui/badge";
-
-const calculateScore = (tasks: Task[]): number => {
-  return tasks.reduce((totalScore, task) => {
-    let score = 10; // Base score
-    if (task.priority === "high") score += 5;
-    if (task.priority === "medium") score += 2;
-    return totalScore + score;
-  }, 0);
-};
+import { calculateUserScoreForPeriod } from "@/lib/scoring"; // Import the new scoring function
 
 const formatTime = (seconds: number): string => {
   if (seconds < 60) return `~1m`;
@@ -35,22 +26,24 @@ export function TopPerformer() {
     const startDate = startOfDay(now);
     const endDate = endOfDay(now);
 
-    const todaysTasks = tasks.filter(task => {
-      if (task.status !== "completed" || !task.completedAt) return false;
-      const completedDate = new Date(task.completedAt as string);
-      return completedDate >= startDate && completedDate <= endDate;
-    });
-
-    if (todaysTasks.length === 0) return null;
-
     const scores = teamMembers.map(member => {
-      const memberTasks = todaysTasks.filter(task => task.createdBy === member.uid);
-      const totalTimeSpent = memberTasks.reduce((total, task) => total + (task.timeSpent || 0), 0);
+      const allMemberTasks = tasks.filter(task => task.createdBy === member.uid);
+      
+      const score = calculateUserScoreForPeriod(allMemberTasks, startDate, endDate);
+
+      const todaysTasks = allMemberTasks.filter(task => {
+        if (task.status !== "completed" || !task.completedAt) return false;
+        const completedDate = new Date(task.completedAt as string);
+        return completedDate >= startDate && completedDate <= endDate;
+      });
+
+      const totalTimeSpent = todaysTasks.reduce((total, task) => total + (task.timeSpent || 0), 0);
+
       return {
         userId: member.uid,
         name: member.displayName || member.email,
         avatarUrl: member.photoURL,
-        score: calculateScore(memberTasks),
+        score: score,
         totalTimeSpent: totalTimeSpent,
       };
     });

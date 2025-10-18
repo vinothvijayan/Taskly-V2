@@ -10,7 +10,7 @@ import { Crown, Award, Medal, TrendingUp, Clock } from "lucide-react";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LeaderboardSkeleton } from "@/components/skeletons";
-import { Task } from "@/types";
+import { calculateUserScoreForPeriod } from "@/lib/scoring"; // Import the new scoring function
 
 type TimeFrame = "day" | "week" | "month";
 
@@ -22,15 +22,6 @@ interface ScoreData {
   tasksCompleted: number;
   totalTimeSpent: number;
 }
-
-const calculateScore = (tasks: Task[]): number => {
-  return tasks.reduce((totalScore, task) => {
-    let score = 10; // Base score for a completed task
-    if (task.priority === "high") score += 5;
-    if (task.priority === "medium") score += 2;
-    return totalScore + score;
-  }, 0);
-};
 
 const getRankIcon = (rank: number) => {
   if (rank === 0) return <Crown className="h-5 w-5 text-yellow-400" />;
@@ -67,21 +58,25 @@ export function Leaderboard() {
       startDate = startOfMonth(now);
     }
 
-    const relevantTasks = tasks.filter(task => {
-      if (task.status !== "completed" || !task.completedAt) return false;
-      const completedDate = new Date(task.completedAt as string);
-      return completedDate >= startDate && completedDate <= endDate;
-    });
-
     const scores = teamMembers.map(member => {
-      const memberTasks = relevantTasks.filter(task => task.createdBy === member.uid);
-      const totalTimeSpent = memberTasks.reduce((total, task) => total + (task.timeSpent || 0), 0);
+      const allMemberTasks = tasks.filter(task => task.createdBy === member.uid);
+      
+      const score = calculateUserScoreForPeriod(allMemberTasks, startDate, endDate);
+
+      const tasksInPeriod = allMemberTasks.filter(task => {
+        if (task.status !== "completed" || !task.completedAt) return false;
+        const completedDate = new Date(task.completedAt as string);
+        return completedDate >= startDate && completedDate <= endDate;
+      });
+
+      const totalTimeSpent = tasksInPeriod.reduce((total, task) => total + (task.timeSpent || 0), 0);
+
       return {
         userId: member.uid,
         name: member.displayName || member.email,
         avatarUrl: member.photoURL,
-        score: calculateScore(memberTasks),
-        tasksCompleted: memberTasks.length,
+        score: score,
+        tasksCompleted: tasksInPeriod.length,
         totalTimeSpent: totalTimeSpent,
       };
     });
