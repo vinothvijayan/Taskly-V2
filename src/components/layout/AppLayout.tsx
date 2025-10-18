@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
-import { PipPrompt } from "@/components/pip/PipPrompt"
 
 interface AppLayoutProps {
   children: ReactNode
@@ -87,7 +86,6 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       <FloatingTimer />
       <TimeTrackingWidget />
       <PerformanceMonitor />
-      <PipPrompt />
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Search, Command, User, Settings, LogOut, Menu, X,
-  LayoutDashboard, CheckSquare, Users, Calendar, NotebookText, BarChart3, Mic
+  LayoutDashboard, CheckSquare, Users, Calendar, NotebookText, BarChart3, Mic, PictureInPicture
 } from "lucide-react";
 import {
   Tooltip,
@@ -31,6 +31,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePictureInPicture } from '@/hooks/usePictureInPicture';
+import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
+import { useTasks } from '@/contexts/TasksContext';
+import { PipWidget } from '@/components/pip/PipWidget';
 
 const navLinks = [
   { href: "/tasks", label: "Tasks", icon: <CheckSquare className="h-5 w-5" /> },
@@ -49,6 +53,9 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
+  const { isPipSupported, isPipOpen, openPipWindow, closePipWindow } = usePictureInPicture();
+  const { tasks, addTask, toggleTaskStatus } = useTasks();
+  const timeTracker = useTaskTimeTracker();
 
   const getPageTitle = () => {
     const path = location.pathname;
@@ -82,6 +89,29 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
       return email.split('@')[0].slice(0, 2).toUpperCase();
     }
     return "U";
+  };
+
+  const handleOpenPip = () => {
+    if (isPipOpen) {
+      closePipWindow();
+    } else {
+      openPipWindow(
+        <PipWidget
+          tasks={tasks}
+          onToggleStatus={toggleTaskStatus}
+          onClose={closePipWindow}
+          onAddTask={(taskData) => addTask({ ...taskData, priority: 'medium', status: 'todo' })}
+          trackingTask={timeTracker.trackingTask}
+          isTracking={timeTracker.isTracking}
+          currentSessionElapsedSeconds={timeTracker.currentSessionElapsedSeconds}
+          onPlayPause={timeTracker.isTracking ? timeTracker.pauseTracking : timeTracker.resumeTracking}
+          onStop={timeTracker.stopTracking}
+          getFormattedTime={timeTracker.getFormattedTime}
+          onStartTracking={timeTracker.startTracking}
+        />,
+        { width: 350, height: 500 }
+      );
+    }
   };
 
   return (
@@ -177,6 +207,28 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
 
           {/* User Actions */}
           <div className="flex items-center gap-2">
+            {isPipSupported && (
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleOpenPip}
+                      className={cn(
+                        "relative hover-scale transition-smooth h-9 w-9",
+                        isPipOpen && "text-primary bg-primary/10"
+                      )}
+                    >
+                      <PictureInPicture className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{isPipOpen ? "Close Widget" : "Open Task Widget"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <EnhancedNotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

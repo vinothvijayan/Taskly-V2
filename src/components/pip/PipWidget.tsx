@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react';
-import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer } from 'lucide-react';
+import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Task } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -11,6 +12,7 @@ interface PipWidgetProps {
   tasks: Task[];
   onToggleStatus: (taskId: string, options?: { playSound?: boolean }) => void;
   onClose: () => void;
+  onAddTask: (taskData: { title: string }) => void;
   // Timer props
   trackingTask: Task | null;
   isTracking: boolean;
@@ -25,6 +27,7 @@ export const PipWidget = ({
   tasks,
   onToggleStatus,
   onClose,
+  onAddTask,
   trackingTask,
   isTracking,
   currentSessionElapsedSeconds,
@@ -34,11 +37,11 @@ export const PipWidget = ({
   onStartTracking,
 }: PipWidgetProps) => {
   const [isTaskListVisible, setIsTaskListVisible] = useState(true);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
   const todoTasks = tasks.filter(t => t.status !== 'completed');
 
   const playSoundInPip = useCallback((url: string) => {
     try {
-      // 'window' here refers to the PiP window's global object
       const audio = new window.Audio(url);
       audio.play().catch(e => console.error("PiP audio play failed:", e));
     } catch (error) {
@@ -49,13 +52,16 @@ export const PipWidget = ({
   const handleToggleStatusWithSound = (taskId: string) => {
     const task = tasks.find(t => t.id === taskId);
     const isCompleting = task?.status !== 'completed';
-
-    // Tell the context not to play the sound, because we will handle it here.
     onToggleStatus(taskId, { playSound: false });
-
     if (isCompleting) {
       playSoundInPip(TASK_COMPLETE_SOUND_URL);
     }
+  };
+
+  const handleAddTask = () => {
+    if (!newTaskTitle.trim()) return;
+    onAddTask({ title: newTaskTitle.trim() });
+    setNewTaskTitle('');
   };
 
   return (
@@ -70,7 +76,7 @@ export const PipWidget = ({
           <Button variant="ghost" size="icon" onClick={() => setIsTaskListVisible(prev => !prev)} className="h-7 w-7 text-gray-400 hover:bg-gray-700">
             <List className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-400 hover:bg-gray-700">
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-400 hover:bg-gray-700" title="Return to App">
             <ArrowDownLeftFromSquare className="h-4 w-4" />
           </Button>
         </div>
@@ -154,6 +160,24 @@ export const PipWidget = ({
                     </div>
                   )}
                 </ul>
+              </div>
+              {/* Add Task Input Section */}
+              <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-700 flex-shrink-0">
+                <Input
+                  placeholder="Add a new task..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
+                  className="h-8 text-xs bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-primary"
+                />
+                <Button
+                  size="icon"
+                  onClick={handleAddTask}
+                  disabled={!newTaskTitle.trim()}
+                  className="h-8 w-8 flex-shrink-0 gradient-primary text-primary-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             </motion.div>
           )}
