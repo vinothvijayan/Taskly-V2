@@ -10,36 +10,19 @@ from urllib.parse import quote
 import re
 
 # --- SECURITY WARNING: Hardcoding API keys is dangerous. Use Secret Manager instead. ---
-# Using a placeholder for the requested hardcoded key. 
-# Replace with your actual key if you fully understand the security risks.
 HARDCODED_GEMINI_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
-# The top-level import is removed to fix the ModuleNotFoundError on startup.
-# All imports are moved into the functions that use them.
-# import google.generativeai as genai 
-
 from firebase_admin import initialize_app, storage, firestore, _apps
-# --- 1. ADD https_fn TO THIS IMPORT ---
 from firebase_functions import storage_fn, https_fn 
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-# It's OK to initialize the core app here.
 if not _apps:
     initialize_app()
 
-# ======================================================================================
-#  EXISTING AUTOMATIC TRIGGER (REMOVED secrets parameter)
-# ======================================================================================
-@storage_fn.on_object_finalized(
-    bucket="huddlely.firebasestorage.app",
-    # Secrets parameter is removed because the key is now "hardcoded"
-    # secrets=["GEMINI_API_KEY"] 
-)
+@storage_fn.on_object_finalized(bucket="huddlely.firebasestorage.app")
 def process_journal_entry(cloud_event: storage_fn.CloudEvent[storage_fn.StorageObjectData]) -> None:
     """
     Main function triggered by a new audio upload.
-    This is a single, robust function that processes the individual file AND
-    handles the aggregation to prevent race conditions.
     """
     print("--- process_journal_entry FINAL VERSION (V2 - No ID Filter) TRIGGERED ---")
     
@@ -128,20 +111,14 @@ def process_journal_entry(cloud_event: storage_fn.CloudEvent[storage_fn.StorageO
         except Exception as cleanup_error:
             print(f"Failed to mark document as failed: {cleanup_error}")
 
-# ======================================================================================
-#  NEW CALLABLE FUNCTION FOR PDF EXPORT (REMOVED secrets parameter)
-# ======================================================================================
-@https_fn.on_call(
-    # Secrets parameter is removed because the key is now "hardcoded"
-    # secrets=["GEMINI_API_KEY"]
-)
+@https_fn.on_call()
 def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
     if not req.auth:
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.UNAUTHENTICATED, message="Authentication required.")
     
     user_id = req.auth.uid
-    start_date_str = req.data.get("startDate") # e.g., "2025-09-06"
-    end_date_str = req.data.get("endDate")   # e.g., "2025-09-07"
+    start_date_str = req.data.get("startDate")
+    end_date_str = req.data.get("endDate")
 
     if not start_date_str or not end_date_str:
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT, message="Start and end dates are required.")
@@ -151,24 +128,19 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
     try:
         db = firestore.client()
         
-        # --- THIS IS THE FINAL, SIMPLIFIED QUERY ---
-        # It no longer requires a complex composite index.
         entries_query = db.collection('journalEntries') \
             .where(filter=FieldFilter("createdBy", "==", user_id)) \
             .where(filter=FieldFilter("journalDate", ">=", start_date_str)) \
             .where(filter=FieldFilter("journalDate", "<=", end_date_str))
-        # --- END OF QUERY CHANGE ---
         
         all_entries_docs = list(entries_query.stream())
 
-        # Filter for 'completed' and sort in Python code
         completed_entries = [doc for doc in all_entries_docs if doc.to_dict().get("status") == "completed"]
         completed_entries.sort(key=lambda doc: doc.to_dict().get("createdAt"))
 
         if not completed_entries:
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.NOT_FOUND, message="No completed entries found in the selected date range.")
 
-        # --- The rest of the function remains the same ---
         entries_by_date = {}
         for entry_doc in completed_entries:
             entry_data = entry_doc.to_dict()
@@ -201,18 +173,15 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
         blob = bucket.blob(export_path)
         blob.upload_from_string(pdf_bytes, content_type="application/pdf")
 
-        # Attach a Firebase download token (so we don't need a private key)
         token = uuid.uuid4().hex
         blob.metadata = {"firebaseStorageDownloadTokens": token}
-        blob.patch()  # persist metadata
+        blob.patch()
 
-        # Build the Firebase download URL (path must be URL-encoded)
         encoded_path = quote(export_path, safe="")
         download_url = (
             f"https://firebasestorage.googleapis.com/v0/b/{bucket.name}/o/{encoded_path}"
             f"?alt=media&token={token}"
         )
-
 
         print(f"Successfully created PDF export for user {user_id}.")
         return {"status": "success", "downloadUrl": download_url}
@@ -221,11 +190,7 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
         print(f"Error during PDF export for user {user_id}: {e}")
         raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.INTERNAL, message=f"An internal error occurred.")
 
-# ======================================================================================
-#  EXISTING & NEW HELPER FUNCTIONS (LAZY IMPORT + HARDCODED KEY)
-# ======================================================================================
 def process_single_audio_file(file_path: str) -> Dict[str, str]:
-    # ... (This function remains unchanged)
     bucket = storage.bucket()
     temp_webm_path, temp_mp3_path = None, None
     try:
@@ -240,39 +205,37 @@ def process_single_audio_file(file_path: str) -> Dict[str, str]:
         if temp_webm_path and os.path.exists(temp_webm_path): os.unlink(temp_webm_path)
         if temp_mp3_path and os.path.exists(temp_mp3_path): os.unlink(temp_mp3_path)
 
-
 def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]:
-    # --- LAZY IMPORT TO FIX CRASH ---
     import google.generativeai as genai 
     
-    # --- HARDCODED KEY ---
     if not HARDCODED_GEMINI_API_KEY:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    uploaded_file = None
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
+    
     try:
-        # --- THIS IS THE FIX ---
-        # Removed the 'display_name' parameter from the upload call.
-        uploaded_file = genai.upload_file(
-            path=audio_file_path, 
-            mime_type="audio/mp3"
-        )
-        while uploaded_file.state.name == "PROCESSING": time.sleep(2); uploaded_file = genai.get_file(uploaded_file.name)
-        if uploaded_file.state.name != "ACTIVE": raise ValueError("File processing failed on Gemini's servers.")
-        model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
-        transcript_res = model.generate_content(["Provide a clean and accurate transcript for this audio file.", uploaded_file])
-        translation_res = model.generate_content(["Translate the following transcript into clear and accurate English...", transcript_res.text])
+        with open(audio_file_path, "rb") as audio_file:
+            audio_bytes = audio_file.read()
+        
+        transcript_res = model.generate_content([
+            "Provide a clean and accurate transcript for this audio file.",
+            {"mime_type": "audio/mp3", "data": audio_bytes}
+        ])
+        
+        translation_res = model.generate_content([
+            "Translate the following transcript into clear and accurate English...",
+            transcript_res.text
+        ])
+        
         return {'transcript': transcript_res.text, 'translated_transcript': translation_res.text}
-    finally:
-        if uploaded_file is not None: genai.delete_file(uploaded_file.name)
-
+    except Exception as e:
+        print(f"Error in Gemini processing: {e}")
+        raise
 
 def get_wellness_analysis(full_transcript: str) -> str:
-    # --- LAZY IMPORT TO FIX CRASH ---
     import google.generativeai as genai
     
-    # --- HARDCODED KEY ---
     if not HARDCODED_GEMINI_API_KEY:
         raise ValueError("API key is missing.")
 
@@ -299,12 +262,9 @@ def get_wellness_analysis(full_transcript: str) -> str:
     analysis_response = model.generate_content(analysis_prompt)
     return analysis_response.text
 
-# --- NEW HELPER FOR DETAILED NARRATIVE (LAZY IMPORT + HARDCODED KEY) ---
 def get_detailed_narrative(full_transcript: str) -> str:
-    # --- LAZY IMPORT TO FIX CRASH ---
     import google.generativeai as genai
     
-    # --- HARDCODED KEY ---
     if not HARDCODED_GEMINI_API_KEY:
         raise ValueError("API key is missing.")
 
@@ -323,7 +283,6 @@ def get_detailed_narrative(full_transcript: str) -> str:
     analysis_response = model.generate_content(analysis_prompt)
     return analysis_response.text.replace("\n", "<br>")
 
-# --- NEW HELPER FOR HTML GENERATION ---
 def create_html_for_pdf(days_data) -> str:
     styles = """
         <style>
