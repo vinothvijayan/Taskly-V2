@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { useTasks } from "@/contexts/TasksContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useConfetti } from "@/contexts/ConfettiContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Award, Clock } from "lucide-react";
 import { startOfDay, endOfDay } from "date-fns";
@@ -18,6 +20,8 @@ const formatTime = (seconds: number): string => {
 
 export function TopPerformer() {
   const { tasks, teamMembers } = useTasks();
+  const { user } = useAuth();
+  const { showConfetti } = useConfetti();
 
   const topPerformer = useMemo(() => {
     if (teamMembers.length <= 1) return null;
@@ -57,6 +61,12 @@ export function TopPerformer() {
     return null;
 
   }, [tasks, teamMembers]);
+
+  useEffect(() => {
+    if (topPerformer && user && topPerformer.userId === user.uid) {
+      showConfetti();
+    }
+  }, [topPerformer, user, showConfetti]);
 
   if (!topPerformer) {
     return null;
