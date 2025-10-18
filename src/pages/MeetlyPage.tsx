@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { AudioRecorder } from "@/components/meetly/AudioRecorder";
-import { AudioUploader } from "@/components/meetly/AudioUploader";
 import { RecordingsList } from "@/components/meetly/RecordingsList";
 import { RecordingDetailModal } from "@/components/meetly/RecordingDetailModal";
 import { Card, CardContent } from "@/components/ui/card";
@@ -113,7 +112,7 @@ export default function MeetlyPage() {
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Audio Recorder & Uploader */}
+        {/* Audio Recorder */}
         <motion.div
           className="lg:col-span-1 space-y-6"
           initial={{ opacity: 0, x: -30 }}
@@ -121,8 +120,7 @@ export default function MeetlyPage() {
           transition={{ duration: 0.6 }}
         >
           <AudioRecorder />
-          <AudioUploader />
-
+          
           {/* Privacy & Security Info */}
           <Card className="border-muted backdrop-blur-md shadow-lg rounded-2xl">
             <CardContent className="p-6 space-y-4">
