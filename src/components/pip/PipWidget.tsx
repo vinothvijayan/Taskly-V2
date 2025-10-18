@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List } from 'lucide-react';
+import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task } from '@/types';
@@ -17,6 +17,7 @@ interface PipWidgetProps {
   onPlayPause: () => void;
   onStop: () => void;
   getFormattedTime: (seconds: number) => string;
+  onStartTracking: (task: Task) => void;
 }
 
 export const PipWidget = ({
@@ -29,6 +30,7 @@ export const PipWidget = ({
   onPlayPause,
   onStop,
   getFormattedTime,
+  onStartTracking,
 }: PipWidgetProps) => {
   const [isTaskListVisible, setIsTaskListVisible] = useState(true);
   const todoTasks = tasks.filter(t => t.status !== 'completed');
@@ -101,7 +103,7 @@ export const PipWidget = ({
               <div className="flex-1 overflow-y-auto pr-1">
                 <ul className="space-y-1">
                   {todoTasks.length > 0 ? todoTasks.map(task => (
-                    <li key={task.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-800 transition-colors">
+                    <li key={task.id} className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-800 transition-colors group">
                       <Checkbox
                         id={`pip-task-${task.id}`}
                         checked={task.status === 'completed'}
@@ -111,6 +113,17 @@ export const PipWidget = ({
                       <label htmlFor={`pip-task-${task.id}`} className="text-sm flex-1 truncate cursor-pointer">
                         {task.title}
                       </label>
+                      {trackingTask?.id !== task.id && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onStartTracking(task)}
+                          className="h-7 w-7 text-gray-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title={`Start tracking "${task.title}"`}
+                        >
+                          <Timer className="h-4 w-4" />
+                        </Button>
+                      )}
                     </li>
                   )) : (
                     <div className="text-center py-8 text-gray-500">

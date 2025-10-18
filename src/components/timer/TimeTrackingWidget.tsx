@@ -17,7 +17,8 @@ export function TimeTrackingWidget() {
     pauseTracking, 
     resumeTracking, 
     stopTracking, 
-    getFormattedTime 
+    getFormattedTime,
+    startTracking
   } = useTaskTimeTracker();
   
   const { tasks, toggleTaskStatus } = useTasks();
@@ -37,10 +38,11 @@ export function TimeTrackingWidget() {
           onPlayPause={isTracking ? pauseTracking : resumeTracking}
           onStop={handleStopAndClose}
           getFormattedTime={getFormattedTime}
+          onStartTracking={startTracking}
         />
       );
     }
-  }, [isPipOpen, pipWindow, tasks, trackingTask, isTracking, currentSessionElapsedSeconds]);
+  }, [isPipOpen, pipWindow, tasks, trackingTask, isTracking, currentSessionElapsedSeconds, startTracking]);
 
   const calculateProgress = () => {
     if (!trackingTask) return 0;
@@ -61,6 +63,7 @@ export function TimeTrackingWidget() {
         onPlayPause={isTracking ? pauseTracking : resumeTracking}
         onStop={handleStopAndClose}
         getFormattedTime={getFormattedTime}
+        onStartTracking={startTracking}
       />,
       { width: 350, height: 500 }
     );
