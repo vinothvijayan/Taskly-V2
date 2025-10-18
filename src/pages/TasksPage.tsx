@@ -1,8 +1,9 @@
-import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Sun, ListTodo, CalendarClock, List } from "lucide-react";
+import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { MobileTaskCard } from "@/components/tasks/MobileTaskCard";
 import { TaskForm } from "@/components/tasks/TaskForm";
@@ -21,45 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewFilter = 'my-day' | 'incomplete' | 'overdue' | 'all';
-
-const FilterButtons = ({ activeFilter, onFilterChange, isMobile }: { activeFilter: ViewFilter, onFilterChange: (filter: ViewFilter) => void, isMobile: boolean }) => {
-  const filters: { id: ViewFilter, label: string, icon: React.ElementType }[] = [
-    { id: 'my-day', label: 'My Day', icon: Sun },
-    { id: 'incomplete', label: 'Incomplete', icon: ListTodo },
-    { id: 'overdue', label: 'Overdue', icon: CalendarClock },
-    { id: 'all', label: 'All', icon: List },
-  ];
-
-  return (
-    <div className="relative flex items-center p-1 bg-muted rounded-full">
-      {filters.map(filter => (
-        <button
-          key={filter.id}
-          onClick={() => onFilterChange(filter.id)}
-          className={cn(
-            "relative rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            activeFilter === filter.id ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-          )}
-          style={{ WebkitTapHighlightColor: "transparent" }}
-        >
-          {activeFilter === filter.id && (
-            <motion.span
-              layoutId="activeFilterBubble"
-              className="absolute inset-0 z-0 bg-primary rounded-full shadow"
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            />
-          )}
-          <span className="relative z-10 flex items-center gap-2">
-            <filter.icon className="h-4 w-4" />
-            {!isMobile && <span>{filter.label}</span>}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-};
-
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
   const { startTaskTimer } = useTimer();
@@ -69,7 +31,6 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewFilter, setViewFilter] = useState<ViewFilter>('my-day');
 
   useEffect(() => {
     const isFormActive = !!editingTask;
@@ -88,50 +49,39 @@ export default function TasksPage() {
   };
 
   const { todoTasks, completedTasks } = useMemo(() => {
-    let baseTasks: Task[];
+    const tasksForSelectedDate = tasks.filter(task => {
+      const isCompletedOnDate = task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate);
+      if (isCompletedOnDate) {
+        return true;
+      }
 
-    switch (viewFilter) {
-      case 'my-day':
-        baseTasks = tasks.filter(task => {
-          if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
-            return true;
-          }
-          if (task.status === 'completed') {
-            return false;
-          }
-          if (isSameDay(new Date(task.createdAt), currentDate)) {
-            return true;
-          }
-          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-            return true;
-          }
-          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-            return true;
-          }
-          return false;
-        });
-        break;
-      case 'incomplete':
-        baseTasks = tasks.filter(task => task.status !== 'completed');
-        break;
-      case 'overdue':
-        baseTasks = tasks.filter(task => task.dueDate && new Date(task.dueDate) < startOfDay(new Date()) && task.status !== 'completed');
-        break;
-      case 'all':
-        baseTasks = tasks;
-        break;
-      default:
-        baseTasks = tasks;
-    }
+      if (!isToday(currentDate)) {
+        return task.dueDate && isSameDay(new Date(task.dueDate), currentDate) && task.status !== 'completed';
+      }
 
-    const allTodoTasks = baseTasks.filter(task => task.status !== 'completed');
-    const allCompletedTasks = baseTasks.filter(task => task.status === 'completed');
+      if (task.status === 'completed') return false;
+
+      if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+        return true;
+      }
+      if (task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+        return true;
+      }
+      if (!task.dueDate) {
+        return true;
+      }
+
+      return false;
+    });
+
+    const allTodoTasks = tasksForSelectedDate.filter(task => task.status !== 'completed');
+    const allCompletedTasks = tasksForSelectedDate.filter(task => task.status === 'completed');
 
     return {
       todoTasks: allTodoTasks,
       completedTasks: allCompletedTasks
     };
-  }, [tasks, currentDate, viewFilter]);
+  }, [tasks, currentDate]);
 
   const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user?.uid) return;
@@ -235,8 +185,10 @@ export default function TasksPage() {
             <div className="flex-1 min-h-0 overflow-hidden">
               <div className="space-y-4 pb-24 px-2">
                 <div className="flex flex-col space-y-3">
-                  <div className="px-1">
-                    <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
+                  <div className="flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <h2 className="text-base font-semibold text-primary">Active Tasks</h2>
+                    <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
                   </div>
                   <div className="space-y-3">
                     {todoTasks.length === 0 && completedTasks.length === 0 ? (
@@ -279,9 +231,7 @@ export default function TasksPage() {
     <>
       <div className="h-full flex flex-col p-6">
         <div className="flex items-center justify-between mb-6">
-          <div className="w-64">
-            <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
-          </div>
+          <div className="w-48" />
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={handlePrevDay} className="rounded-full h-10 w-10">
               <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
@@ -294,58 +244,37 @@ export default function TasksPage() {
               <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
             </Button>
           </div>
-          <div className="flex justify-end w-64">
+          <div className="flex justify-end w-48">
             <TopPerformer />
           </div>
         </div>
-        <div className="flex-1 rounded-lg border shadow-sm flex flex-col overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckSquare className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Tasks</h2>
-              <Badge variant="secondary">{todoTasks.length + completedTasks.length}</Badge>
-            </div>
-            <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
-              <Plus className="h-4 w-4 text-muted-foreground" />
-              <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
-            </div>
-          </div>
-          <ScrollArea className="flex-1">
-            <div className="p-4 space-y-2">
-              {todoTasks.length === 0 && completedTasks.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <p>No tasks for this day.</p>
+        <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
+          <ResizablePanel defaultSize={60} minSize={40}>
+            <div className="flex flex-col h-full">
+              <div className="p-4 border-b space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Active Tasks</h2>
+                    <Badge variant="secondary">{todoTasks.length}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
+                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <AnimatePresence>
-                    {todoTasks.map(task => (
-                      <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
-                        <TaskCard task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  {completedTasks.length > 0 && (
-                    <>
-                      <div className="flex items-center py-4">
-                        <div className="flex-grow border-t"></div>
-                        <span className="flex-shrink mx-4 text-muted-foreground text-sm font-medium">Completed ({completedTasks.length})</span>
-                        <div className="flex-grow border-t"></div>
-                      </div>
-                      <AnimatePresence>
-                        {completedTasks.map(task => (
-                          <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
-                            <TaskCard task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </>
-                  )}
-                </>
-              )}
+              </div>
+              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
             </div>
-          </ScrollArea>
-        </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={40} minSize={30}>
+            <div className="flex flex-col h-full">
+              <div className="p-4 border-b flex items-center justify-between"><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold">Completed</h2></div><Badge variant="secondary">{completedTasks.length}</Badge></div>
+              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks for this day.</p></div>}</div></ScrollArea>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </div>
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] shadow-elegant"><DialogHeader><DialogTitle className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" />Edit Task</DialogTitle><DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription></DialogHeader>{editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}</DialogContent>
