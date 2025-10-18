@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Award, Clock } from "lucide-react";
 import { startOfDay, endOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { calculateUserScoreForPeriod } from "@/lib/scoring"; // Import the new scoring function
+import { calculateUserScoreForPeriod } from "@/lib/scoring";
 
 const formatTime = (seconds: number): string => {
   if (seconds < 60) return `~1m`;
@@ -63,22 +63,26 @@ export function TopPerformer() {
   }
 
   return (
-    <div className="flex items-center gap-2 p-2 pr-3 bg-background border border-border rounded-lg text-sm shadow-sm">
-      <Award className="h-5 w-5 text-primary" />
-      <span className="text-muted-foreground font-medium">Top Performer:</span>
-      <Avatar className="h-6 w-6">
+    <div className="flex items-center gap-3 p-2 pr-3 bg-gradient-to-r from-amber-50/50 via-background to-background border border-amber-200/60 dark:from-amber-950/30 dark:border-amber-800/50 rounded-full text-sm shadow-sm transition-all hover:shadow-md hover:border-amber-300/80">
+      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900/50">
+        <Award className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-amber-700 dark:text-amber-300 -mb-1">Top Performer</span>
+        <span className="font-bold text-foreground truncate">{topPerformer.name}</span>
+      </div>
+      {topPerformer.totalTimeSpent > 0 && (
+        <Badge variant="secondary" className="text-xs font-mono flex items-center gap-1 bg-amber-100/50 dark:bg-amber-900/30 border-amber-200/50 dark:border-amber-800/50 text-amber-800 dark:text-amber-200">
+          <Clock className="h-3 w-3" />
+          {formatTime(topPerformer.totalTimeSpent)}
+        </Badge>
+      )}
+      <Avatar className="h-8 w-8 border-2 border-background">
         <AvatarImage src={topPerformer.avatarUrl} />
         <AvatarFallback className="text-xs bg-muted">
           {topPerformer.name.split(' ').map(n => n[0]).join('').toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <span className="font-semibold text-foreground">{topPerformer.name}</span>
-      {topPerformer.totalTimeSpent > 0 && (
-        <Badge variant="secondary" className="text-xs font-mono flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          {formatTime(topPerformer.totalTimeSpent)}
-        </Badge>
-      )}
     </div>
   );
 }
