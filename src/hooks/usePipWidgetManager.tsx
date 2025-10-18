@@ -40,19 +40,31 @@ export function usePipWidgetManager() {
         height: 480,
       });
 
+      // --- THIS IS THE FIX ---
+      // Copy all <link rel="stylesheet"> tags from the main document to the PiP window
+      const stylesheets = Array.from(document.head.querySelectorAll('link[rel="stylesheet"]'));
+      stylesheets.forEach(link => {
+        const newLink = newPipWindow.document.createElement('link');
+        newLink.rel = 'stylesheet';
+        newLink.href = link.href;
+        newPipWindow.document.head.appendChild(newLink);
+      });
+
+      // Also, let's add a basic body style to ensure a good starting point
       const style = newPipWindow.document.createElement('style');
       style.textContent = `
-        body { margin: 0; background-color: #111827; color: #f9fafb; font-family: sans-serif; overflow: hidden; }
+        body { margin: 0; overflow: hidden; }
         #root { height: 100vh; width: 100vw; }
       `;
       newPipWindow.document.head.appendChild(style);
+      // --- END OF FIX ---
+
       const mountPoint = newPipWindow.document.createElement('div');
       mountPoint.id = 'root';
       newPipWindow.document.body.appendChild(mountPoint);
 
       const reactRoot = createRoot(mountPoint);
       
-      // Construct the PipWidget with all necessary props from contexts
       const pipContent = (
         <PipWidget
           tasks={tasksContext.tasks}
@@ -93,8 +105,6 @@ export function usePipWidgetManager() {
     }
   }, [isPipSupported, isPipOpen, tasksContext, timeTrackerContext, closePip]);
 
-  // This useEffect is the key to keeping the widget updated.
-  // It re-renders the content inside the PiP window whenever the data changes.
   useEffect(() => {
     if (isPipOpen && pipWindow?.reactRoot) {
       const pipContent = (
