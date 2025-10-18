@@ -152,13 +152,13 @@ def process_meeting_with_gemini(audio_chunk_paths: list[str], display_name: str)
         print(f"Processing chunk {i+1}/{len(audio_chunk_paths)} for '{display_name}'...")
         uploaded_file = None
         try:
-            # Sanitize the display name to remove invalid characters
-            sanitized_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', display_name)
+            # --- FIX: Use a simple, unique name for the upload ---
+            unique_display_name = f"meetly_chunk_{i}_{int(time.time())}"
             
             # Upload chunk
             uploaded_file = genai.upload_file(
                 path=chunk_path, 
-                display_name=f"chunk_{i}_{sanitized_name}", 
+                display_name=unique_display_name, 
                 mime_type="audio/mp3"
             )
             while uploaded_file.state.name == "PROCESSING":
