@@ -130,6 +130,26 @@ export function TaskCard({
                   {task.title}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCommentsExpanded(!isCommentsExpanded);
+                      if (task.lastCommentedAt) {
+                        setTaskAsViewed(task.id, task.lastCommentedAt);
+                      }
+                    }}
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 relative"
+                  >
+                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                    {commentCount > 0 && (
+                      <Badge variant="secondary" className="absolute -top-1 -right-2 h-4 min-w-[16px] justify-center p-0.5 text-[10px]">{commentCount}</Badge>
+                    )}
+                    {isRecentlyCommented && !isCommentsExpanded && (
+                      <div className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
+                    )}
+                  </Button>
                   <Button onClick={(e) => { e.stopPropagation(); onTogglePriority(task.id); }} variant="ghost" size="icon" className="h-7 w-7">
                     {task.priority === "high" ? <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /> : <StarOff className="h-4 w-4 text-muted-foreground" />}
                   </Button>
@@ -161,31 +181,6 @@ export function TaskCard({
         <div className="px-4 pb-2 border-t border-border/50" data-no-edit-on-click>
           {(!isCompleted || (task.subtasks && task.subtasks.length > 0)) && <SubtasksSection task={task} />}
           
-          <Button
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsCommentsExpanded(!isCommentsExpanded);
-              if (task.lastCommentedAt) {
-                setTaskAsViewed(task.id, task.lastCommentedAt);
-              }
-            }}
-            className="w-full justify-between py-1 px-2 h-auto hover:bg-muted/30 rounded-lg transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">
-                Comments {commentCount > 0 && `(${commentCount})`}
-              </span>
-              {isRecentlyCommented && !isCommentsExpanded && <div className="w-2 h-2 bg-primary rounded-full" />}
-            </div>
-            {isCommentsExpanded ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-
           <TaskComments 
             taskId={task.id} 
             isExpanded={isCommentsExpanded} 
