@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { PictureInPicture } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
-import { usePipWidgetManager } from '@/hooks/usePipWidgetManager';
+import { usePipWidgetManager } from '@/hooks/usePipWidgetManager.tsx';
 
 export function PipPrompt() {
   const [isVisible, setIsVisible] = useState(false);

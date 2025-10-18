@@ -2,7 +2,7 @@ import { Play, Pause, Square, PictureInPicture } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTaskTimeTracker } from "@/contexts/TaskTimeTrackerContext";
-import { usePipWidgetManager } from "@/hooks/usePipWidgetManager";
+import { usePipWidgetManager } from "@/hooks/usePipWidgetManager.tsx";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
