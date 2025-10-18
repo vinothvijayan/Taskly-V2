@@ -63,7 +63,7 @@ export default function TasksPage() {
   };
 
   const { todoTasks, completedTasks } = useMemo(() => {
-    const filteredByDate = tasks.filter(task => {
+    const tasksForSelectedDate = tasks.filter(task => {
       const isCompletedOnDate = task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate);
       if (isCompletedOnDate) {
         return true;
@@ -88,14 +88,17 @@ export default function TasksPage() {
       return false;
     });
 
-    const filteredTodo = todoTasks.filter(task => {
+    const allTodoTasks = tasksForSelectedDate.filter(task => task.status !== 'completed');
+    const allCompletedTasks = tasksForSelectedDate.filter(task => task.status === 'completed');
+
+    const filteredTodo = allTodoTasks.filter(task => {
       if (filters.status !== "all" && task.status !== filters.status) return false;
       if (filters.priority !== "all" && task.priority !== filters.priority) return false;
       if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
       return true;
     });
 
-    const filteredCompleted = completedTasks.filter(task => {
+    const filteredCompleted = allCompletedTasks.filter(task => {
       if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
       return true;
     });
