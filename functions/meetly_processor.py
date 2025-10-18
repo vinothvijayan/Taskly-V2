@@ -126,8 +126,9 @@ def process_with_gemini(audio_chunk_paths: list[str]) -> Dict[str, str]:
         print(f"Processing chunk {i+1}/{len(audio_chunk_paths)}...")
         uploaded_file = None
         try:
-            unique_name = f"meetly_chunk_{i}_{int(time.time())}"
-            uploaded_file = genai.upload_file(path=chunk_path, display_name=unique_name, mime_type="audio/mp3")
+            # --- THIS IS THE FIX ---
+            # Removed the 'display_name' parameter from the upload call.
+            uploaded_file = genai.upload_file(path=chunk_path, mime_type="audio/mp3")
             
             while uploaded_file.state.name == "PROCESSING":
                 time.sleep(5)
