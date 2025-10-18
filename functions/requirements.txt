@@ -1,5 +1,5 @@
 firebase-functions
 firebase-admin
 google-generativeai
-weasyprint
 requests
+weasyprint
