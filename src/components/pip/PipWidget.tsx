@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer, Plus } from 'lucide-react';
+import { CheckSquare, ArrowDownLeftFromSquare, Play, Pause, Square, List, Timer, Plus, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
