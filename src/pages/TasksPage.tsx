@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { MobileTaskCard } from "@/components/tasks/MobileTaskCard";
 import { TaskForm } from "@/components/tasks/TaskForm";
@@ -18,7 +17,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Task, UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { TasksPageSkeleton } from "@/components/skeletons";
-import { Badge } from "@/components/ui/badge";
 import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -97,17 +95,16 @@ export default function TasksPage() {
           if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
             return true;
           }
-          if (task.status === 'completed') {
-            return false;
-          }
-          if (isSameDay(new Date(task.createdAt), currentDate)) {
-            return true;
-          }
-          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-            return true;
-          }
-          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-            return true;
+          if (task.status !== 'completed') {
+            if (isSameDay(new Date(task.createdAt), currentDate)) {
+              return true;
+            }
+            if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+              return true;
+            }
+            if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+              return true;
+            }
           }
           return false;
         });
@@ -236,13 +233,6 @@ export default function TasksPage() {
             <div className="flex-1 min-h-0 overflow-hidden">
               <div className="space-y-4 pb-24 px-2">
                 <div className="flex flex-col space-y-3">
-                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
-                    <div className="flex items-center gap-3">
-                      <CheckSquare className="h-5 w-5 text-primary" />
-                      <h2 className="text-base font-semibold text-primary">Active Tasks</h2>
-                    </div>
-                    <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
-                  </div>
                   <div className="px-1">
                     <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
                   </div>
@@ -306,31 +296,54 @@ export default function TasksPage() {
             <TopPerformer />
           </div>
         </div>
-        <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
-          <ResizablePanel defaultSize={60} minSize={40}>
-            <div className="flex flex-col h-full">
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold">Active Tasks</h2>
-                  <Badge variant="secondary">{todoTasks.length}</Badge>
-                </div>
-                <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
-                  <Plus className="h-4 w-4 text-muted-foreground" />
-                  <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
-                </div>
-              </div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
+        <div className="flex-1 rounded-lg border shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Tasks</h2>
+              <Badge variant="secondary">{todoTasks.length + completedTasks.length}</Badge>
             </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={40} minSize={30}>
-            <div className="flex flex-col h-full">
-              <div className="p-4 border-b flex items-center justify-between"><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold">Completed</h2></div><Badge variant="secondary">{completedTasks.length}</Badge></div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks for this day.</p></div>}</div></ScrollArea>
+            <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
+              <Plus className="h-4 w-4 text-muted-foreground" />
+              <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
             </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-2">
+              {todoTasks.length === 0 && completedTasks.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <p>No tasks for this day.</p>
+                </div>
+              ) : (
+                <>
+                  <AnimatePresence>
+                    {todoTasks.map(task => (
+                      <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
+                        <TaskCard task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {completedTasks.length > 0 && (
+                    <>
+                      <div className="flex items-center py-4">
+                        <div className="flex-grow border-t"></div>
+                        <span className="flex-shrink mx-4 text-muted-foreground text-sm font-medium">Completed ({completedTasks.length})</span>
+                        <div className="flex-grow border-t"></div>
+                      </div>
+                      <AnimatePresence>
+                        {completedTasks.map(task => (
+                          <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
+                            <TaskCard task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] shadow-elegant"><DialogHeader><DialogTitle className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" />Edit Task</DialogTitle><DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription></DialogHeader>{editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}</DialogContent>
