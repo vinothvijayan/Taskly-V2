@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, Award, Medal, TrendingUp } from "lucide-react";
+import { Crown, Award, Medal, TrendingUp, Clock } from "lucide-react";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import { LeaderboardSkeleton } from "@/components/skeletons";
@@ -20,6 +20,7 @@ interface ScoreData {
   avatarUrl?: string;
   score: number;
   tasksCompleted: number;
+  totalTimeSpent: number;
 }
 
 const calculateScore = (tasks: Task[]): number => {
@@ -36,6 +37,16 @@ const getRankIcon = (rank: number) => {
   if (rank === 1) return <Award className="h-5 w-5 text-gray-400" />;
   if (rank === 2) return <Medal className="h-5 w-5 text-orange-400" />;
   return <span className="text-sm font-bold w-5 text-center">{rank + 1}</span>;
+};
+
+const formatTime = (seconds: number): string => {
+  if (seconds < 60) return `~1m`;
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  return `${minutes}m`;
 };
 
 export function Leaderboard() {
@@ -64,12 +75,14 @@ export function Leaderboard() {
 
     const scores = teamMembers.map(member => {
       const memberTasks = relevantTasks.filter(task => task.createdBy === member.uid);
+      const totalTimeSpent = memberTasks.reduce((total, task) => total + (task.timeSpent || 0), 0);
       return {
         userId: member.uid,
         name: member.displayName || member.email,
         avatarUrl: member.photoURL,
         score: calculateScore(memberTasks),
         tasksCompleted: memberTasks.length,
+        totalTimeSpent: totalTimeSpent,
       };
     });
 
@@ -134,7 +147,18 @@ export function Leaderboard() {
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{user.name}</p>
-                  <p className="text-xs text-muted-foreground">{user.tasksCompleted} tasks</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <span>{user.tasksCompleted} tasks</span>
+                    {user.totalTimeSpent > 0 && (
+                      <>
+                        <span className="text-muted-foreground/50">•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatTime(user.totalTimeSpent)}
+                        </span>
+                      </>
+                    )}
+                  </p>
                 </div>
                 <Badge variant="secondary" className="font-bold text-base px-3 py-1 rounded-full">
                   {user.score}

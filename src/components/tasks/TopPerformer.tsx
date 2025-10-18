@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useTasks } from "@/contexts/TasksContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Award } from "lucide-react";
+import { Award, Clock } from "lucide-react";
 import { startOfDay, endOfDay } from "date-fns";
 import { Task } from "@/types";
+import { Badge } from "@/components/ui/badge";
 
 const calculateScore = (tasks: Task[]): number => {
   return tasks.reduce((totalScore, task) => {
@@ -12,6 +13,16 @@ const calculateScore = (tasks: Task[]): number => {
     if (task.priority === "medium") score += 2;
     return totalScore + score;
   }, 0);
+};
+
+const formatTime = (seconds: number): string => {
+  if (seconds < 60) return `~1m`;
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  return `${minutes}m`;
 };
 
 export function TopPerformer() {
@@ -34,11 +45,13 @@ export function TopPerformer() {
 
     const scores = teamMembers.map(member => {
       const memberTasks = todaysTasks.filter(task => task.createdBy === member.uid);
+      const totalTimeSpent = memberTasks.reduce((total, task) => total + (task.timeSpent || 0), 0);
       return {
         userId: member.uid,
         name: member.displayName || member.email,
         avatarUrl: member.photoURL,
         score: calculateScore(memberTasks),
+        totalTimeSpent: totalTimeSpent,
       };
     });
 
@@ -67,6 +80,12 @@ export function TopPerformer() {
         </AvatarFallback>
       </Avatar>
       <span className="font-bold text-sm">{topPerformer.name}</span>
+      {topPerformer.totalTimeSpent > 0 && (
+        <Badge variant="outline" className="text-xs font-mono bg-background/50 border-yellow-400/30 flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {formatTime(topPerformer.totalTimeSpent)}
+        </Badge>
+      )}
     </div>
   );
 }
