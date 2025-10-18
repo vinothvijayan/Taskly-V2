@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Info, Puzzle, Star, CalendarCheck2, Flame, GitFork } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const RuleSection = ({ icon: Icon, title, description, children }: { icon: React.ElementType, title: string, description: string, children: React.ReactNode }) => (
   <div className="space-y-3">
