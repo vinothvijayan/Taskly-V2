@@ -13,12 +13,13 @@ import { AnimatedContainer, StaggeredList } from "@/components/ui/smooth-transit
 import { useTasks } from "@/contexts/TasksContext";
 import { useTimer } from "@/contexts/TimerContext";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Task, UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { TasksPageSkeleton } from "@/components/skeletons";
+import { Badge } from "@/components/ui/badge";
 
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
