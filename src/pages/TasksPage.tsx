@@ -1,4 +1,4 @@
-import { Plus, CheckSquare, Clock } from "lucide-react";
+import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,7 +9,6 @@ import { MobileTaskCard } from "@/components/tasks/MobileTaskCard";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { FloatingActionButton } from "@/components/tasks/FloatingActionButton";
 import { TopPerformer } from "@/components/tasks/TopPerformer";
-import { AnimatedContainer, StaggeredList } from "@/components/ui/smooth-transitions";
 import { useTasks } from "@/contexts/TasksContext";
 import { useTimer } from "@/contexts/TimerContext";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -20,6 +19,7 @@ import { Task, UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { TasksPageSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
+import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
 
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
@@ -29,6 +29,7 @@ export default function TasksPage() {
   const isMobile = useIsMobile();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     const isFormActive = !!editingTask;
@@ -36,17 +37,55 @@ export default function TasksPage() {
     return () => setTaskFormActive(false);
   }, [editingTask, setTaskFormActive]);
 
-  const { todoTasks, completedTasks } = useMemo(() => ({
-    todoTasks: tasks.filter(task => task.status !== "completed"),
-    completedTasks: tasks.filter(task => task.status === "completed")
-  }), [tasks]);
+  const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
+  const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
+
+  const getHeaderTitle = () => {
+    if (isToday(currentDate)) return "My Day";
+    if (isYesterday(currentDate)) return "Yesterday";
+    if (isTomorrow(currentDate)) return "Tomorrow";
+    return format(currentDate, "EEEE");
+  };
+
+  const { todoTasks, completedTasks } = useMemo(() => {
+    const filteredByDate = tasks.filter(task => {
+      const isCompletedOnDate = task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate);
+      if (isCompletedOnDate) {
+        return true;
+      }
+
+      if (!isToday(currentDate)) {
+        return task.dueDate && isSameDay(new Date(task.dueDate), currentDate) && task.status !== 'completed';
+      }
+
+      if (task.status === 'completed') return false;
+
+      if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+        return true;
+      }
+      if (task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+        return true;
+      }
+      if (!task.dueDate) {
+        return true;
+      }
+
+      return false;
+    });
+
+    return {
+      todoTasks: filteredByDate.filter(task => task.status !== "completed"),
+      completedTasks: filteredByDate.filter(task => task.status === "completed")
+    };
+  }, [tasks, currentDate]);
 
   const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user?.uid) return;
+    const taskPayload = { ...taskData, createdBy: user.uid, dueDate: taskData.dueDate || format(currentDate, 'yyyy-MM-dd') };
     if (navigator.onLine) {
-      addTask({ ...taskData, createdBy: user.uid });
+      addTask(taskPayload);
     } else {
-      await createTaskOffline(taskData, user.uid);
+      await createTaskOffline(taskPayload, user.uid);
     }
     setEditingTask(null);
   };
@@ -63,7 +102,7 @@ export default function TasksPage() {
 
   const handleQuickAddTask = async () => {
     if (!quickTaskTitle.trim() || !user?.uid) return;
-    const taskData = { title: quickTaskTitle.trim(), priority: "medium" as const, status: "todo" as const, createdBy: user.uid };
+    const taskData = { title: quickTaskTitle.trim(), priority: "medium" as const, status: "todo" as const, createdBy: user.uid, dueDate: format(currentDate, 'yyyy-MM-dd') };
     if (navigator.onLine) {
       addTask(taskData);
     } else {
@@ -106,13 +145,13 @@ export default function TasksPage() {
 
   const handleQuickCapture = useCallback(async (taskData: any) => {
     if (!user?.uid) return;
-    const fullTaskData = { ...taskData, status: "todo" as const, createdBy: user.uid };
+    const fullTaskData = { ...taskData, status: "todo" as const, createdBy: user.uid, dueDate: format(currentDate, 'yyyy-MM-dd') };
     if (navigator.onLine) {
       addTask({ ...fullTaskData, createdAt: new Date().toISOString() });
     } else {
       await createTaskOffline(fullTaskData, user.uid);
     }
-  }, [user?.uid, addTask, createTaskOffline]);
+  }, [user?.uid, addTask, createTaskOffline, currentDate]);
 
   if (loading) {
     return <TasksPageSkeleton />;
@@ -123,9 +162,21 @@ export default function TasksPage() {
       <>
         <div className="h-full overflow-y-auto scrollbar-hide touch-pan-y">
           <div className="container max-w-7xl mx-auto p-4 flex flex-col flex-1 min-h-0">
-            <div className="text-center space-y-2 mb-4 px-2">
-              <h1 className="font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent text-2xl">My Day</h1>
-              <p className="text-muted-foreground text-sm px-4">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+            <div className="flex items-center justify-center space-x-2 text-center mb-4 px-2">
+              <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-12 w-12 rounded-full">
+                <ChevronLeft className="h-7 w-7" strokeWidth={2.5} />
+              </Button>
+              <div className="space-y-1 flex-1">
+                <h1 className="font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent text-2xl">
+                  {getHeaderTitle()}
+                </h1>
+                <p className="text-muted-foreground text-sm">
+                  {format(currentDate, 'EEEE, MMMM d')}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-12 w-12 rounded-full">
+                <ChevronRight className="h-7 w-7" strokeWidth={2.5} />
+              </Button>
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <div className="space-y-4 pb-24 px-2">
@@ -136,10 +187,10 @@ export default function TasksPage() {
                     <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
                   </div>
                   <div className="space-y-3">
-                    {todoTasks.length === 0 ? (
+                    {todoTasks.length === 0 && completedTasks.length === 0 ? (
                       <div className="text-center py-12 space-y-3 mx-2">
                         <div className="h-20 w-20 bg-gradient-to-br from-primary/10 to-focus/10 rounded-2xl flex items-center justify-center mx-auto shadow-lg"><CheckSquare className="h-8 w-8 text-muted-foreground/50" /></div>
-                        <div><h3 className="text-lg font-medium text-muted-foreground mb-2">No tasks yet</h3><p className="text-sm text-muted-foreground px-4">Tap the + button to add your first task</p></div>
+                        <div><h3 className="text-lg font-medium text-muted-foreground mb-2">No tasks for this day</h3><p className="text-sm text-muted-foreground px-4">Tap the + button to add a task</p></div>
                       </div>
                     ) : (
                       <StaggeredList>
@@ -169,13 +220,21 @@ export default function TasksPage() {
   return (
     <>
       <div className="h-full flex flex-col p-6">
-        <div className="grid grid-cols-3 items-center mb-6">
-          <div /> {/* Empty div for spacing */}
-          <div className="text-center">
-            <h1 className="text-3xl font-bold">My Day</h1>
-            <p className="text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="w-48" />
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={handlePrevDay} className="rounded-full h-10 w-10">
+              <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
+            </Button>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold">{getHeaderTitle()}</h1>
+              <p className="text-muted-foreground">{format(currentDate, 'EEEE, MMMM d')}</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleNextDay} className="rounded-full h-10 w-10">
+              <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
+            </Button>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end w-48">
             <TopPerformer />
           </div>
         </div>
@@ -186,14 +245,14 @@ export default function TasksPage() {
                 <div className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" /><h2 className="text-lg font-semibold">Active Tasks</h2><Badge variant="secondary">{todoTasks.length}</Badge></div>
                 <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3"><Plus className="h-4 w-4 text-muted-foreground" /><Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" /></div>
               </div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>All tasks completed!</p></div>}</div></ScrollArea>
+              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize={40} minSize={30}>
             <div className="flex flex-col h-full">
               <div className="p-4 border-b flex items-center justify-between"><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold">Completed</h2></div><Badge variant="secondary">{completedTasks.length}</Badge></div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks yet.</p></div>}</div></ScrollArea>
+              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks for this day.</p></div>}</div></ScrollArea>
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
