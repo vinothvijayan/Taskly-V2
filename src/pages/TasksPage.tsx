@@ -97,16 +97,17 @@ export default function TasksPage() {
           if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
             return true;
           }
-          if (task.status !== 'completed') {
-            if (isSameDay(new Date(task.createdAt), currentDate)) {
-              return true;
-            }
-            if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-              return true;
-            }
-            if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-              return true;
-            }
+          if (task.status === 'completed') {
+            return false;
+          }
+          if (isSameDay(new Date(task.createdAt), currentDate)) {
+            return true;
+          }
+          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+            return true;
+          }
+          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+            return true;
           }
           return false;
         });
@@ -286,7 +287,9 @@ export default function TasksPage() {
     <>
       <div className="h-full flex flex-col p-6">
         <div className="flex items-center justify-between mb-6">
-          <div className="w-48" />
+          <div className="w-64">
+            <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
+          </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={handlePrevDay} className="rounded-full h-10 w-10">
               <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
@@ -299,25 +302,22 @@ export default function TasksPage() {
               <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
             </Button>
           </div>
-          <div className="flex justify-end w-48">
+          <div className="flex justify-end w-64">
             <TopPerformer />
           </div>
         </div>
         <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
           <ResizablePanel defaultSize={60} minSize={40}>
             <div className="flex flex-col h-full">
-              <div className="p-4 border-b space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Active Tasks</h2>
-                    <Badge variant="secondary">{todoTasks.length}</Badge>
-                  </div>
-                  <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
-                  <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
-                    <Plus className="h-4 w-4 text-muted-foreground" />
-                    <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
-                  </div>
+              <div className="p-4 border-b flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckSquare className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Active Tasks</h2>
+                  <Badge variant="secondary">{todoTasks.length}</Badge>
+                </div>
+                <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                  <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
                 </div>
               </div>
               <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
