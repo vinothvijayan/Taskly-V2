@@ -64,7 +64,13 @@ export function TopPerformer() {
 
   useEffect(() => {
     if (topPerformer && user && topPerformer.userId === user.uid) {
-      showConfetti();
+      const today = new Date().toISOString().split('T')[0];
+      const confettiKey = `confetti_shown_${user.uid}_${today}`;
+
+      if (!sessionStorage.getItem(confettiKey)) {
+        showConfetti();
+        sessionStorage.setItem(confettiKey, 'true');
+      }
     }
   }, [topPerformer, user, showConfetti]);
 
