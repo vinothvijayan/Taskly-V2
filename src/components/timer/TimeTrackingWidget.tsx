@@ -1,4 +1,4 @@
-import { Play, Pause, Square, PictureInPicture, ArrowDownLeftFromSquare } from "lucide-react";
+import { Play, Pause, Square, PictureInPicture } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTaskTimeTracker } from "@/contexts/TaskTimeTrackerContext";
@@ -6,42 +6,8 @@ import { usePictureInPicture } from "@/hooks/usePictureInPicture";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useEffect } from "react";
-
-// A smaller, dedicated UI component for the PiP window, styled to match the user's reference
-const PipTimeTrackerUI = ({
-  taskTitle,
-  isTracking,
-  currentSessionElapsedSeconds,
-  onPlayPause,
-  onStop,
-  onPopIn,
-  getFormattedTime,
-}: any) => (
-  <div className="p-3 h-full w-full flex items-center gap-3 bg-background text-foreground font-sans">
-    <Button
-      variant="default"
-      size="icon"
-      onClick={onPlayPause}
-      className="h-10 w-10 rounded-full flex-shrink-0 gradient-primary text-primary-foreground shadow-lg"
-    >
-      {isTracking ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-    </Button>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium truncate" title={taskTitle}>{taskTitle}</p>
-      <p className="text-sm font-mono text-primary font-semibold">
-        {getFormattedTime(currentSessionElapsedSeconds)}
-      </p>
-    </div>
-    <div className="flex items-center flex-shrink-0">
-      <Button variant="ghost" size="icon" onClick={onStop} className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-        <Square className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={onPopIn} className="h-9 w-9 rounded-lg text-muted-foreground">
-        <ArrowDownLeftFromSquare className="h-4 w-4" />
-      </Button>
-    </div>
-  </div>
-);
+import { useTasks } from "@/contexts/TasksContext";
+import { PipWidget } from "@/components/pip/PipWidget";
 
 export function TimeTrackingWidget() {
   const { 
@@ -54,31 +20,30 @@ export function TimeTrackingWidget() {
     getFormattedTime 
   } = useTaskTimeTracker();
   
+  const { tasks, toggleTaskStatus } = useTasks();
   const { isPipSupported, isPipOpen, pipWindow, openPipWindow, closePipWindow } = usePictureInPicture();
 
-  // This effect now correctly re-renders the content inside the existing PiP window
+  // This effect keeps the PiP window's content up-to-date
   useEffect(() => {
-    if (isPipOpen && pipWindow?.reactRoot && trackingTask) {
+    if (isPipOpen && pipWindow?.reactRoot) {
       pipWindow.reactRoot.render(
-        <PipTimeTrackerUI
-          taskTitle={trackingTask.title}
+        <PipWidget
+          tasks={tasks}
+          onToggleStatus={toggleTaskStatus}
+          onClose={closePipWindow}
+          trackingTask={trackingTask}
           isTracking={isTracking}
           currentSessionElapsedSeconds={currentSessionElapsedSeconds}
           onPlayPause={isTracking ? pauseTracking : resumeTracking}
           onStop={handleStopAndClose}
-          onPopIn={closePipWindow}
           getFormattedTime={getFormattedTime}
         />
       );
     }
-  }, [isPipOpen, pipWindow, trackingTask, isTracking, currentSessionElapsedSeconds]);
-
-  if (!trackingTask) {
-    if (isPipOpen) closePipWindow();
-    return null;
-  }
+  }, [isPipOpen, pipWindow, tasks, trackingTask, isTracking, currentSessionElapsedSeconds]);
 
   const calculateProgress = () => {
+    if (!trackingTask) return 0;
     const estimatedSeconds = (trackingTask.estimatedTime || 0) * 60;
     const totalTimeSpent = (trackingTask.timeSpent || 0) + currentSessionElapsedSeconds;
     return estimatedSeconds > 0 ? Math.min((totalTimeSpent / estimatedSeconds) * 100, 100) : 0;
@@ -86,16 +51,18 @@ export function TimeTrackingWidget() {
 
   const handlePopOut = () => {
     openPipWindow(
-      <PipTimeTrackerUI
-        taskTitle={trackingTask.title}
+      <PipWidget
+        tasks={tasks}
+        onToggleStatus={toggleTaskStatus}
+        onClose={closePipWindow}
+        trackingTask={trackingTask}
         isTracking={isTracking}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}
         onPlayPause={isTracking ? pauseTracking : resumeTracking}
         onStop={handleStopAndClose}
-        onPopIn={closePipWindow}
         getFormattedTime={getFormattedTime}
       />,
-      { width: 320, height: 72 }
+      { width: 350, height: 500 }
     );
   };
 
@@ -106,6 +73,11 @@ export function TimeTrackingWidget() {
 
   // If the PiP window is open, don't render the widget in the main app
   if (isPipOpen) {
+    return null;
+  }
+  
+  // Only show the widget if a task is being tracked
+  if (!trackingTask) {
     return null;
   }
 

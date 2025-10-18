@@ -34,6 +34,9 @@ export function usePictureInPicture() {
     try {
       const newPipWindow = await window.documentPictureInPicture.requestWindow(options);
       
+      // Apply dark theme to the PiP window
+      newPipWindow.document.documentElement.classList.add('dark');
+
       // Copy stylesheets from the main document to the PiP window
       Array.from(document.styleSheets).forEach((styleSheet) => {
         try {
