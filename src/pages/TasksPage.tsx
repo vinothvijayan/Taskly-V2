@@ -24,6 +24,43 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type ViewFilter = 'my-day' | 'incomplete' | 'overdue' | 'all';
 
+const FilterButtons = ({ activeFilter, onFilterChange, isMobile }: { activeFilter: ViewFilter, onFilterChange: (filter: ViewFilter) => void, isMobile: boolean }) => {
+  const filters: { id: ViewFilter, label: string, icon: React.ElementType }[] = [
+    { id: 'my-day', label: 'My Day', icon: Sun },
+    { id: 'incomplete', label: 'Incomplete', icon: ListTodo },
+    { id: 'overdue', label: 'Overdue', icon: CalendarClock },
+    { id: 'all', label: 'All', icon: List },
+  ];
+
+  return (
+    <div className="relative flex items-center p-1 bg-muted rounded-full">
+      {filters.map(filter => (
+        <button
+          key={filter.id}
+          onClick={() => onFilterChange(filter.id)}
+          className={cn(
+            "relative rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            activeFilter === filter.id ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+          style={{ WebkitTapHighlightColor: "transparent" }}
+        >
+          {activeFilter === filter.id && (
+            <motion.span
+              layoutId="activeFilterBubble"
+              className="absolute inset-0 z-0 bg-primary rounded-full shadow"
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            />
+          )}
+          <span className="relative z-10 flex items-center gap-2">
+            <filter.icon className="h-4 w-4" />
+            {!isMobile && <span>{filter.label}</span>}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
   const { startTaskTimer } = useTimer();
@@ -60,17 +97,16 @@ export default function TasksPage() {
           if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
             return true;
           }
-          if (task.status === 'completed') {
-            return false;
-          }
-          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-            return true;
-          }
-          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-            return true;
-          }
-          if (isToday(currentDate) && !task.dueDate) {
-            return true;
+          if (task.status !== 'completed') {
+            if (isSameDay(new Date(task.createdAt), currentDate)) {
+              return true;
+            }
+            if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+              return true;
+            }
+            if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+              return true;
+            }
           }
           return false;
         });
@@ -171,27 +207,6 @@ export default function TasksPage() {
     }
   }, [user?.uid, addTask, createTaskOffline, currentDate]);
 
-  const FilterButtons = ({ activeFilter, onFilterChange }: { activeFilter: ViewFilter, onFilterChange: (filter: ViewFilter) => void }) => (
-    <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-      <Button size="sm" variant={activeFilter === 'my-day' ? 'default' : 'ghost'} onClick={() => onFilterChange('my-day')} className="gap-2 px-2 h-7">
-        <Sun className="h-4 w-4" />
-        <span className={cn(isMobile && "hidden", "md:inline")}>My Day</span>
-      </Button>
-      <Button size="sm" variant={activeFilter === 'incomplete' ? 'default' : 'ghost'} onClick={() => onFilterChange('incomplete')} className="gap-2 px-2 h-7">
-        <ListTodo className="h-4 w-4" />
-        <span className={cn(isMobile && "hidden", "md:inline")}>Incomplete</span>
-      </Button>
-      <Button size="sm" variant={activeFilter === 'overdue' ? 'default' : 'ghost'} onClick={() => onFilterChange('overdue')} className="gap-2 px-2 h-7">
-        <CalendarClock className="h-4 w-4" />
-        <span className={cn(isMobile && "hidden", "md:inline")}>Overdue</span>
-      </Button>
-      <Button size="sm" variant={activeFilter === 'all' ? 'default' : 'ghost'} onClick={() => onFilterChange('all')} className="gap-2 px-2 h-7">
-        <List className="h-4 w-4" />
-        <span className={cn(isMobile && "hidden", "md:inline")}>All</span>
-      </Button>
-    </div>
-  );
-
   if (loading) {
     return <TasksPageSkeleton />;
   }
@@ -228,7 +243,7 @@ export default function TasksPage() {
                     <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
                   </div>
                   <div className="px-1">
-                    <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} />
+                    <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
                   </div>
                   <div className="space-y-3">
                     {todoTasks.length === 0 && completedTasks.length === 0 ? (
@@ -298,7 +313,7 @@ export default function TasksPage() {
                     <h2 className="text-lg font-semibold">Active Tasks</h2>
                     <Badge variant="secondary">{todoTasks.length}</Badge>
                   </div>
-                  <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} />
+                  <FilterButtons activeFilter={viewFilter} onFilterChange={setViewFilter} isMobile={isMobile} />
                   <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
                     <Plus className="h-4 w-4 text-muted-foreground" />
                     <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
