@@ -3,7 +3,7 @@ import { Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { doc, setDoc, getDoc, deleteDoc, onSnapshot, Unsubscribe } from "firebase/firestore";
+import { doc, setDoc, getDoc, deleteDoc, onSnapshot, Unsubscribe, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 interface TaskTimeTrackerContextType {
@@ -209,24 +209,17 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const pauseTracking = async () => {
-    if (!trackingTask || !user || !startTime) return;
+    if (!trackingTask || !user || !isTracking) return;
 
     try {
       const now = Date.now();
-      const sessionElapsed = Math.floor((now - startTime) / 1000);
-      const totalAccumulated = currentSessionElapsedSeconds;
-
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      const snapshot = await getDoc(sessionRef);
-
-      if (snapshot.exists()) {
-        await setDoc(sessionRef, {
-          ...snapshot.data(),
-          pausedAt: now,
-          isPaused: true,
-          accumulatedSeconds: totalAccumulated,
-        });
-      }
+      
+      await updateDoc(sessionRef, {
+        pausedAt: now,
+        isPaused: true,
+        accumulatedSeconds: currentSessionElapsedSeconds,
+      });
 
       setIsTracking(false);
       setStartTime(null);
@@ -251,21 +244,17 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const resumeTracking = async () => {
-    if (!trackingTask || !user) return;
+    if (!trackingTask || !user || isTracking) return;
 
     try {
       const now = Date.now();
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      const snapshot = await getDoc(sessionRef);
-
-      if (snapshot.exists()) {
-        await setDoc(sessionRef, {
-          ...snapshot.data(),
-          startTime: now,
-          pausedAt: null,
-          isPaused: false,
-        });
-      }
+      
+      await updateDoc(sessionRef, {
+        startTime: now,
+        pausedAt: null,
+        isPaused: false,
+      });
 
       setIsTracking(true);
       setStartTime(now);
@@ -300,19 +289,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
     try {
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      const snapshot = await getDoc(sessionRef);
-
-      let finalSeconds = currentSessionElapsedSeconds;
-
-      if (snapshot.exists() && !isTracking) {
-        const session = snapshot.data() as ActiveTrackingSession;
-        finalSeconds = session.accumulatedSeconds;
-      } else if (startTime && isTracking) {
-        const sessionElapsed = Math.floor((Date.now() - startTime) / 1000);
-        const session = snapshot.exists() ? snapshot.data() as ActiveTrackingSession : null;
-        const accumulated = session?.accumulatedSeconds || 0;
-        finalSeconds = accumulated + sessionElapsed;
-      }
+      const finalSeconds = currentSessionElapsedSeconds;
 
       if (finalSeconds > 0) {
         await updateTaskTimeSpent(trackingTask.id, finalSeconds);
@@ -347,7 +324,6 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const getFormattedTime = (seconds: number): string => {
-    // FIX: Add a guard clause for invalid inputs.
     if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
       return '0s';
     }
@@ -413,24 +389,17 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const pauseSubtaskTracking = async () => {
-    if (!trackingSubtask || !user || !subtaskStartTime) return;
+    if (!trackingSubtask || !user || !isTrackingSubtask) return;
 
     try {
       const now = Date.now();
-      const sessionElapsed = Math.floor((now - subtaskStartTime) / 1000);
-      const totalAccumulated = currentSubtaskElapsedSeconds;
-
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      const snapshot = await getDoc(sessionRef);
-
-      if (snapshot.exists()) {
-        await setDoc(sessionRef, {
-          ...snapshot.data(),
-          pausedAt: now,
-          isPaused: true,
-          accumulatedSeconds: totalAccumulated,
-        });
-      }
+      
+      await updateDoc(sessionRef, {
+        pausedAt: now,
+        isPaused: true,
+        accumulatedSeconds: currentSubtaskElapsedSeconds,
+      });
 
       setIsTrackingSubtask(false);
       setSubtaskStartTime(null);
@@ -455,21 +424,17 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   };
 
   const resumeSubtaskTracking = async () => {
-    if (!trackingSubtask || !user) return;
+    if (!trackingSubtask || !user || isTrackingSubtask) return;
 
     try {
       const now = Date.now();
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      const snapshot = await getDoc(sessionRef);
-
-      if (snapshot.exists()) {
-        await setDoc(sessionRef, {
-          ...snapshot.data(),
-          startTime: now,
-          pausedAt: null,
-          isPaused: false,
-        });
-      }
+      
+      await updateDoc(sessionRef, {
+        startTime: now,
+        pausedAt: null,
+        isPaused: false,
+      });
 
       setIsTrackingSubtask(true);
       setSubtaskStartTime(now);
@@ -504,19 +469,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
     try {
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      const snapshot = await getDoc(sessionRef);
-
-      let finalSeconds = currentSubtaskElapsedSeconds;
-
-      if (snapshot.exists() && !isTrackingSubtask) {
-        const session = snapshot.data() as ActiveSubtaskTrackingSession;
-        finalSeconds = session.accumulatedSeconds;
-      } else if (subtaskStartTime && isTrackingSubtask) {
-        const sessionElapsed = Math.floor((Date.now() - subtaskStartTime) / 1000);
-        const session = snapshot.exists() ? snapshot.data() as ActiveSubtaskTrackingSession : null;
-        const accumulated = session?.accumulatedSeconds || 0;
-        finalSeconds = accumulated + sessionElapsed;
-      }
+      const finalSeconds = currentSubtaskElapsedSeconds;
 
       if (finalSeconds > 0) {
         await updateSubtaskTimeSpent(trackingSubtask.taskId, trackingSubtask.subtaskId, finalSeconds);
