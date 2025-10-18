@@ -10,7 +10,7 @@ import { PipWidget } from './PipWidget';
 export function PipPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const { isTracking, trackingTask, isTracking: isTimerRunning, currentSessionElapsedSeconds, pauseTracking, resumeTracking, stopTracking, getFormattedTime, startTracking } = useTaskTimeTracker();
-  const { tasks, toggleTaskStatus } = useTasks();
+  const { tasks, toggleTaskStatus, addTask } = useTasks();
   const { isPipSupported, openPipWindow, closePipWindow } = usePictureInPicture();
 
   useEffect(() => {
@@ -37,6 +37,7 @@ export function PipPrompt() {
         tasks={tasks}
         onToggleStatus={toggleTaskStatus}
         onClose={closePipWindow}
+        onAddTask={(taskData) => addTask({ ...taskData, priority: 'medium', status: 'todo' })}
         trackingTask={trackingTask}
         isTracking={isTimerRunning}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}

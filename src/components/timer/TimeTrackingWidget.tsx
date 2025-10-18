@@ -21,7 +21,7 @@ export function TimeTrackingWidget() {
     startTracking
   } = useTaskTimeTracker();
   
-  const { tasks, toggleTaskStatus } = useTasks();
+  const { tasks, toggleTaskStatus, addTask } = useTasks();
   const { isPipSupported, isPipOpen, pipWindow, openPipWindow, closePipWindow } = usePictureInPicture();
 
   // This effect keeps the PiP window's content up-to-date
@@ -32,6 +32,7 @@ export function TimeTrackingWidget() {
           tasks={tasks}
           onToggleStatus={toggleTaskStatus}
           onClose={closePipWindow}
+          onAddTask={(taskData) => addTask({ ...taskData, priority: 'medium', status: 'todo' })}
           trackingTask={trackingTask}
           isTracking={isTracking}
           currentSessionElapsedSeconds={currentSessionElapsedSeconds}
@@ -42,7 +43,7 @@ export function TimeTrackingWidget() {
         />
       );
     }
-  }, [isPipOpen, pipWindow, tasks, trackingTask, isTracking, currentSessionElapsedSeconds, startTracking]);
+  }, [isPipOpen, pipWindow, tasks, toggleTaskStatus, closePipWindow, addTask, trackingTask, isTracking, currentSessionElapsedSeconds, pauseTracking, resumeTracking, stopTracking, getFormattedTime, startTracking]);
 
   const calculateProgress = () => {
     if (!trackingTask) return 0;
@@ -57,6 +58,7 @@ export function TimeTrackingWidget() {
         tasks={tasks}
         onToggleStatus={toggleTaskStatus}
         onClose={closePipWindow}
+        onAddTask={(taskData) => addTask({ ...taskData, priority: 'medium', status: 'todo' })}
         trackingTask={trackingTask}
         isTracking={isTracking}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}
