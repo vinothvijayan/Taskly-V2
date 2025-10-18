@@ -1,4 +1,4 @@
-import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -20,6 +20,15 @@ import { cn } from "@/lib/utils";
 import { TasksPageSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
+import { motion, AnimatePresence } from "framer-motion";
+
+interface FilterState {
+  status: "all" | "todo" | "in-progress";
+  priority: "all" | Task["priority"];
+  search: string;
+}
 
 export default function TasksPage() {
   const { tasks, teamMembers, addTask, updateTask, deleteTask, toggleTaskStatus, toggleTaskPriority, setTaskFormActive, loading } = useTasks();
@@ -30,6 +39,12 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterState>({
+    status: "all",
+    priority: "all",
+    search: "",
+  });
 
   useEffect(() => {
     const isFormActive = !!editingTask;
@@ -73,11 +88,23 @@ export default function TasksPage() {
       return false;
     });
 
+    const filteredTodo = todoTasks.filter(task => {
+      if (filters.status !== "all" && task.status !== filters.status) return false;
+      if (filters.priority !== "all" && task.priority !== filters.priority) return false;
+      if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      return true;
+    });
+
+    const filteredCompleted = completedTasks.filter(task => {
+      if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      return true;
+    });
+
     return {
-      todoTasks: filteredByDate.filter(task => task.status !== "completed"),
-      completedTasks: filteredByDate.filter(task => task.status === "completed")
+      todoTasks: filteredTodo,
+      completedTasks: filteredCompleted
     };
-  }, [tasks, currentDate]);
+  }, [tasks, currentDate, filters]);
 
   const handleCreateTask = async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user?.uid) return;
@@ -193,9 +220,15 @@ export default function TasksPage() {
                         <div><h3 className="text-lg font-medium text-muted-foreground mb-2">No tasks for this day</h3><p className="text-sm text-muted-foreground px-4">Tap the + button to add a task</p></div>
                       </div>
                     ) : (
-                      <StaggeredList>
-                        {todoTasks.map(task => <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />)}
-                      </StaggeredList>
+                      <div className="space-y-3">
+                        <AnimatePresence>
+                          {todoTasks.map(task => (
+                            <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
+                              <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -241,9 +274,41 @@ export default function TasksPage() {
         <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
           <ResizablePanel defaultSize={60} minSize={40}>
             <div className="flex flex-col h-full">
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" /><h2 className="text-lg font-semibold">Active Tasks</h2><Badge variant="secondary">{todoTasks.length}</Badge></div>
-                <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3"><Plus className="h-4 w-4 text-muted-foreground" /><Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" /></div>
+              <div className="p-4 border-b space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Active Tasks</h2>
+                    <Badge variant="secondary">{todoTasks.length}</Badge>
+                  </div>
+                  <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
+                    <Plus className="h-4 w-4 text-muted-foreground" />
+                    <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="relative col-span-3 sm:col-span-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
+                  </div>
+                  <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value as FilterState["status"] })}>
+                    <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="todo">To Do</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value as FilterState["priority"] })}>
+                    <SelectTrigger><SelectValue placeholder="Filter by priority" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priority</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
             </div>
