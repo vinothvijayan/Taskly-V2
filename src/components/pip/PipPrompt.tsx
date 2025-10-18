@@ -3,15 +3,12 @@ import { motion } from 'framer-motion';
 import { PictureInPicture } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
-import { usePictureInPicture } from '@/hooks/usePictureInPicture';
-import { useTasks } from '@/contexts/TasksContext';
-import { PipWidget } from './PipWidget';
+import { usePip } from '@/contexts/PictureInPictureContext';
 
 export function PipPrompt() {
   const [isVisible, setIsVisible] = useState(false);
-  const { isTracking, trackingTask, isTracking: isTimerRunning, currentSessionElapsedSeconds, pauseTracking, resumeTracking, stopTracking, getFormattedTime, startTracking } = useTaskTimeTracker();
-  const { tasks, toggleTaskStatus, addTask } = useTasks();
-  const { isPipSupported, openPipWindow, closePipWindow } = usePictureInPicture();
+  const { isTracking } = useTaskTimeTracker();
+  const { isPipSupported, openPip } = usePip();
 
   useEffect(() => {
     if (!isTracking || !isPipSupported) {
@@ -32,22 +29,7 @@ export function PipPrompt() {
   }, [isTracking, isPipSupported]);
 
   const handlePopOut = () => {
-    openPipWindow(
-      <PipWidget
-        tasks={tasks}
-        onToggleStatus={toggleTaskStatus}
-        onClose={closePipWindow}
-        onAddTask={(taskData) => addTask({ ...taskData, priority: 'medium', status: 'todo' })}
-        trackingTask={trackingTask}
-        isTracking={isTimerRunning}
-        currentSessionElapsedSeconds={currentSessionElapsedSeconds}
-        onPlayPause={isTimerRunning ? pauseTracking : resumeTracking}
-        onStop={stopTracking}
-        getFormattedTime={getFormattedTime}
-        onStartTracking={startTracking}
-      />,
-      { width: 350, height: 500 }
-    );
+    openPip();
     setIsVisible(false);
   };
 
