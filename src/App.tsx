@@ -41,6 +41,7 @@ import { CommentsContextProvider } from "@/contexts/CommentsContext";
 import { TaskTimeTrackerProvider } from "./contexts/TaskTimeTrackerContext";
 import { NotificationsContextProvider, useNotifications } from "./contexts/NotificationsContext";
 import { MeetlyContextProvider } from "@/contexts/MeetlyContext";
+import { ConfettiProvider } from "@/contexts/ConfettiContext";
 import { SalesOpportunityProvider } from "@/contexts/SalesOpportunityContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
 
@@ -410,25 +411,27 @@ export default function App() {
             <Toaster />
             <Sonner />
             <AuthContextProvider>
-              <NotificationsContextProvider>
-                <TasksContextProvider>
-                  <TeamChatProvider>
-                    <CommentsContextProvider>
-                      <TaskTimeTrackerProvider>
-                        <MeetlyContextProvider>
-                          <SalesOpportunityProvider>
-                            <ContactsProvider>
-                              <BrowserRouter>
-                                <AppContent />
-                              </BrowserRouter>
-                            </ContactsProvider>
-                          </SalesOpportunityProvider>
-                        </MeetlyContextProvider>
-                      </TaskTimeTrackerProvider>
-                    </CommentsContextProvider>
-                  </TeamChatProvider>
-                </TasksContextProvider>
-              </NotificationsContextProvider>
+              <ConfettiProvider>
+                <NotificationsContextProvider>
+                  <TasksContextProvider>
+                    <TeamChatProvider>
+                      <CommentsContextProvider>
+                        <TaskTimeTrackerProvider>
+                          <MeetlyContextProvider>
+                            <SalesOpportunityProvider>
+                              <ContactsProvider>
+                                <BrowserRouter>
+                                  <AppContent />
+                                </BrowserRouter>
+                              </ContactsProvider>
+                            </SalesOpportunityProvider>
+                          </MeetlyContextProvider>
+                        </TaskTimeTrackerProvider>
+                      </CommentsContextProvider>
+                    </TeamChatProvider>
+                  </TasksContextProvider>
+                </NotificationsContextProvider>
+              </ConfettiProvider>
             </AuthContextProvider>
           </TooltipProvider>
         </ThemeProvider>
