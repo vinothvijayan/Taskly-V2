@@ -169,9 +169,15 @@ export default function TasksPage() {
   return (
     <>
       <div className="h-full flex flex-col p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div><h1 className="text-3xl font-bold">My Day</h1><p className="text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p></div>
-          <TopPerformer />
+        <div className="grid grid-cols-3 items-center mb-6">
+          <div /> {/* Empty div for spacing */}
+          <div className="text-center">
+            <h1 className="text-3xl font-bold">My Day</h1>
+            <p className="text-muted-foreground">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+          </div>
+          <div className="flex justify-end">
+            <TopPerformer />
+          </div>
         </div>
         <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
           <ResizablePanel defaultSize={60} minSize={40}>
