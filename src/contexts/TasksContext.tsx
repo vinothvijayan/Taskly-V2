@@ -27,6 +27,7 @@ import { UserProfile, Team } from "@/types";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { hasUnreadComments } from '@/lib/viewedTimestamps';
 import { useConfetti } from '@/contexts/ConfettiContext';
+import { startOfDay, isSameDay } from "date-fns";
 
 interface TasksContextType {
   tasks: Task[];
@@ -71,21 +72,53 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
   // Helper for consistent task sorting
   const sortTasks = (tasksArray: Task[]): Task[] => {
+    const getDueDateCategory = (task: Task): number => {
+      if (!task.dueDate) {
+        return 4; // No due date, lowest priority
+      }
+      const dueDate = startOfDay(new Date(task.dueDate));
+      const today = startOfDay(new Date());
+
+      if (dueDate < today) {
+        return 1; // Overdue, highest priority
+      }
+      if (isSameDay(dueDate, today)) {
+        return 2; // Due today
+      }
+      return 3; // Due in the future
+    };
+
     return tasksArray.sort((a, b) => {
-      // Primary sort: Unread comments (true comes before false)
+      // 1. Sort by Due Date Category (Overdue > Today > Future > No Date)
+      const aDueDateCategory = getDueDateCategory(a);
+      const bDueDateCategory = getDueDateCategory(b);
+      if (aDueDateCategory !== bDueDateCategory) {
+        return aDueDateCategory - bDueDateCategory;
+      }
+
+      // If tasks are due in the future, sort by soonest due date
+      if (aDueDateCategory === 3 && a.dueDate && b.dueDate) {
+        const aDueDate = new Date(a.dueDate).getTime();
+        const bDueDate = new Date(b.dueDate).getTime();
+        if (aDueDate !== bDueDate) {
+          return aDueDate - bDueDate;
+        }
+      }
+
+      // 2. Sort by Unread comments (true comes before false)
       const aHasUnread = hasUnreadComments(a);
       const bHasUnread = hasUnreadComments(b);
       if (aHasUnread !== bHasUnread) {
         return aHasUnread ? -1 : 1;
       }
 
-      // If both have the same "read" status, sort by priority
+      // 3. Sort by priority (high > medium > low)
       const priorityOrder = { "high": 3, "medium": 2, "low": 1 };
       if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
         return priorityOrder[b.priority] - priorityOrder[a.priority];
       }
 
-      // If priority is the same, sort by creation date (newest first)
+      // 4. Sort by creation date (newest first)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   };
@@ -634,12 +667,4 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   };
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
-}
-
-export function useTasks() {
-  const context = useContext(TasksContext);
-  if (context === undefined) {
-    throw new Error("useTasks must be used within a TasksContextProvider");
-  }
-  return context;
 }
