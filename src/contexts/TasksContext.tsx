@@ -27,7 +27,7 @@ import { UserProfile, Team } from "@/types";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { hasUnreadComments } from '@/lib/viewedTimestamps';
 import { useConfetti } from '@/contexts/ConfettiContext';
-import { startOfDay, isSameDay } from "date-fns";
+import { startOfDay, isSameDay, endOfDay } from "date-fns";
 
 interface TasksContextType {
   tasks: Task[];
