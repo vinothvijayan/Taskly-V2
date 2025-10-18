@@ -173,7 +173,7 @@ export const MobileTaskCard = memo(function MobileTaskCard({
                 </div>
               </div>
 
-              {task.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{task.description}</p>}
+              {task.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed min-h-[2.5rem]">{task.description}</p>}
 
               <div className="flex flex-wrap items-center gap-1.5 text-xs mt-2">
                 {task.dueDate && <Badge variant={isOverdue ? "destructive" : "outline"} className="h-5 text-[10px] px-1.5 py-0.5"><Calendar className="h-2.5 w-2.5 mr-1" />{formatDueDate(task.dueDate)}</Badge>}
