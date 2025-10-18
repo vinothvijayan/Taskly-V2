@@ -38,7 +38,7 @@ interface TasksContextType {
   addTask: (taskData: Omit<Task, "id" | "createdAt">) => Promise<void>;
   updateTask: (taskId: string, taskData: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
-  toggleTaskStatus: (taskId: string) => Promise<void>;
+  toggleTaskStatus: (taskId: string, options?: { playSound?: boolean }) => Promise<void>;
   toggleTaskPriority: (taskId: string) => Promise<void>;
   updateTaskTimeSpent: (taskId: string, timeToAdd: number) => Promise<void>;
   addSubtask: (taskId: string, title: string) => Promise<void>; // New
@@ -374,7 +374,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const toggleTaskStatus = async (taskId: string) => {
+  const toggleTaskStatus = async (taskId: string, options?: { playSound?: boolean }) => {
     if (!user) return;
     const taskToToggle = tasks.find(t => t.id === taskId);
     if (!taskToToggle) return;
@@ -393,11 +393,11 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
     try {
       if (newStatus === "completed") {
-        // Play sound immediately for instant feedback
-        playSound(TASK_COMPLETE_SOUND_URL);
+        if (options?.playSound !== false) {
+          playSound(TASK_COMPLETE_SOUND_URL);
+        }
         showConfetti();
         notificationService.showTaskCompleteNotification(taskToToggle.title);
-        // Use the global notification function to avoid duplicates
         await notificationService.addInAppNotification(
           user.uid,
           "Task completed! 🎯",

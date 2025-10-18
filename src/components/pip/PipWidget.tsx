@@ -9,7 +9,7 @@ import { TASK_COMPLETE_SOUND_URL } from '@/lib/utils';
 
 interface PipWidgetProps {
   tasks: Task[];
-  onToggleStatus: (taskId: string) => void;
+  onToggleStatus: (taskId: string, options?: { playSound?: boolean }) => void;
   onClose: () => void;
   // Timer props
   trackingTask: Task | null;
@@ -50,7 +50,8 @@ export const PipWidget = ({
     const task = tasks.find(t => t.id === taskId);
     const isCompleting = task?.status !== 'completed';
 
-    onToggleStatus(taskId);
+    // Tell the context not to play the sound, because we will handle it here.
+    onToggleStatus(taskId, { playSound: false });
 
     if (isCompleting) {
       playSoundInPip(TASK_COMPLETE_SOUND_URL);
