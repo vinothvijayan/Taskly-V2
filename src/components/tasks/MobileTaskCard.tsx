@@ -107,7 +107,7 @@ export const MobileTaskCard = memo(function MobileTaskCard({
         className={cn(
           "relative transition-all duration-200 touch-manipulation touch-pan-y z-10",
           "shadow-md hover:shadow-lg border-l-4",
-          priorityColorClass[task.priority],
+          isOverdue ? "border-l-destructive" : priorityColorClass[task.priority],
           isCompleted && "opacity-75 bg-muted/50",
           isOverdue && !isCompleted && "bg-destructive/5",
           isTimeTracking && "ring-2 ring-primary/50",

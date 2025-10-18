@@ -99,7 +99,7 @@ export function TaskCard({
           "relative transition-all duration-200 group cursor-pointer border-l-4",
           "shadow-sm hover:shadow-md dark:shadow-none",
           "bg-card",
-          priorityColorClass[task.priority],
+          isOverdue ? "border-l-destructive" : priorityColorClass[task.priority],
           isCompleted && "opacity-60 bg-muted/50",
           isCurrentlyTracking && "ring-2 ring-primary/50",
           isTrackingSubtaskForThisTask && "ring-2 ring-primary/50",
