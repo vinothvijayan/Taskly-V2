@@ -10,9 +10,12 @@ from firebase_admin import initialize_app, storage, firestore, _apps
 from firebase_functions import storage_fn, options
 import google.generativeai as genai
 
+# --- SECURITY WARNING: Hardcoding API keys is dangerous for production apps. ---
+# For development, replace "YOUR_GEMINI_API_KEY_HERE" with your actual key.
+# For production, it is strongly recommended to use Firebase Secret Manager.
+GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"
+
 # Set global options for the function
-# This increases the timeout to the maximum 9 minutes and allocates more memory
-# to handle large file processing and ffmpeg.
 options.set_global_options(region="us-central1", max_instances=10, timeout_sec=540, memory=options.MemoryOption.GB_2)
 
 # Initialize Firebase Admin SDK if not already done
@@ -20,8 +23,7 @@ if not _apps:
     initialize_app()
 
 @storage_fn.on_object_finalized(
-    bucket="huddlely.firebasestorage.app",
-    secrets=["GEMINI_API_KEY"] # Securely access the API key
+    bucket="huddlely.firebasestorage.app"
 )
 def process_meetly_recording(cloud_event: storage_fn.CloudEvent[storage_fn.StorageObjectData]) -> None:
     """
@@ -33,14 +35,11 @@ def process_meetly_recording(cloud_event: storage_fn.CloudEvent[storage_fn.Stora
     file_data = cloud_event.data
     file_path = file_data.name
 
-    # 1. Filter for relevant files
     if not file_path.startswith("meetly-audio/"):
-        print(f"Ignoring file, not in 'meetly-audio/' folder: {file_path}")
         return
 
     metadata = file_data.metadata
     if not metadata or 'firestoreId' not in metadata:
-        print(f"Ignoring file without 'firestoreId' in metadata: {file_path}")
         return
 
     document_id = metadata['firestoreId']
@@ -54,28 +53,23 @@ def process_meetly_recording(cloud_event: storage_fn.CloudEvent[storage_fn.Stora
     temp_mp3_path = os.path.join(temp_dir, "converted.mp3")
 
     try:
-        # 2. Update status and download file
         doc_ref.update({'status': 'processing'})
         bucket = storage.bucket()
         blob = bucket.blob(file_path)
         blob.download_to_filename(temp_webm_path)
 
-        # 3. Convert to MP3 using ffmpeg
         ffmpeg_command = [
             "ffmpeg", "-y", "-i", temp_webm_path,
             "-vn", "-ab", "192k", "-ar", "44100", "-f", "mp3", temp_mp3_path
         ]
         subprocess.run(ffmpeg_command, check=True, capture_output=True)
 
-        # 4. Split audio into manageable chunks (e.g., 50 minutes)
         chunk_dir = os.path.join(temp_dir, "chunks")
         os.makedirs(chunk_dir)
         chunk_paths = split_audio(temp_mp3_path, chunk_dir)
 
-        # 5. Process audio chunks with Gemini
         results = process_with_gemini(chunk_paths)
 
-        # 6. Update Firestore with the results
         doc_ref.update({
             'transcript': results.get('transcript'),
             'translatedTranscript': results.get('translated_transcript'),
@@ -93,7 +87,6 @@ def process_meetly_recording(cloud_event: storage_fn.CloudEvent[storage_fn.Stora
         except Exception as cleanup_error:
             print(f"Failed to mark document as failed: {cleanup_error}")
     finally:
-        # 7. Clean up temporary directory
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
 
@@ -111,7 +104,6 @@ def split_audio(mp3_path: str, output_dir: str) -> list[str]:
     try:
         subprocess.run(ffmpeg_command, check=True, capture_output=True)
     except subprocess.CalledProcessError:
-        # If splitting fails, it's likely a short file. Use the original.
         return [mp3_path]
     
     chunk_files = sorted([os.path.join(output_dir, f) for f in os.listdir(output_dir)])
@@ -123,8 +115,10 @@ def process_with_gemini(audio_chunk_paths: list[str]) -> Dict[str, str]:
     Processes audio chunks with Gemini, combines transcripts, and then
     translates and summarizes the full text.
     """
-    # Configure Gemini with the securely accessed API key
-    genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+    if not GEMINI_API_KEY or GEMINI_API_KEY == "YOUR_GEMINI_API_KEY_HERE":
+        raise ValueError("Gemini API key is not configured in functions/meetly_processor.py")
+    
+    genai.configure(api_key=GEMINI_API_KEY)
 
     all_transcripts = []
     
@@ -162,14 +156,12 @@ def process_with_gemini(audio_chunk_paths: list[str]) -> Dict[str, str]:
 
     model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
 
-    print("Generating English translation...")
     translation_response = model.generate_content([
         "Translate the following transcript into clear and accurate English.",
         full_transcript
     ])
     translated_text = translation_response.text
 
-    print("Generating meeting summary...")
     summary_response = model.generate_content([
         "Based on the following meeting transcript, provide a comprehensive summary. Identify key discussion points, decisions made, and any action items.",
         full_transcript
