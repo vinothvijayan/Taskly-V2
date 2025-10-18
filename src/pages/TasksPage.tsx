@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Task, UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 import { TasksPageSkeleton } from "@/components/skeletons";
+import { Badge } from "@/components/ui/badge";
 import { addDays, subDays, format, isToday, isYesterday, isTomorrow, isSameDay, startOfDay } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -95,16 +96,17 @@ export default function TasksPage() {
           if (task.completedAt && isSameDay(new Date(task.completedAt as string), currentDate)) {
             return true;
           }
-          if (task.status !== 'completed') {
-            if (isSameDay(new Date(task.createdAt), currentDate)) {
-              return true;
-            }
-            if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
-              return true;
-            }
-            if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
-              return true;
-            }
+          if (task.status === 'completed') {
+            return false;
+          }
+          if (isSameDay(new Date(task.createdAt), currentDate)) {
+            return true;
+          }
+          if (task.dueDate && isSameDay(new Date(task.dueDate), currentDate)) {
+            return true;
+          }
+          if (isToday(currentDate) && task.dueDate && new Date(task.dueDate) < startOfDay(new Date())) {
+            return true;
           }
           return false;
         });
