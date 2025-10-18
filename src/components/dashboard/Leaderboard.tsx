@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { LeaderboardSkeleton } from "@/components/skeletons";
 import { calculateUserScoreForPeriod } from "@/lib/scoring";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScoringRulesModal } from "./ScoringRulesModal"; // Import the new modal
 
 type TimeFrame = "day" | "week" | "month";
 
@@ -132,18 +133,21 @@ export function Leaderboard() {
             <TrendingUp className="h-5 w-5 text-primary" />
             Team Leaderboard
           </CardTitle>
-          <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-            {(["day", "week", "month"] as TimeFrame[]).map((frame) => (
-              <Button
-                key={frame}
-                size="sm"
-                variant={timeFrame === frame ? "default" : "ghost"}
-                onClick={() => setTimeFrame(frame)}
-                className="capitalize text-xs h-7 px-2"
-              >
-                {frame}
-              </Button>
-            ))}
+          <div className="flex items-center gap-2">
+            <ScoringRulesModal />
+            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+              {(["day", "week", "month"] as TimeFrame[]).map((frame) => (
+                <Button
+                  key={frame}
+                  size="sm"
+                  variant={timeFrame === frame ? "default" : "ghost"}
+                  onClick={() => setTimeFrame(frame)}
+                  className="capitalize text-xs h-7 px-2"
+                >
+                  {frame}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </CardHeader>
