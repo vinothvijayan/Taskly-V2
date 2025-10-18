@@ -7,36 +7,38 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useEffect } from "react";
 
-// A smaller, dedicated UI component for the PiP window
+// A smaller, dedicated UI component for the PiP window, styled to match the user's reference
 const PipTimeTrackerUI = ({
   taskTitle,
   isTracking,
   currentSessionElapsedSeconds,
-  totalTimeSpent,
-  progress,
   onPlayPause,
   onStop,
   onPopIn,
   getFormattedTime,
 }: any) => (
-  <div className="p-3 h-full flex flex-col bg-background text-foreground">
-    <div className="flex items-center gap-2">
-      <Button variant={isTracking ? "focus" : "outline"} size="icon" onClick={onPlayPause} className="h-8 w-8 rounded-full">
-        {isTracking ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-      </Button>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{taskTitle}</p>
-        <p className="text-xs font-mono text-primary font-semibold">{getFormattedTime(currentSessionElapsedSeconds)}</p>
-      </div>
-      <Button variant="ghost" size="icon" onClick={onStop} className="h-8 w-8 rounded-full hover:bg-destructive/10 hover:text-destructive">
-        <Square className="h-3 w-3" />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={onPopIn} className="h-8 w-8 rounded-full">
-        <ArrowDownLeftFromSquare className="h-3 w-3" />
-      </Button>
+  <div className="p-3 h-full w-full flex items-center gap-3 bg-background text-foreground font-sans">
+    <Button
+      variant="default"
+      size="icon"
+      onClick={onPlayPause}
+      className="h-10 w-10 rounded-full flex-shrink-0 gradient-primary text-primary-foreground shadow-lg"
+    >
+      {isTracking ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+    </Button>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium truncate" title={taskTitle}>{taskTitle}</p>
+      <p className="text-sm font-mono text-primary font-semibold">
+        {getFormattedTime(currentSessionElapsedSeconds)}
+      </p>
     </div>
-    <div className="mt-auto relative h-1 w-full bg-muted rounded-full overflow-hidden">
-      <div className="absolute top-0 left-0 h-full bg-primary" style={{ width: `${progress}%` }} />
+    <div className="flex items-center flex-shrink-0">
+      <Button variant="ghost" size="icon" onClick={onStop} className="h-9 w-9 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+        <Square className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" onClick={onPopIn} className="h-9 w-9 rounded-lg text-muted-foreground">
+        <ArrowDownLeftFromSquare className="h-4 w-4" />
+      </Button>
     </div>
   </div>
 );
@@ -62,14 +64,12 @@ export function TimeTrackingWidget() {
           taskTitle={trackingTask.title}
           isTracking={isTracking}
           currentSessionElapsedSeconds={currentSessionElapsedSeconds}
-          totalTimeSpent={(trackingTask.timeSpent || 0) + currentSessionElapsedSeconds}
-          progress={calculateProgress()}
           onPlayPause={isTracking ? pauseTracking : resumeTracking}
           onStop={handleStopAndClose}
           onPopIn={closePipWindow}
           getFormattedTime={getFormattedTime}
         />,
-        { width: 288, height: 70 }
+        { width: 320, height: 72 } // Adjusted size for better fit
       );
     }
   }, [isPipOpen, trackingTask, isTracking, currentSessionElapsedSeconds]);
@@ -91,14 +91,12 @@ export function TimeTrackingWidget() {
         taskTitle={trackingTask.title}
         isTracking={isTracking}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}
-        totalTimeSpent={(trackingTask.timeSpent || 0) + currentSessionElapsedSeconds}
-        progress={calculateProgress()}
         onPlayPause={isTracking ? pauseTracking : resumeTracking}
         onStop={handleStopAndClose}
         onPopIn={closePipWindow}
         getFormattedTime={getFormattedTime}
       />,
-      { width: 288, height: 70 }
+      { width: 320, height: 72 } // Adjusted size for better fit
     );
   };
 
