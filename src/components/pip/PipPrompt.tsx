@@ -3,12 +3,12 @@ import { motion } from 'framer-motion';
 import { PictureInPicture } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
-import { usePip } from '@/contexts/PictureInPictureContext';
+import { usePipWidgetManager } from '@/hooks/usePipWidgetManager';
 
 export function PipPrompt() {
   const [isVisible, setIsVisible] = useState(false);
   const { isTracking } = useTaskTimeTracker();
-  const { isPipSupported, openPip } = usePip();
+  const { isPipSupported, openPip } = usePipWidgetManager();
 
   useEffect(() => {
     if (!isTracking || !isPipSupported) {

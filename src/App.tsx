@@ -44,7 +44,6 @@ import { MeetlyContextProvider } from "@/contexts/MeetlyContext";
 import { ConfettiProvider } from "@/contexts/ConfettiContext";
 import { SalesOpportunityProvider } from "@/contexts/SalesOpportunityContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
-import { PictureInPictureProvider } from "@/contexts/PictureInPictureContext";
 
 // Notification Services & Setup
 import { setGlobalAddNotification } from "./lib/notifications";
@@ -418,17 +417,15 @@ export default function App() {
                     <TeamChatProvider>
                       <CommentsContextProvider>
                         <TaskTimeTrackerProvider>
-                          <PictureInPictureProvider>
-                            <MeetlyContextProvider>
-                              <SalesOpportunityProvider>
-                                <ContactsProvider>
-                                  <BrowserRouter>
-                                    <AppContent />
-                                  </BrowserRouter>
-                                </ContactsProvider>
-                              </SalesOpportunityProvider>
-                            </MeetlyContextProvider>
-                          </PictureInPictureProvider>
+                          <MeetlyContextProvider>
+                            <SalesOpportunityProvider>
+                              <ContactsProvider>
+                                <BrowserRouter>
+                                  <AppContent />
+                                </BrowserRouter>
+                              </ContactsProvider>
+                            </SalesOpportunityProvider>
+                          </MeetlyContextProvider>
                         </TaskTimeTrackerProvider>
                       </CommentsContextProvider>
                     </TeamChatProvider>

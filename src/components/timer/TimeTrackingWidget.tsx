@@ -2,7 +2,7 @@ import { Play, Pause, Square, PictureInPicture } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTaskTimeTracker } from "@/contexts/TaskTimeTrackerContext";
-import { usePip } from "@/contexts/PictureInPictureContext";
+import { usePipWidgetManager } from "@/hooks/usePipWidgetManager";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -17,7 +17,7 @@ export function TimeTrackingWidget() {
     getFormattedTime
   } = useTaskTimeTracker();
   
-  const { isPipSupported, isPipOpen, openPip } = usePip();
+  const { isPipSupported, isPipOpen, openPip } = usePipWidgetManager();
 
   const calculateProgress = () => {
     if (!trackingTask) return 0;

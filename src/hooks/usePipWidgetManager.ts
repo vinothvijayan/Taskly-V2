@@ -1,27 +1,17 @@
-import React, { createContext, useContext, ReactNode, useEffect } from 'react';
+import { useEffect } from 'react';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { useTasks } from '@/contexts/TasksContext';
 import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
 import { PipWidget } from '@/components/pip/PipWidget';
 
-// Define the context type
-interface PictureInPictureContextType {
-  isPipSupported: boolean;
-  isPipOpen: boolean;
-  openPip: () => void;
-  closePip: () => void;
-}
-
-const PictureInPictureContext = createContext<PictureInPictureContextType | undefined>(undefined);
-
-export function PictureInPictureProvider({ children }: { children: ReactNode }) {
+export function usePipWidgetManager() {
   const { isPipSupported, isPipOpen, pipWindow, openPipWindow, closePipWindow } = usePictureInPicture();
   
-  // Get data from other contexts that the PiP widget needs
   const { tasks, addTask, toggleTaskStatus } = useTasks();
   const timeTracker = useTaskTimeTracker();
 
-  // This effect is the source of truth for keeping the PiP window updated
+  // This effect is the core of the real-time update logic.
+  // It listens for changes in tasks or timer state and re-renders the PiP content.
   useEffect(() => {
     if (isPipOpen && pipWindow?.reactRoot) {
       pipWindow.reactRoot.render(
@@ -51,7 +41,7 @@ export function PictureInPictureProvider({ children }: { children: ReactNode }) 
     if (isPipOpen) {
       closePipWindow();
     } else {
-      // The content is now defined here, not at the call site
+      // The initial render is also handled here, passing all current data.
       openPipWindow(
         <PipWidget
           tasks={tasks}
@@ -71,24 +61,10 @@ export function PictureInPictureProvider({ children }: { children: ReactNode }) 
     }
   };
 
-  const value = {
+  return {
     isPipSupported,
     isPipOpen,
     openPip,
     closePip: closePipWindow,
   };
-
-  return (
-    <PictureInPictureContext.Provider value={value}>
-      {children}
-    </PictureInPictureContext.Provider>
-  );
-}
-
-export function usePip() {
-  const context = useContext(PictureInPictureContext);
-  if (context === undefined) {
-    throw new Error('usePip must be used within a PictureInPictureProvider');
-  }
-  return context;
 }
