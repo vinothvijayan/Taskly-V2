@@ -1,5 +1,8 @@
-import { useState, useEffect, useCallback, ReactNode } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { PipWidget } from '@/components/pip/PipWidget';
+import { useTasks } from '@/contexts/TasksContext';
+import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
 
 // Define the custom window type to include our React root
 interface PipWindow extends Window {
@@ -10,32 +13,33 @@ export function usePipWidgetManager() {
   const [isPipSupported, setIsPipSupported] = useState(false);
   const [isPipOpen, setIsPipOpen] = useState(false);
   const [pipWindow, setPipWindow] = useState<PipWindow | null>(null);
+  
+  // Get data from contexts to pass to the widget
+  const tasksContext = useTasks();
+  const timeTrackerContext = useTaskTimeTracker();
 
-  // Check for Picture-in-Picture API support on component mount
   useEffect(() => {
     setIsPipSupported('documentPictureInPicture' in window);
   }, []);
 
-  // Function to close the PiP window
-  const closePipWindow = useCallback(() => {
+  const closePip = useCallback(() => {
     if (pipWindow) {
+      pipWindow.reactRoot?.unmount();
       pipWindow.close();
       setPipWindow(null);
       setIsPipOpen(false);
     }
   }, [pipWindow]);
 
-  // Function to open the PiP window and render React content inside it
-  const openPipWindow = useCallback(async (pipContent: ReactNode, options: { width: number; height: number }) => {
+  const openPip = useCallback(async () => {
     if (!isPipSupported || isPipOpen) return;
 
     try {
       const newPipWindow: PipWindow = await (window as any).documentPictureInPicture.requestWindow({
-        width: options.width,
-        height: options.height,
+        width: 320,
+        height: 480,
       });
 
-      // Inject styles and a root element for React to mount into
       const style = newPipWindow.document.createElement('style');
       style.textContent = `
         body { margin: 0; background-color: #111827; color: #f9fafb; font-family: sans-serif; overflow: hidden; }
@@ -46,23 +50,77 @@ export function usePipWidgetManager() {
       mountPoint.id = 'root';
       newPipWindow.document.body.appendChild(mountPoint);
 
-      // Create a new React root in the PiP window and render the content
       const reactRoot = createRoot(mountPoint);
+      
+      // Construct the PipWidget with all necessary props from contexts
+      const pipContent = (
+        <PipWidget
+          tasks={tasksContext.tasks}
+          onToggleStatus={tasksContext.toggleTaskStatus}
+          onClose={closePip}
+          onAddTask={tasksContext.addTask}
+          trackingTask={timeTrackerContext.trackingTask}
+          isTracking={timeTrackerContext.isTracking}
+          currentSessionElapsedSeconds={timeTrackerContext.currentSessionElapsedSeconds}
+          onPlayPause={() => {
+            if (timeTrackerContext.isTracking) {
+              timeTrackerContext.pauseTracking();
+            } else {
+              timeTrackerContext.resumeTracking();
+            }
+          }}
+          onStop={timeTrackerContext.stopTracking}
+          getFormattedTime={timeTrackerContext.getFormattedTime}
+          onStartTracking={timeTrackerContext.startTracking}
+        />
+      );
+
       reactRoot.render(pipContent);
-      newPipWindow.reactRoot = reactRoot; // Store the root for later updates
+      newPipWindow.reactRoot = reactRoot;
 
       setPipWindow(newPipWindow);
       setIsPipOpen(true);
 
-      // Listen for the window closing to update our state
       newPipWindow.addEventListener('pagehide', () => {
+        if (newPipWindow.reactRoot) {
+          newPipWindow.reactRoot.unmount();
+        }
         setPipWindow(null);
         setIsPipOpen(false);
       });
     } catch (error) {
       console.error("Error opening Picture-in-Picture window:", error);
     }
-  }, [isPipSupported, isPipOpen]);
+  }, [isPipSupported, isPipOpen, tasksContext, timeTrackerContext, closePip]);
 
-  return { isPipSupported, isPipOpen, pipWindow, openPipWindow, closePipWindow };
+  // This useEffect is the key to keeping the widget updated.
+  // It re-renders the content inside the PiP window whenever the data changes.
+  useEffect(() => {
+    if (isPipOpen && pipWindow?.reactRoot) {
+      const pipContent = (
+        <PipWidget
+          tasks={tasksContext.tasks}
+          onToggleStatus={tasksContext.toggleTaskStatus}
+          onClose={closePip}
+          onAddTask={tasksContext.addTask}
+          trackingTask={timeTrackerContext.trackingTask}
+          isTracking={timeTrackerContext.isTracking}
+          currentSessionElapsedSeconds={timeTrackerContext.currentSessionElapsedSeconds}
+          onPlayPause={() => {
+            if (timeTrackerContext.isTracking) {
+              timeTrackerContext.pauseTracking();
+            } else {
+              timeTrackerContext.resumeTracking();
+            }
+          }}
+          onStop={timeTrackerContext.stopTracking}
+          getFormattedTime={timeTrackerContext.getFormattedTime}
+          onStartTracking={timeTrackerContext.startTracking}
+        />
+      );
+      pipWindow.reactRoot.render(pipContent);
+    }
+  }, [isPipOpen, pipWindow, tasksContext, timeTrackerContext, closePip]);
+
+  return { isPipSupported, isPipOpen, openPip, closePip };
 }
