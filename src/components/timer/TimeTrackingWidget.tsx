@@ -36,7 +36,7 @@ export function TimeTrackingWidget() {
           isTracking={isTracking}
           currentSessionElapsedSeconds={currentSessionElapsedSeconds}
           onPlayPause={isTracking ? pauseTracking : resumeTracking}
-          onStop={handleStopAndClose}
+          onStop={stopTracking}
           getFormattedTime={getFormattedTime}
           onStartTracking={startTracking}
         />
@@ -61,17 +61,12 @@ export function TimeTrackingWidget() {
         isTracking={isTracking}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}
         onPlayPause={isTracking ? pauseTracking : resumeTracking}
-        onStop={handleStopAndClose}
+        onStop={stopTracking}
         getFormattedTime={getFormattedTime}
         onStartTracking={startTracking}
       />,
       { width: 350, height: 500 }
     );
-  };
-
-  const handleStopAndClose = () => {
-    stopTracking();
-    closePipWindow();
   };
 
   // If the PiP window is open, don't render the widget in the main app

@@ -41,7 +41,7 @@ export function PipPrompt() {
         isTracking={isTimerRunning}
         currentSessionElapsedSeconds={currentSessionElapsedSeconds}
         onPlayPause={isTimerRunning ? pauseTracking : resumeTracking}
-        onStop={() => { stopTracking(); closePipWindow(); }}
+        onStop={stopTracking}
         getFormattedTime={getFormattedTime}
         onStartTracking={startTracking}
       />,
