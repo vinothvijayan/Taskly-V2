@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Task } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface PipWidgetProps {
   tasks: Task[];
@@ -51,10 +52,17 @@ export const PipWidget = ({
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={cn(
+        "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+        !isTaskListVisible && "justify-center"
+      )}>
         {/* Timer and Controls Section */}
         {trackingTask && (
-          <div className="mb-3 p-3 rounded-lg bg-gray-800 border border-gray-700 flex-shrink-0">
+          <motion.div
+            layout
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="mb-3 p-3 rounded-lg bg-gray-800 border border-gray-700 flex-shrink-0"
+          >
             <div className="flex items-center gap-3">
               <Button
                 variant="default"
@@ -75,7 +83,7 @@ export const PipWidget = ({
                 <Square className="h-4 w-4" />
               </Button>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Task List Section (Collapsible) */}
