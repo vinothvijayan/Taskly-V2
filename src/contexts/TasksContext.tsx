@@ -394,24 +394,40 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     toast({ title: "Resetting scores...", description: "This may take a moment." });
     try {
         const batch = writeBatch(db);
+        
+        // 1. Reset scores for all tasks in the team's collection
         const teamTasksRef = collection(db, 'teams', teamId, 'tasks');
-        const tasksSnapshot = await getDocs(teamTasksRef);
-        if (tasksSnapshot.empty) {
-            toast({ title: "No tasks to reset." });
-            return;
+        const teamTasksSnapshot = await getDocs(teamTasksRef);
+        if (!teamTasksSnapshot.empty) {
+            teamTasksSnapshot.forEach(taskDoc => {
+                const taskData = taskDoc.data() as Task;
+                const updatedSubtasks = taskData.subtasks?.map(sub => ({ ...sub, timeSpent: 0 })) || [];
+                batch.update(taskDoc.ref, { timeSpent: 0, subtasks: updatedSubtasks });
+            });
         }
-        tasksSnapshot.forEach(taskDoc => {
-            const taskData = taskDoc.data() as Task;
-            const updatedSubtasks = taskData.subtasks?.map(sub => ({ ...sub, timeSpent: 0 })) || [];
-            batch.update(taskDoc.ref, { timeSpent: 0, subtasks: updatedSubtasks });
-        });
+
+        // 2. Reset scores for personal tasks of each team member
+        if (teamMembers.length > 0) {
+            for (const member of teamMembers) {
+                const personalTasksRef = collection(db, 'users', member.uid, 'tasks');
+                const personalTasksSnapshot = await getDocs(personalTasksRef);
+                if (!personalTasksSnapshot.empty) {
+                    personalTasksSnapshot.forEach(taskDoc => {
+                        const taskData = taskDoc.data() as Task;
+                        const updatedSubtasks = taskData.subtasks?.map(sub => ({ ...sub, timeSpent: 0 })) || [];
+                        batch.update(taskDoc.ref, { timeSpent: 0, subtasks: updatedSubtasks });
+                    });
+                }
+            }
+        }
+
         await batch.commit();
-        toast({ title: "Leaderboard Reset!", description: "All team scores have been reset to zero." });
+        toast({ title: "Leaderboard Reset!", description: "All team and personal scores have been reset to zero." });
     } catch (error) {
         console.error("Error resetting leaderboard scores:", error);
         toast({ title: "Reset Failed", description: "An error occurred while resetting scores.", variant: "destructive" });
     }
-  }, [user, userProfile, toast]);
+  }, [user, userProfile, teamMembers, toast]);
 
   const getTasksByDateRange = (startDate: Date, endDate: Date): Task[] => allTeamAndPersonalTasks.filter(task => {
     const taskDate = new Date(task.createdAt);
