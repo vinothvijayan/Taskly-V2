@@ -170,7 +170,7 @@ export function TaskCard({
 
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 {task.dueDate && <Badge variant={isOverdue ? "destructive" : "outline"}><Calendar className="h-3 w-3 mr-1" />{formatDueDate(task.dueDate)}</Badge>}
-                {task.estimatedTime && <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{task.estimatedTime}m</Badge>}
+                {task.estimatedTime && task.estimatedTime > 0 && <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />{task.estimatedTime}m</Badge>}
                 {task.timeSpent && task.timeSpent > 0 && <Badge variant="outline"><Clock className="h-3 w-3 mr-1" />{formatTimeSpent(task.timeSpent)}</Badge>}
                 {assignedProfiles.length > 0 && <Badge variant="outline"><Users className="h-3 w-3 mr-1" />{assignedProfiles.length}</Badge>}
               </div>
