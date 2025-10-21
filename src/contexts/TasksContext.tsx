@@ -314,17 +314,46 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       }
 
       const movingCollections = (originalTask.teamId || null) !== (updatedTaskForState.teamId || null);
-      const cleanedTaskData: any = { ...taskData, teamId: updatedTaskForState.teamId || deleteField() };
+      
+      // --- FIX STARTS HERE ---
+      const dataForFirestore: { [key: string]: any } = { ...taskData };
+
+      // Convert undefined or invalid 'estimatedTime' to a deleteField() operation
+      if ('estimatedTime' in dataForFirestore) {
+        const estTime = Number(dataForFirestore.estimatedTime);
+        if (isNaN(estTime) || estTime <= 0) {
+          dataForFirestore.estimatedTime = deleteField();
+        } else {
+          dataForFirestore.estimatedTime = estTime;
+        }
+      }
+
+      // Convert empty 'dueDate' to a deleteField() operation
+      if (dataForFirestore.dueDate === '') {
+        dataForFirestore.dueDate = deleteField();
+      }
+
+      // Handle teamId separately
+      dataForFirestore.teamId = updatedTaskForState.teamId || deleteField();
+      // --- FIX ENDS HERE ---
       
       if (movingCollections) {
         const currentTaskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         await deleteDoc(currentTaskRef);
         const newTaskRef = doc(db, updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
-        const { id, ...dataForFirestore } = updatedTaskForState;
-        await setDoc(newTaskRef, dataForFirestore);
+        const { id, ...dataForFirestoreWithMove } = updatedTaskForState;
+        
+        // Clean the moved data as well
+        Object.keys(dataForFirestoreWithMove).forEach(key => {
+            if (dataForFirestoreWithMove[key as keyof typeof dataForFirestoreWithMove] === undefined) {
+                delete dataForFirestoreWithMove[key as keyof typeof dataForFirestoreWithMove];
+            }
+        });
+
+        await setDoc(newTaskRef, dataForFirestoreWithMove);
       } else {
         const taskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
-        await updateDoc(taskRef, cleanedTaskData);
+        await updateDoc(taskRef, dataForFirestore);
       }
 
       toast({ title: "Task updated", description: "Your changes have been saved." });
