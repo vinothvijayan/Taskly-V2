@@ -45,7 +45,7 @@ const formatTime = (seconds: number): string => {
 };
 
 export function Leaderboard() {
-  const { tasks, teamMembers, loading } = useTasks();
+  const { allTeamAndPersonalTasks, teamMembers, loading } = useTasks();
   const { userProfile } = useAuth();
   const [timeFrame, setTimeFrame] = useState<TimeFrame>("week");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export function Leaderboard() {
     }
 
     const scores = teamMembers.map(member => {
-      const allMemberTasks = tasks.filter(task => task.createdBy === member.uid);
+      const allMemberTasks = allTeamAndPersonalTasks.filter(task => task.createdBy === member.uid);
       
       const score = calculateUserScoreForPeriod(allMemberTasks, startDate, endDate);
 
@@ -115,7 +115,7 @@ export function Leaderboard() {
     });
 
     return scores.sort((a, b) => b.score - a.score);
-  }, [tasks, teamMembers, timeFrame]);
+  }, [allTeamAndPersonalTasks, teamMembers, timeFrame]);
 
   if (loading) {
     return <LeaderboardSkeleton />;
