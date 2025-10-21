@@ -531,22 +531,36 @@ export default function SalesTrackerPage() {
   const handleSaveImportedContacts = async (importedContacts: Contact[]) => {
     if (!user || importedContacts.length === 0) return;
 
+    const existingPhones = new Set(contacts.map(c => c.phone));
     const updates: { [key: string]: any } = {};
+    let newContactsCount = 0;
+
     importedContacts.forEach(contact => {
-      const contactPath = `contacts/${contact.phone}`;
-      updates[contactPath] = {
-        name: contact.name,
-        phoneNumber: contact.phone,
-        callCount: 0,
-        callHistory: {},
-      };
+      if (!existingPhones.has(contact.phone)) {
+        const contactPath = `contacts/${contact.phone}`;
+        updates[contactPath] = {
+          name: contact.name,
+          phoneNumber: contact.phone,
+          callCount: 0,
+          callHistory: {},
+        };
+        newContactsCount++;
+      }
     });
+
+    if (Object.keys(updates).length === 0) {
+      toast({
+        title: "No New Contacts to Save",
+        description: "All imported contacts already exist in your master list.",
+      });
+      return;
+    }
 
     try {
       await update(ref(rtdb), updates);
       toast({
         title: "Contacts Saved!",
-        description: `${importedContacts.length} new contacts have been saved to your main list.`,
+        description: `${newContactsCount} new contacts have been saved to your master list.`,
       });
     } catch (error) {
       console.error("Error saving imported contacts:", error);

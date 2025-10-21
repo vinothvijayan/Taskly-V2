@@ -168,7 +168,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-      const existingPhones = new Set(contacts.map(c => c.phone));
+      const existingPhonesInImportList = new Set(importedContacts.map(c => c.phone));
       let newCount = 0;
       let duplicateCount = 0;
 
@@ -178,14 +178,14 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         
         if (!phone || !name) return null;
 
-        if (existingPhones.has(phone)) {
+        if (existingPhonesInImportList.has(phone)) {
           duplicateCount++;
           return null;
         }
         
         newCount++;
         return {
-          id: phone, // Use phone as temporary ID
+          id: phone,
           name,
           phone,
           callHistory: [],
@@ -198,7 +198,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       setImportedContacts(prev => [...prev, ...newContacts]);
       toast({
         title: "Import Complete",
-        description: `${newCount} new contacts imported. ${duplicateCount} duplicates were ignored.`,
+        description: `${newCount} contacts loaded for dialing. ${duplicateCount} duplicates within the file were ignored.`,
       });
     };
     reader.readAsBinaryString(file);
@@ -211,7 +211,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       await onSaveImportedContacts(importedContacts);
       setImportedContacts([]);
     } catch (error) {
-      // Error toast is handled in parent
+      console.error("Caught error from onSaveImportedContacts", error);
     } finally {
       setIsSaving(false);
     }
