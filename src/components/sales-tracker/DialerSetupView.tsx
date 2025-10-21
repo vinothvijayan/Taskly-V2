@@ -168,23 +168,23 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       const worksheet = workbook.Sheets[sheetName];
       const json = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-      const existingPhonesInImportList = new Set(importedContacts.map(c => c.phone));
-      let newCount = 0;
-      let duplicateCount = 0;
+      const phonesInThisFile = new Set<string>();
+      let duplicateCountInFile = 0;
+      const newContacts: Contact[] = [];
 
-      const newContacts: Contact[] = json.map((row: any) => {
+      json.forEach((row: any) => {
         const phone = String(row.Phone || row.phone || row['Phone Number'] || '').trim();
         const name = String(row.Name || row.name || 'Unknown').trim();
         
-        if (!phone || !name) return null;
+        if (!phone || !name) return;
 
-        if (existingPhonesInImportList.has(phone)) {
-          duplicateCount++;
-          return null;
+        if (phonesInThisFile.has(phone)) {
+          duplicateCountInFile++;
+          return;
         }
         
-        newCount++;
-        return {
+        phonesInThisFile.add(phone);
+        newContacts.push({
           id: phone,
           name,
           phone,
@@ -192,13 +192,13 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
           status: 'New',
           lastContacted: new Date().toISOString(),
           callCount: 0,
-        };
-      }).filter((c): c is Contact => c !== null);
+        });
+      });
 
-      setImportedContacts(prev => [...prev, ...newContacts]);
+      setImportedContacts(newContacts);
       toast({
         title: "Import Complete",
-        description: `${newCount} contacts loaded for dialing. ${duplicateCount} duplicates within the file were ignored.`,
+        description: `${newContacts.length} contacts loaded for dialing. ${duplicateCountInFile} duplicates within the file were ignored.`,
       });
     };
     reader.readAsBinaryString(file);
@@ -243,7 +243,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
               <div className="p-4 border-t">
                 <Button onClick={handleSave} disabled={isSaving} className="w-full">
                   {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save {importedContacts.length} Imported Contacts
+                  Save New Contacts
                 </Button>
               </div>
             )}
