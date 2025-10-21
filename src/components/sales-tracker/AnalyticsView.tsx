@@ -1,10 +1,11 @@
-import { useState } from "react";
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Contact, processAnalytics, AnalyticsData } from "@/lib/sales-tracker-data";
-import { BarChart3, Phone, TrendingUp, Clock, Users } from "lucide-react";
+import { Contact, processAnalytics, AnalyticsData, CallLog } from "@/lib/sales-tracker-data";
+import { BarChart3, Phone, TrendingUp, Clock, Users, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 interface StatCardProps {
   title: string;
@@ -39,9 +40,10 @@ const formatDuration = (seconds: number) => {
 interface AnalyticsTabContentProps {
   data: AnalyticsData;
   onDateClick: (date: string) => void;
+  onDeleteDate: (date: string, count: number) => void;
 }
 
-const AnalyticsTabContent: React.FC<AnalyticsTabContentProps> = ({ data, onDateClick }) => {
+const AnalyticsTabContent: React.FC<AnalyticsTabContentProps> = ({ data, onDateClick, onDeleteDate }) => {
   const sortedDates = Object.keys(data.tableData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   return (
@@ -70,14 +72,15 @@ const AnalyticsTabContent: React.FC<AnalyticsTabContentProps> = ({ data, onDateC
                   <TableHead className="text-center font-semibold">Not Picked</TableHead>
                   <TableHead className="text-center font-bold">Total Calls</TableHead>
                   <TableHead className="text-right font-semibold">Duration</TableHead>
+                  <TableHead className="text-center font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedDates.map(date => {
                   const stats = data.tableData[date];
                   return (
-                    <TableRow key={date} onClick={() => onDateClick(date)} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <TableCell className="font-medium">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
+                    <TableRow key={date} className="hover:bg-muted/50 transition-colors">
+                      <TableCell onClick={() => onDateClick(date)} className="cursor-pointer font-medium">{new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</TableCell>
                       <TableCell className="text-center">
                         <span className="inline-flex items-center justify-center min-w-[2rem] h-7 rounded-md bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 font-medium">
                           {stats.interested}
@@ -112,6 +115,16 @@ const AnalyticsTabContent: React.FC<AnalyticsTabContentProps> = ({ data, onDateC
                         <span className="font-bold text-lg">{stats.totalCalls}</span>
                       </TableCell>
                       <TableCell className="text-right font-medium">{formatDuration(stats.duration)}</TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          onClick={() => onDeleteDate(date, stats.totalCalls)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -127,9 +140,10 @@ const AnalyticsTabContent: React.FC<AnalyticsTabContentProps> = ({ data, onDateC
 interface AnalyticsViewProps {
   contacts: Contact[];
   onDateClick: (date: string, filter: 'New Call' | 'Follow-up' | 'all') => void;
+  onDeleteDate: (date: string, count: number) => void;
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ contacts, onDateClick }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ contacts, onDateClick, onDeleteDate }) => {
   const newCallsData = processAnalytics(contacts, 'New Call');
   const followupCallsData = processAnalytics(contacts, 'Follow-up');
   const consolidatedData = processAnalytics(contacts, 'all');
@@ -149,13 +163,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ contacts, onDateCl
           </TabsTrigger>
         </TabsList>
         <TabsContent value="new-calls">
-          <AnalyticsTabContent data={newCallsData} onDateClick={(date) => onDateClick(date, 'New Call')} />
+          <AnalyticsTabContent data={newCallsData} onDateClick={(date) => onDateClick(date, 'New Call')} onDeleteDate={onDeleteDate} />
         </TabsContent>
         <TabsContent value="follow-up">
-          <AnalyticsTabContent data={followupCallsData} onDateClick={(date) => onDateClick(date, 'Follow-up')} />
+          <AnalyticsTabContent data={followupCallsData} onDateClick={(date) => onDateClick(date, 'Follow-up')} onDeleteDate={onDeleteDate} />
         </TabsContent>
         <TabsContent value="consolidated">
-          <AnalyticsTabContent data={consolidatedData} onDateClick={(date) => onDateClick(date, 'all')} />
+          <AnalyticsTabContent data={consolidatedData} onDateClick={(date) => onDateClick(date, 'all')} onDeleteDate={onDeleteDate} />
         </TabsContent>
       </Tabs>
     </motion.div>

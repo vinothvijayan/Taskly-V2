@@ -32,6 +32,7 @@ import { DialerSetupView } from "@/components/sales-tracker/DialerSetupView";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
 import { Checkbox } from "@/components/ui/checkbox";
+import { BulkDeleteConfirmationDialog } from "@/components/sales-tracker/BulkDeleteConfirmationDialog";
 
 const ITEMS_PER_PAGE = 30;
 
@@ -185,6 +186,7 @@ export default function SalesTrackerPage() {
   const [liveCallData, setLiveCallData] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedForOppIds, setSelectedForOppIds] = useState<Set<string>>(new Set());
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ date: string; count: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -307,20 +309,19 @@ export default function SalesTrackerPage() {
     const filtered = contacts.filter(contact => {
         const hasCallHistory = contact.callHistory && contact.callHistory.length > 0;
 
-        // Case 1: The contact is new (no history)
-        if (!hasCallHistory) {
-            // Include this contact ONLY if "New (Never Called)" is selected.
-            // Date range does not apply to new contacts.
-            return includesNewContacts;
+        if (includesNewContacts && !hasCallHistory) {
+            if (dateRange?.from) return false;
+            return true;
         }
 
-        // Case 2: The contact has history.
-        // If the only filter is "New (Never Called)", we must exclude this contact.
+        if (!hasCallHistory) {
+            return false;
+        }
+
         if (includesNewContacts && otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0 && !dateRange?.from) {
             return false;
         }
 
-        // Check if the contact's history matches any of the other selected criteria.
         const matchesOtherCriteria = contact.callHistory.some(log => {
             let dateMatch = true;
             if (dateRange?.from) {
@@ -334,9 +335,8 @@ export default function SalesTrackerPage() {
             const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
             const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
 
-            // If no specific feedback filters are set, a date match is sufficient.
             if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
-                return true; // Date match was enough
+                return true;
             }
 
             return initialMatch || followupMatch;
@@ -533,12 +533,10 @@ export default function SalesTrackerPage() {
 
     const updates: { [key: string]: any } = {};
     importedContacts.forEach(contact => {
-      // Use phone number as the key for the contact
       const contactPath = `contacts/${contact.phone}`;
       updates[contactPath] = {
         name: contact.name,
         phoneNumber: contact.phone,
-        // Initialize other fields as needed
         callCount: 0,
         callHistory: {},
       };
@@ -557,7 +555,7 @@ export default function SalesTrackerPage() {
         description: "Could not save the imported contacts to Firebase.",
         variant: "destructive",
       });
-      throw error; // Re-throw to be caught in the component
+      throw error;
     }
   };
 
@@ -576,6 +574,40 @@ export default function SalesTrackerPage() {
       console.error("Failed to finish session:", error);
       toast({ title: "Error", description: "Could not finish the session.", variant: "destructive" });
     }
+  };
+
+  const handleDeleteDateSummary = (date: string, count: number) => {
+    setDeleteConfirmation({ date, count });
+  };
+
+  const handleConfirmDeleteDateSummary = async () => {
+    if (!deleteConfirmation || !user) return;
+    const { date } = deleteConfirmation;
+
+    const updates: { [key: string]: null } = {};
+    let logsDeletedCount = 0;
+
+    contacts.forEach(contact => {
+      contact.callHistory.forEach(log => {
+        const logDate = format(startOfDay(new Date(log.timestamp)), 'yyyy-MM-dd');
+        if (logDate === date) {
+          updates[`contacts/${contact.phone}/callHistory/${log.originalIndex}`] = null;
+          logsDeletedCount++;
+        }
+      });
+    });
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        await update(ref(rtdb), updates);
+        toast({ title: `Successfully deleted ${logsDeletedCount} call logs for ${format(new Date(date), 'PP')}.` });
+      } catch (error) {
+        console.error("Error deleting date summary:", error);
+        toast({ title: "Deletion failed", variant: "destructive" });
+      }
+    }
+
+    setDeleteConfirmation(null);
   };
 
   const containerVariants = {
@@ -722,7 +754,7 @@ export default function SalesTrackerPage() {
             ) : (
               <ScrollArea className="h-full -m-4 md:-m-6">
                 <div className="p-4 md:p-6">
-                  <AnalyticsView contacts={contacts} onDateClick={handleDateClick} />
+                  <AnalyticsView contacts={contacts} onDateClick={handleDateClick} onDeleteDate={handleDeleteDateSummary} />
                 </div>
               </ScrollArea>
             )}
@@ -783,6 +815,14 @@ export default function SalesTrackerPage() {
           <ContactDetailPanel contact={selectedContact} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} />
         </DialogContent>
       </Dialog>
+
+      <BulkDeleteConfirmationDialog
+        open={!!deleteConfirmation}
+        onOpenChange={(isOpen) => !isOpen && setDeleteConfirmation(null)}
+        onConfirm={handleConfirmDeleteDateSummary}
+        itemCount={deleteConfirmation?.count || 0}
+        itemName={`call logs for ${deleteConfirmation ? format(new Date(deleteConfirmation.date), 'PP') : ''}`}
+      />
     </div>
   );
 }
