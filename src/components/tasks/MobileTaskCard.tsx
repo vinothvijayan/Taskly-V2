@@ -178,7 +178,7 @@ export const MobileTaskCard = memo(function MobileTaskCard({
               <div className="flex flex-wrap items-center gap-1.5 text-xs mt-2">
                 {task.dueDate && <Badge variant={isOverdue ? "destructive" : "outline"} className="h-5 text-[10px] px-1.5 py-0.5"><Calendar className="h-2.5 w-2.5 mr-1" />{formatDueDate(task.dueDate)}</Badge>}
                 {task.estimatedTime && task.estimatedTime > 0 && <Badge variant="secondary" className="h-5 text-[10px] px-1.5 py-0.5"><Clock className="h-2.5 w-2.5 mr-1" />{task.estimatedTime}m</Badge>}
-                {task.timeSpent && task.timeSpent > 0 && <Badge variant="outline" className="h-5 text-[10px] px-1.5 py-0.5"><Clock className="h-2.5 w-2.5 mr-1" />{formatTimeSpent(task.timeSpent)}</Badge>}
+                {task.timeSpent > 0 && <Badge variant="outline" className="h-5 text-[10px] px-1.5 py-0.5"><Clock className="h-2.5 w-2.5 mr-1" />{formatTimeSpent(task.timeSpent)}</Badge>}
                 {assignedProfiles.length > 0 && <Badge variant="outline" className="h-5 text-[10px] px-1.5 py-0.5"><Users className="h-2.5 w-2.5 mr-1" />{assignedProfiles.length}</Badge>}
               </div>
             </div>
