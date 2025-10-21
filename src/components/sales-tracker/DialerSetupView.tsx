@@ -170,7 +170,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
 
       const phonesInThisFile = new Set<string>();
       let duplicateCountInFile = 0;
-      const newContacts: Contact[] = [];
+      const newContactsFromFile: Contact[] = [];
 
       json.forEach((row: any) => {
         const phone = String(row.Phone || row.phone || row['Phone Number'] || '').trim();
@@ -178,13 +178,14 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         
         if (!phone || !name) return;
 
+        // This check only prevents duplicates from within the SAME file from being added multiple times.
         if (phonesInThisFile.has(phone)) {
           duplicateCountInFile++;
           return;
         }
         
         phonesInThisFile.add(phone);
-        newContacts.push({
+        newContactsFromFile.push({
           id: phone,
           name,
           phone,
@@ -195,10 +196,12 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         });
       });
 
-      setImportedContacts(newContacts);
+      // This REPLACES the existing imported list, which is what we want.
+      setImportedContacts(newContactsFromFile);
+      
       toast({
         title: "Import Complete",
-        description: `${newContacts.length} contacts loaded for dialing. ${duplicateCountInFile} duplicates within the file were ignored.`,
+        description: `${newContactsFromFile.length} unique contacts loaded from file. ${duplicateCountInFile > 0 ? `${duplicateCountInFile} duplicates within the file were ignored.` : ''}`,
       });
     };
     reader.readAsBinaryString(file);
