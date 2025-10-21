@@ -231,7 +231,7 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/settings")}>
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>

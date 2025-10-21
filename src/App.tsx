@@ -64,7 +64,6 @@ const NotesPage = lazy(() => import("./pages/NotesPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create QueryClient instance outside component
@@ -386,7 +385,6 @@ function AppContent() {
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/chat" element={<ChatPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/settings" element={<SettingsPage />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

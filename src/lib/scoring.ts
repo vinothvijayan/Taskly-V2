@@ -108,7 +108,7 @@ const getStreakMultiplier = (streak: number): number => {
 
 /**
  * Calculates the total performance score for a user over a given period,
- * including daily streak bonuses.
+ * including daily streak bonuses and partial credit for subtasks.
  */
 export const calculateUserScoreForPeriod = (
   allUserTasks: Task[],
@@ -146,6 +146,23 @@ export const calculateUserScoreForPeriod = (
     
     totalScore += dailyBaseScore * multiplier;
   }
+
+  // Add partial credit for incomplete tasks with subtasks
+  const incompleteTasksWithSubtasks = allUserTasks.filter(
+    task => task.status !== 'completed' && task.subtasks && task.subtasks.length > 0
+  );
+
+  incompleteTasksWithSubtasks.forEach(task => {
+    const subtaskCount = task.subtasks!.length;
+    const completedSubtasks = task.subtasks!.filter(s => s.isCompleted).length;
+    
+    if (completedSubtasks > 0) {
+      const completionRatio = completedSubtasks / subtaskCount;
+      const baseScore = getTaskWeight(task) * getPriorityMultiplier(task);
+      const partialCredit = baseScore * completionRatio;
+      totalScore += partialCredit;
+    }
+  });
 
   return Math.round(totalScore);
 };
