@@ -88,6 +88,47 @@ const SortableCallItem = ({ call, onSelectContact, onToggleSelect, isSelected, o
   );
 };
 
+const KanbanColumn = ({
+  feedback,
+  calls,
+  onSelectContact,
+  onToggleSelect,
+  selectedLogIds,
+  onDelete,
+}: {
+  feedback: CallLog['feedback'];
+  calls: { contact: Contact; log: CallLog }[];
+  onSelectContact: (contact: Contact) => void;
+  onToggleSelect: (logId: string) => void;
+  selectedLogIds: Set<string>;
+  onDelete: (call: { contact: Contact; log: CallLog }) => void;
+}) => {
+  const { setNodeRef } = useSortable({ id: feedback });
+
+  return (
+    <div ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
+      <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+        {getFeedbackBadge(feedback)}
+        <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
+      </div>
+      <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2">
+          {calls.map((call) => (
+            <SortableCallItem
+              key={call.log.originalIndex}
+              call={call}
+              onSelectContact={onSelectContact}
+              onToggleSelect={onToggleSelect}
+              isSelected={selectedLogIds.has(call.log.originalIndex)}
+              onDelete={() => onDelete(call)}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </div>
+  );
+};
+
 const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpenChange'>> = ({ data, onSelectContact, onUpdateCallLogFeedback, onDeleteCallLog, onDeleteMultipleCallLogs }) => {
   const [columns, setColumns] = useState<Record<string, { contact: Contact; log: CallLog }[]>>({});
   const [activeDragItem, setActiveDragItem] = useState<{ contact: Contact; log: CallLog } | null>(null);
@@ -230,32 +271,17 @@ const KanbanContent: React.FC<Omit<DailyCallDetailModalProps, 'isOpen' | 'onOpen
         <div className="flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="h-full w-full">
             <div className="flex space-x-4 pb-4">
-              {feedbackOrder.map((feedback) => {
-                const calls = columns[feedback] || [];
-                const { setNodeRef } = useSortable({ id: feedback });
-                return (
-                  <div key={feedback} ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/30 rounded-lg p-4 flex flex-col">
-                    <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                      {getFeedbackBadge(feedback)}
-                      <span className="font-semibold text-sm text-muted-foreground">({calls.length})</span>
-                    </div>
-                    <SortableContext items={calls.map(c => c.log.originalIndex)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2">
-                        {calls.map((call) => (
-                          <SortableCallItem 
-                            key={call.log.originalIndex} 
-                            call={call} 
-                            onSelectContact={onSelectContact}
-                            onToggleSelect={handleToggleSelect}
-                            isSelected={selectedLogIds.has(call.log.originalIndex)}
-                            onDelete={() => setLogToDelete(call)}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </div>
-                );
-              })}
+              {feedbackOrder.map((feedback) => (
+                <KanbanColumn
+                  key={feedback}
+                  feedback={feedback}
+                  calls={columns[feedback] || []}
+                  onSelectContact={onSelectContact}
+                  onToggleSelect={handleToggleSelect}
+                  selectedLogIds={selectedLogIds}
+                  onDelete={setLogToDelete}
+                />
+              ))}
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
