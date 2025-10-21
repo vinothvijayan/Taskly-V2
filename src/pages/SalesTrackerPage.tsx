@@ -304,50 +304,44 @@ export default function SalesTrackerPage() {
         return;
     }
 
-    const contactsToExport = new Set<Contact>();
-
-    // Add new contacts if selected (and no date range is applied)
-    if (includesNewContacts && !dateRange?.from) {
-        contacts.forEach(contact => {
-            if (!contact.callHistory || contact.callHistory.length === 0) {
-                contactsToExport.add(contact);
-            }
-        });
-    }
-
-    // Add contacts matching other criteria
-    contacts.forEach(contact => {
-        if (contact.callHistory && contact.callHistory.length > 0) {
-            const matches = contact.callHistory.some(log => {
-                // Check date range
-                let dateMatch = true;
-                if (dateRange?.from) {
-                    const from = startOfDay(dateRange.from);
-                    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-                    const logDate = new Date(log.timestamp);
-                    dateMatch = logDate >= from && logDate <= to;
-                }
-                if (!dateMatch) return false;
-
-                // Check feedback types
-                const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
-                const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
-
-                // If no feedback filters, a date match is enough
-                if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
-                    return true;
-                }
-
-                return initialMatch || followupMatch;
-            });
-
-            if (matches) {
-                contactsToExport.add(contact);
-            }
+    const filtered = contacts.filter(contact => {
+        // Condition 1: Check for "New (Never Called)"
+        // This matches if the filter is selected AND the contact has no history.
+        // It ignores date ranges because new contacts don't have call dates.
+        if (includesNewContacts && (!contact.callHistory || contact.callHistory.length === 0)) {
+            if (dateRange?.from) return false; // Exclude new contacts if a date range is set
+            return true;
         }
-    });
 
-    const filtered = Array.from(contactsToExport);
+        // If we are here, the contact has a call history.
+        if (!contact.callHistory || contact.callHistory.length === 0) {
+            return false;
+        }
+
+        // Condition 2: Check other feedback types and date range for contacts with history
+        const matchesOtherCriteria = contact.callHistory.some(log => {
+            let dateMatch = true;
+            if (dateRange?.from) {
+                const from = startOfDay(dateRange.from);
+                const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+                const logDate = new Date(log.timestamp);
+                dateMatch = logDate >= from && logDate <= to;
+            }
+
+            const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
+            const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
+
+            // If no specific feedback is selected, a date match is enough
+            if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
+                return dateMatch;
+            }
+
+            // Otherwise, both date (if specified) and feedback must match
+            return dateMatch && (initialMatch || followupMatch);
+        });
+
+        return matchesOtherCriteria;
+    });
 
     if (filtered.length === 0) {
         toast({
