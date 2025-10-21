@@ -305,20 +305,22 @@ export default function SalesTrackerPage() {
     }
 
     const filtered = contacts.filter(contact => {
-        // Condition 1: Check for "New (Never Called)"
-        // This matches if the filter is selected AND the contact has no history.
-        // It ignores date ranges because new contacts don't have call dates.
-        if (includesNewContacts && (!contact.callHistory || contact.callHistory.length === 0)) {
-            if (dateRange?.from) return false; // Exclude new contacts if a date range is set
-            return true;
+        const hasCallHistory = contact.callHistory && contact.callHistory.length > 0;
+
+        // Case 1: The contact is new (no history)
+        if (!hasCallHistory) {
+            // Include this contact ONLY if "New (Never Called)" is selected.
+            // Date range does not apply to new contacts.
+            return includesNewContacts;
         }
 
-        // If we are here, the contact has a call history.
-        if (!contact.callHistory || contact.callHistory.length === 0) {
+        // Case 2: The contact has history.
+        // If the only filter is "New (Never Called)", we must exclude this contact.
+        if (includesNewContacts && otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0 && !dateRange?.from) {
             return false;
         }
 
-        // Condition 2: Check other feedback types and date range for contacts with history
+        // Check if the contact's history matches any of the other selected criteria.
         const matchesOtherCriteria = contact.callHistory.some(log => {
             let dateMatch = true;
             if (dateRange?.from) {
@@ -327,17 +329,17 @@ export default function SalesTrackerPage() {
                 const logDate = new Date(log.timestamp);
                 dateMatch = logDate >= from && logDate <= to;
             }
+            if (!dateMatch) return false;
 
             const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
             const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
 
-            // If no specific feedback is selected, a date match is enough
+            // If no specific feedback filters are set, a date match is sufficient.
             if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
-                return dateMatch;
+                return true; // Date match was enough
             }
 
-            // Otherwise, both date (if specified) and feedback must match
-            return dateMatch && (initialMatch || followupMatch);
+            return initialMatch || followupMatch;
         });
 
         return matchesOtherCriteria;
