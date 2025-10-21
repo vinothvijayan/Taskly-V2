@@ -178,7 +178,6 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         
         if (!phone || !name) return;
 
-        // This check only prevents duplicates from within the SAME file from being added multiple times.
         if (phonesInThisFile.has(phone)) {
           duplicateCountInFile++;
           return;
@@ -196,7 +195,6 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         });
       });
 
-      // This REPLACES the existing imported list, which is what we want.
       setImportedContacts(newContactsFromFile);
       
       toast({
@@ -222,6 +220,26 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
+  const handleSelectAllImported = () => {
+    const importedIds = importedContacts.map(c => c.id);
+    const allSelected = importedIds.every(id => selectedContactIds.has(id));
+
+    setSelectedContactIds(prev => {
+      const newSet = new Set(prev);
+      if (allSelected) {
+        importedIds.forEach(id => newSet.delete(id));
+      } else {
+        importedIds.forEach(id => newSet.add(id));
+      }
+      return newSet;
+    });
+  };
+
+  const allImportedSelected = useMemo(() => {
+    if (importedContacts.length === 0) return false;
+    return importedContacts.every(c => selectedContactIds.has(c.id));
+  }, [importedContacts, selectedContactIds]);
+
   return (
     <DndContext sensors={sensors} onDragStart={() => {}} onDragEnd={handleDragEnd}>
       <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border">
@@ -230,7 +248,19 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Imported Contacts</CardTitle>
               <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx, .xls, .csv" className="hidden" />
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-2" /> Import from File</Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
+                  <Upload className="h-4 w-4 mr-2" /> Import
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleSelectAllImported} 
+                  disabled={importedContacts.length === 0}
+                  className="flex-1"
+                >
+                  {allImportedSelected ? 'Deselect All' : 'Select All'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
               <ScrollArea className="h-full">
