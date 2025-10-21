@@ -24,6 +24,7 @@ interface ExportFilterDialogProps {
 }
 
 const feedbackOptions = ['Interested', 'Not Interested', 'Follow Up', 'Callback', 'Not Picked', 'Send Details'];
+const initialFeedbackOptions = ['New Contact', ...feedbackOptions];
 
 export const ExportFilterDialog: React.FC<ExportFilterDialogProps> = ({ open, onOpenChange, onExport }) => {
   const [filters, setFilters] = useState<ExportFilterState>({
@@ -120,7 +121,7 @@ export const ExportFilterDialog: React.FC<ExportFilterDialogProps> = ({ open, on
           <div>
             <Label className="font-medium">Initial Call Status</Label>
             <div className="grid grid-cols-2 gap-2 mt-2">
-              {feedbackOptions.map(option => (
+              {initialFeedbackOptions.map(option => (
                 <div key={`initial-${option}`} className="flex items-center space-x-2">
                   <Checkbox
                     id={`export-initial-${option}`}
@@ -128,7 +129,7 @@ export const ExportFilterDialog: React.FC<ExportFilterDialogProps> = ({ open, on
                     onCheckedChange={(checked) => handleCheckboxChange('initialCallFeedback', option, !!checked)}
                   />
                   <label htmlFor={`export-initial-${option}`} className="text-sm font-medium leading-none">
-                    {option}
+                    {option === 'New Contact' ? 'New (Never Called)' : option}
                   </label>
                 </div>
               ))}

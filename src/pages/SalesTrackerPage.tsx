@@ -90,14 +90,14 @@ const ContactsListView: React.FC<ContactsListViewProps> = ({
           <Drawer open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <DrawerTrigger asChild><FilterTrigger activeFilterCount={activeFilterCount} /></DrawerTrigger>
             <DrawerContent>
-              <FilterPanel filters={filters} onFiltersChange={setFilters} onApply={() => setIsFilterOpen(false)} />
+              <FilterPanel filters={filters} onFiltersChange={setFilters} />
             </DrawerContent>
           </Drawer>
         ) : (
           <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
             <PopoverTrigger asChild><FilterTrigger activeFilterCount={activeFilterCount} /></PopoverTrigger>
             <PopoverContent className="w-80" align="end">
-              <FilterPanel filters={filters} onFiltersChange={setFilters} onApply={() => setIsFilterOpen(false)} />
+              <FilterPanel filters={filters} onFiltersChange={setFilters} />
             </PopoverContent>
           </Popover>
         )}
@@ -290,37 +290,64 @@ export default function SalesTrackerPage() {
   }, [filteredContacts, visibleCount]);
 
   const handleExportContacts = (exportFilters: ExportFilterState) => {
-    const filtered = contacts.filter(contact => {
-        const { dateRange, initialCallFeedback, followUpCallFeedback } = exportFilters;
+    const { dateRange, initialCallFeedback, followUpCallFeedback } = exportFilters;
 
-        if (dateRange?.from || dateRange?.to) {
-            const from = dateRange.from ? startOfDay(dateRange.from) : null;
-            const to = dateRange.to ? endOfDay(dateRange.to) : null;
-            const isInRange = contact.callHistory.some(log => {
-                const logDate = new Date(log.timestamp);
-                return (!from || logDate >= from) && (!to || logDate <= to);
+    const includesNewContacts = initialCallFeedback.includes('New Contact');
+    const otherInitialFeedbacks = initialCallFeedback.filter(f => f !== 'New Contact');
+
+    const isAnyFilterActive = includesNewContacts || otherInitialFeedbacks.length > 0 || followUpCallFeedback.length > 0 || dateRange?.from;
+    if (!isAnyFilterActive) {
+        toast({
+            title: "No Filters Selected",
+            description: "Please select at least one filter to export contacts.",
+        });
+        return;
+    }
+
+    const contactsToExport = new Set<Contact>();
+
+    // Add new contacts if selected (and no date range is applied)
+    if (includesNewContacts && !dateRange?.from) {
+        contacts.forEach(contact => {
+            if (!contact.callHistory || contact.callHistory.length === 0) {
+                contactsToExport.add(contact);
+            }
+        });
+    }
+
+    // Add contacts matching other criteria
+    contacts.forEach(contact => {
+        if (contact.callHistory && contact.callHistory.length > 0) {
+            const matches = contact.callHistory.some(log => {
+                // Check date range
+                let dateMatch = true;
+                if (dateRange?.from) {
+                    const from = startOfDay(dateRange.from);
+                    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+                    const logDate = new Date(log.timestamp);
+                    dateMatch = logDate >= from && logDate <= to;
+                }
+                if (!dateMatch) return false;
+
+                // Check feedback types
+                const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
+                const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
+
+                // If no feedback filters, a date match is enough
+                if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
+                    return true;
+                }
+
+                return initialMatch || followupMatch;
             });
-            if (!isInRange) return false;
-        }
 
-        if (initialCallFeedback.length > 0) {
-            const initialCall = contact.callHistory.find(log => log.type === 'New Call');
-            if (!initialCall || !initialCallFeedback.includes(initialCall.feedback)) {
-                return false;
+            if (matches) {
+                contactsToExport.add(contact);
             }
         }
-
-        if (followUpCallFeedback.length > 0) {
-            const hasMatchingFollowUp = contact.callHistory.some(log => 
-                log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback)
-            );
-            if (!hasMatchingFollowUp) {
-                return false;
-            }
-        }
-
-        return true;
     });
+
+    const filtered = Array.from(contactsToExport);
 
     if (filtered.length === 0) {
         toast({
