@@ -14,7 +14,8 @@ import {
   setDoc,
   onSnapshot,
   Unsubscribe,
-  FieldValue // Import FieldValue
+  FieldValue,
+  writeBatch
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -46,6 +47,7 @@ interface TasksContextType {
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>; // New
   updateSubtaskTimeSpent: (taskId: string, subtaskId: string, timeToAdd: number) => Promise<void>; // New
   updateTaskLastCommentedAt: (taskId: string, timestamp: string) => Promise<void>; // New
+  resetAllLeaderboardScores: () => Promise<void>; // New
   getTasksByDateRange: (startDate: Date, endDate: Date) => Task[];
   getTasksByStatus: (status: Task["status"]) => Task[];
   getTasksByPriority: (priority: Task["priority"]) => Task[];
@@ -521,6 +523,49 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     }
   }, [tasks, updateTask]);
 
+  const resetAllLeaderboardScores = useCallback(async () => {
+    if (!user || !userProfile || userProfile.role !== 'admin') {
+        toast({ title: "Permission Denied", description: "Only admins can reset the leaderboard.", variant: "destructive" });
+        return;
+    }
+
+    const teamId = userProfile.teamId;
+    if (!teamId) {
+        toast({ title: "No Team Found", description: "You must be in a team to reset a leaderboard.", variant: "destructive" });
+        return;
+    }
+
+    toast({ title: "Resetting scores...", description: "This may take a moment." });
+
+    try {
+        const batch = writeBatch(db);
+        const teamTasksRef = collection(db, 'teams', teamId, 'tasks');
+        const tasksSnapshot = await getDocs(teamTasksRef);
+
+        if (tasksSnapshot.empty) {
+            toast({ title: "No tasks to reset." });
+            return;
+        }
+
+        tasksSnapshot.forEach(taskDoc => {
+            const taskData = taskDoc.data() as Task;
+            const updatedSubtasks = taskData.subtasks?.map(sub => ({ ...sub, timeSpent: 0 })) || [];
+            
+            batch.update(taskDoc.ref, {
+                timeSpent: 0,
+                subtasks: updatedSubtasks
+            });
+        });
+
+        await batch.commit();
+
+        toast({ title: "Leaderboard Reset!", description: "All team scores have been reset to zero." });
+    } catch (error) {
+        console.error("Error resetting leaderboard scores:", error);
+        toast({ title: "Reset Failed", description: "An error occurred while resetting scores.", variant: "destructive" });
+    }
+  }, [user, userProfile, toast]);
+
   const getTasksByDateRange = (startDate: Date, endDate: Date): Task[] => tasks.filter(task => {
     const taskDate = new Date(task.createdAt);
     return taskDate >= startDate && taskDate <= endDate;
@@ -591,6 +636,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     deleteSubtask,
     updateSubtaskTimeSpent,
     updateTaskLastCommentedAt,
+    resetAllLeaderboardScores,
     getTasksByDateRange,
     getTasksByStatus,
     getTasksByPriority,
