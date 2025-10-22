@@ -113,7 +113,7 @@ export function TaskCard({
           }
         }}
       >
-        <div className="p-4">
+        <div className="p-3">
           <div className="flex items-start gap-3">
             <Button
               onClick={(e) => { e.stopPropagation(); onToggleStatus(task.id); }}
@@ -166,7 +166,7 @@ export function TaskCard({
                 </div>
               </div>
 
-              {task.description && <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed min-h-[3rem]">{task.description}</p>}
+              {task.description && <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{task.description}</p>}
 
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 {task.dueDate && <Badge variant={isOverdue ? "destructive" : "outline"}><Calendar className="h-3 w-3 mr-1" />{formatDueDate(task.dueDate)}</Badge>}
