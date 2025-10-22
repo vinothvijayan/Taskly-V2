@@ -36,27 +36,23 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
             const callHistoryWithOriginalIndex: (CallLog & { originalIndex: string })[] = contactData.callHistory 
               ? Object.entries(contactData.callHistory as Record<string, any>)
                   .map(([key, value]) => ({ ...(value as CallLog), originalIndex: key }))
+                  // Filter out any logs that might have a missing or invalid timestamp.
+                  .filter(log => log.timestamp && typeof log.timestamp === 'string' && !isNaN(new Date(log.timestamp).getTime()))
               : [];
 
-            // Sort oldest to newest to find the first call
-            const sortedOldestFirst = [...callHistoryWithOriginalIndex].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            // Sort once: oldest to newest to determine the "New Call"
+            const sortedHistory = callHistoryWithOriginalIndex.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-            // Create a map of originalIndex to type
-            const typeMap = new Map<'New Call' | 'Follow-up'>();
-            sortedOldestFirst.forEach((log, index) => {
-                typeMap.set(log.originalIndex, index === 0 ? 'New Call' : 'Follow-up');
-            });
-
-            // Sort newest to oldest for display and finding the latest call
-            const sortedNewestFirst = [...callHistoryWithOriginalIndex].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-            // Add the type to the final, newest-first array
-            const finalCallHistory: CallLog[] = sortedNewestFirst.map(log => ({
+            // Assign types based on the sorted order
+            const historyWithTypes = sortedHistory.map((log, index) => ({
                 ...log,
-                type: typeMap.get(log.originalIndex) || 'Follow-up',
+                type: index === 0 ? 'New Call' : 'Follow-up' as 'New Call' | 'Follow-up'
             }));
 
-            const latestCall = finalCallHistory[0] || null;
+            // Reverse the array for display (newest first)
+            const finalCallHistory = historyWithTypes.reverse();
+
+            const latestCall = finalCallHistory[0] || null; // The first item is now the newest
 
             return {
               id: phone,
