@@ -20,6 +20,8 @@ import {
   AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Capacitor } from "@capacitor/core";
+import { VoiceRecorder } from '@capacitor-community/voice-recorder';
 
 interface AudioRecorderProps {
   className?: string;
@@ -70,38 +72,50 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
   }, [recordedAudio]);
 
   const checkMicrophonePermission = async () => {
-    try {
-      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-      console.log('Microphone permission query result:', result.state); // ADDED LOG
-      setHasPermission(result.state === 'granted');
-      result.onchange = () => {
-        console.log('Microphone permission state changed to:', result.state); // ADDED LOG
+    if (Capacitor.isNativePlatform()) {
+      const { value: permission } = await VoiceRecorder.getAudioRecordingPermission();
+      setHasPermission(permission === 'granted');
+    } else {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
         setHasPermission(result.state === 'granted');
-      };
-    } catch (error) {
-      console.warn("Permission API not supported or error querying permission:", error); // ENHANCED LOG
-      setHasPermission(null);
+        result.onchange = () => {
+          setHasPermission(result.state === 'granted');
+        };
+      } catch (error) {
+        console.warn("Permission API not supported or error querying permission:", error);
+        setHasPermission(null);
+      }
     }
   };
 
   const requestMicrophonePermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop());
-      setHasPermission(true);
-      toast({
-        title: "Microphone access granted! 🎙️",
-        description: "You can now start recording meetings."
-      });
-      console.log('Microphone access successfully granted via getUserMedia.'); // ADDED LOG
-    } catch (error) {
-      setHasPermission(false);
-      toast({
-        title: "Microphone access denied",
-        description: "Please allow microphone access to record meetings.",
-        variant: "destructive"
-      });
-      console.error('Microphone access denied via getUserMedia:', error); // ENHANCED LOG
+    if (Capacitor.isNativePlatform()) {
+      const { value: permission } = await VoiceRecorder.requestAudioRecordingPermission();
+      const granted = permission === 'granted';
+      setHasPermission(granted);
+      if (granted) {
+        toast({ title: "Microphone access granted! 🎙️" });
+      } else {
+        toast({ title: "Microphone access denied", variant: "destructive" });
+      }
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        setHasPermission(true);
+        toast({
+          title: "Microphone access granted! 🎙️",
+          description: "You can now start recording meetings."
+        });
+      } catch (error) {
+        setHasPermission(false);
+        toast({
+          title: "Microphone access denied",
+          description: "Please allow microphone access to record meetings.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
@@ -136,21 +150,20 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
   const handleStartRecording = async () => {
     if (hasPermission === false) {
       await requestMicrophonePermission();
-      // After requesting, re-check if permission is now granted.
-      // If not, the startRecording call below will likely fail, which is expected.
-      if (!hasPermission) { // Note: hasPermission might not be updated immediately here due to state async nature
-          console.log("Permission was false, requested, but still not granted. Aborting start recording.");
-          return;
-      }
+      // Re-check after request
+      const { value: permission } = Capacitor.isNativePlatform() 
+        ? await VoiceRecorder.getAudioRecordingPermission()
+        : await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (permission !== 'granted') return;
     }
     try {
-      // This call will now proceed only if hasPermission was true initially,
-      // or if requestMicrophonePermission successfully granted it.
       await startRecording();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true }); // This might be redundant if startRecording already gets stream
-      setupAudioAnalyser(stream);
+      if (!Capacitor.isNativePlatform()) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setupAudioAnalyser(stream);
+      }
     } catch (error) {
-      console.error("Failed to start recording after permission check:", error); // ENHANCED LOG
+      console.error("Failed to start recording after permission check:", error);
       toast({
         title: "Recording failed",
         description: "Could not access microphone. Please check permissions.",
@@ -261,13 +274,15 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
                   Recording
                 </Badge>
                 <div className="text-3xl font-mono font-bold text-primary">{formatDuration(recordingDuration)}</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-center gap-2">
-                    {audioLevel > 10 ? <Volume2 className="h-4 w-4 text-success" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-                    <span className="text-sm text-muted-foreground">Audio Level</span>
+                {!Capacitor.isNativePlatform() && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-center gap-2">
+                      {audioLevel > 10 ? <Volume2 className="h-4 w-4 text-success" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+                      <span className="text-sm text-muted-foreground">Audio Level</span>
+                    </div>
+                    <Progress value={audioLevel} className="h-2 w-32 mx-auto" />
                   </div>
-                  <Progress value={audioLevel} className="h-2 w-32 mx-auto" />
-                </div>
+                )}
               </div>
             )}
 

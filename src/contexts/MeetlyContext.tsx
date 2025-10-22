@@ -21,6 +21,8 @@ import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { Capacitor } from "@capacitor/core";
+import { VoiceRecorder, RecordingData, GenericResponse } from '@capacitor-community/voice-recorder';
 
 interface MeetlyContextType {
   recordings: MeetingRecording[];
@@ -119,58 +121,93 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       setRecordedAudio(null);
     }
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        }
-      });
+    if (Capacitor.isNativePlatform()) {
+      // --- NATIVE PLATFORM LOGIC ---
+      try {
+        await VoiceRecorder.startRecording();
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
+        toast({ title: "Recording started 🎙️" });
+      } catch (error) {
+        console.error("Native recording failed to start:", error);
+        toast({ title: "Recording Failed", description: "Could not start native recorder.", variant: "destructive" });
+      }
+    } else {
+      // --- WEB PLATFORM LOGIC ---
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100
+          }
+        });
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      const recorder = new MediaRecorder(stream, { mimeType });
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        const recorder = new MediaRecorder(stream, { mimeType });
 
-      const chunks: Blob[] = [];
+        const chunks: Blob[] = [];
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
 
-      recorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: mimeType });
-        setRecordedAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
+        recorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: mimeType });
+          setRecordedAudio(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        };
 
-      recorder.start(1000);
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      setRecordingStartTime(Date.now());
-      setRecordingDuration(0);
+        recorder.start(1000);
+        setMediaRecorder(recorder);
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
 
-      toast({
-        title: "Recording started 🎙️",
-        description: "Your meeting is being recorded."
-      });
+        toast({
+          title: "Recording started 🎙️",
+          description: "Your meeting is being recorded."
+        });
 
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      toast({
-        title: "Recording failed",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive"
-      });
+      } catch (error) {
+        console.error("Error starting recording:", error);
+        toast({
+          title: "Recording failed",
+          description: "Could not access microphone. Please check permissions.",
+          variant: "destructive"
+        });
+      }
     }
   };
 
   const stopRecording = async () => {
-    if (!mediaRecorder || !isRecording) return;
-    mediaRecorder.stop();
+    if (!isRecording) return;
+
+    if (Capacitor.isNativePlatform()) {
+      // --- NATIVE PLATFORM LOGIC ---
+      try {
+        const result: RecordingData = await VoiceRecorder.stopRecording();
+        if (result.value && result.value.recordDataBase64) {
+          // Convert base64 to Blob
+          const fetchRes = await fetch(`data:${result.value.mimeType};base64,${result.value.recordDataBase64}`);
+          const blob = await fetchRes.blob();
+          setRecordedAudio(blob);
+        }
+      } catch (error) {
+        console.error("Native recording failed to stop:", error);
+      }
+    } else {
+      // --- WEB PLATFORM LOGIC ---
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        setMediaRecorder(null);
+      }
+    }
+
     setIsRecording(false);
-    setMediaRecorder(null);
     toast({
       title: "Recording stopped ⏹️",
       description: "Ready to save your recording"
