@@ -33,26 +33,39 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
         const data = snapshot.val();
         if (data) {
           const transformedContacts: Contact[] = Object.entries(data).map(([phone, contactData]: [string, any]) => {
-            const callHistoryWithOriginalIndex: (CallLog & { originalIndex: string })[] = contactData.callHistory 
+            // 1. Get all valid call history entries from Firebase.
+            const validHistory: (CallLog & { originalIndex: string })[] = contactData.callHistory 
               ? Object.entries(contactData.callHistory as Record<string, any>)
                   .map(([key, value]) => ({ ...(value as CallLog), originalIndex: key }))
-                  // Filter out any logs that might have a missing or invalid timestamp.
                   .filter(log => log.timestamp && typeof log.timestamp === 'string' && !isNaN(new Date(log.timestamp).getTime()))
               : [];
 
-            // Sort once: oldest to newest to determine the "New Call"
-            const sortedHistory = callHistoryWithOriginalIndex.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+            if (validHistory.length === 0) {
+              return {
+                id: phone,
+                name: contactData.name || 'N/A',
+                phone: contactData.phoneNumber || phone,
+                status: 'No History',
+                lastContacted: new Date().toISOString(),
+                callCount: contactData.callCount || 0,
+                callHistory: [],
+              };
+            }
 
-            // Assign types based on the sorted order
-            const historyWithTypes = sortedHistory.map((log, index) => ({
+            // 2. Sort the history with the newest calls first. This is our final display order.
+            const sortedNewestFirst = validHistory.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+            // 3. The oldest call is now at the end of the array. Its index is used to identify the 'New Call'.
+            const oldestCallIndex = sortedNewestFirst.length - 1;
+
+            // 4. Map over the newest-first array to assign the correct 'type' to each call.
+            const finalCallHistory: CallLog[] = sortedNewestFirst.map((log, index) => ({
                 ...log,
-                type: index === 0 ? 'New Call' : 'Follow-up' as 'New Call' | 'Follow-up'
+                type: index === oldestCallIndex ? 'New Call' : 'Follow-up'
             }));
 
-            // Reverse the array for display (newest first)
-            const finalCallHistory = historyWithTypes.reverse();
-
-            const latestCall = finalCallHistory[0] || null; // The first item is now the newest
+            // 5. The latest call is the first item in our sorted array.
+            const latestCall = finalCallHistory[0];
 
             return {
               id: phone,
@@ -79,7 +92,6 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
     }, (err) => {
       console.error("Firebase read error:", err);
       toast({ title: "Error", description: "Failed to fetch contacts from Firebase.", variant: "destructive" });
-      setLoading(false);
     });
 
     return () => unsubscribe();
