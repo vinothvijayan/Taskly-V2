@@ -71,41 +71,51 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
   const addOpportunitiesFromContacts = async (contacts: Contact[]) => {
     if (!user || !userProfile?.teamId || contacts.length === 0) return;
 
-    const openOpportunities = opportunities.filter(
-      opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost'
-    );
-    const existingOpenContactNames = new Set(openOpportunities.map(opp => opp.contact));
-    const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
-
-    if (newOpportunities.length === 0) {
-      return; // No new opportunities to add, so no toast.
-    }
-
-    const batch = writeBatch(db);
-    const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
-
-    newOpportunities.forEach(contact => {
-      const newOppRef = doc(opportunitiesCollectionRef);
-      const opportunityData = {
-        title: `Opportunity for ${contact.name}`,
-        contact: contact.name,
-        value: 0,
-        closeDate: new Date().toISOString(),
-        stage: 'Interested Lead' as const,
-        teamId: userProfile.teamId,
-        createdBy: user.uid,
-        createdAt: new Date().toISOString(),
-        notes: [],
-      };
-      batch.set(newOppRef, opportunityData);
-    });
-
     try {
-      await batch.commit();
-      toast({ title: "Leads Synced", description: `${newOpportunities.length} new 'Interested' contact(s) were automatically added to your pipeline.` });
+        const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
+        
+        // 1. Get all existing opportunity contacts from Firestore
+        const querySnapshot = await getDocs(opportunitiesCollectionRef);
+        const existingOpportunities = querySnapshot.docs.map(doc => doc.data() as Opportunity);
+        
+        const openOpportunities = existingOpportunities.filter(
+            opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost'
+        );
+        const existingOpenContactNames = new Set(openOpportunities.map(opp => opp.contact));
+
+        // 2. Filter out contacts that already exist as open opportunities
+        const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
+
+        if (newOpportunities.length === 0) {
+            console.log("No new interested contacts to add as opportunities.");
+            return;
+        }
+
+        // 3. Batch write the new ones
+        const batch = writeBatch(db);
+        newOpportunities.forEach(contact => {
+            const newOppRef = doc(opportunitiesCollectionRef);
+            const opportunityData: Omit<Opportunity, "id"> = {
+                title: contact.name,
+                contact: contact.name,
+                phone: contact.phone,
+                value: 0,
+                closeDate: new Date().toISOString(),
+                stage: 'Interested Lead' as const,
+                teamId: userProfile.teamId!,
+                createdBy: user.uid,
+                createdAt: new Date().toISOString(),
+                notes: [],
+            };
+            batch.set(newOppRef, opportunityData);
+        });
+
+        await batch.commit();
+        toast({ title: "Leads Synced", description: `${newOpportunities.length} new 'Interested' contact(s) were added to your pipeline.` });
+
     } catch (error) {
-      console.error("Error adding opportunities from contacts:", error);
-      toast({ title: "Error", description: "Could not auto-import new leads.", variant: "destructive" });
+        console.error("Error adding opportunities from contacts:", error);
+        toast({ title: "Error", description: "Could not auto-import new leads.", variant: "destructive" });
     }
   };
 

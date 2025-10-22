@@ -130,6 +130,7 @@ export interface Opportunity {
   title: string;
   value: number;
   contact: string;
+  phone?: string;
   closeDate: string; // ISO string
   teamId: string;
   createdBy: string;

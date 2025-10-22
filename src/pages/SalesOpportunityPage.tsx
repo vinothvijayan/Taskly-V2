@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search } from "lucide-react";
+import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search, Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
 import { Opportunity, Note } from "@/types";
@@ -90,13 +90,14 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><IndianRupee className="h-3 w-3" />{opportunity.value.toLocaleString()}</span>
-            <span className="flex items-center gap-1"><User className="h-3 w-3" />{opportunity.contact}</span>
-          </div>
-          <div className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            Close: {new Date(opportunity.closeDate).toLocaleDateString()}
+          <div className="space-y-2 text-xs text-muted-foreground">
+            {opportunity.phone && (
+              <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {opportunity.phone}</div>
+            )}
+            <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><IndianRupee className="h-3 w-3" />{opportunity.value.toLocaleString()}</span>
+                <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{new Date(opportunity.closeDate).toLocaleDateString()}</span>
+            </div>
           </div>
         </CardContent>
         <AnimatePresence>
@@ -229,7 +230,6 @@ export default function SalesOpportunityPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   useEffect(() => {
-    // Guard against running before data is loaded
     if (opportunitiesLoading || contactsLoading) {
       return;
     }
@@ -240,7 +240,8 @@ export default function SalesOpportunityPage() {
         addOpportunitiesFromContacts(interestedContacts);
       }
     }
-  }, [allContacts, opportunities, opportunitiesLoading, contactsLoading, addOpportunitiesFromContacts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allContacts, opportunitiesLoading, contactsLoading]);
 
   const totalValue = useMemo(() => 
     opportunities
