@@ -354,16 +354,22 @@ export default function SalesTrackerPage() {
         return;
     }
 
-    const dataToExport = filtered.map(contact => ({
-        'Name': contact.name,
-        'Phone Number': contact.phone
-    }));
+    const dataToExport = filtered.map(contact => {
+      const latestCall = contact.callHistory && contact.callHistory.length > 0 ? contact.callHistory[0] : null;
+      return {
+        'Company Name': contact.name,
+        'Phone Number': contact.phone,
+        'Spoke To': latestCall?.spokenTo || 'N/A',
+        'Last Status': contact.status,
+        'Last Contacted': contact.lastContacted ? format(new Date(contact.lastContacted), 'PPp') : 'N/A'
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
 
-    worksheet['!cols'] = [ { wch: 30 }, { wch: 20 } ];
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 30 } ];
 
     XLSX.writeFile(workbook, "Filtered_Contacts.xlsx");
 
