@@ -235,7 +235,10 @@ export default function SalesOpportunityPage() {
     }
 
     if (allContacts.length > 0) {
-      const interestedContacts = allContacts.filter(c => c.status === 'Interested');
+      const interestedContacts = allContacts.filter(contact => 
+        contact.callHistory && contact.callHistory.some(log => log.feedback === 'Interested')
+      );
+      
       if (interestedContacts.length > 0) {
         addOpportunitiesFromContacts(interestedContacts);
       }
