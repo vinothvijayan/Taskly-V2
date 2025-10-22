@@ -24,7 +24,7 @@ const formSchema = z.object({
   contact: z.string().min(2, "Contact name is required."),
   value: z.coerce.number().min(0, "Value must be a positive number."),
   closeDate: z.date({ required_error: "A close date is required." }),
-  stage: z.enum(['Interested Lead', 'Meeting', 'Follow-ups', 'Negotiation', 'Closed Won', 'Closed Lost']).default('Interested Lead'),
+  stage: z.enum(['Interested Lead', 'Meeting', 'Follow-ups', 'Closed Won', 'Closed Lost']).default('Interested Lead'),
 });
 
 type OpportunityFormData = z.infer<typeof formSchema>;
