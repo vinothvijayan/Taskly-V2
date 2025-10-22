@@ -315,10 +315,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
       const movingCollections = (originalTask.teamId || null) !== (updatedTaskForState.teamId || null);
       
-      // --- FIX STARTS HERE ---
       const dataForFirestore: { [key: string]: any } = { ...taskData };
 
-      // Convert undefined or invalid 'estimatedTime' to a deleteField() operation
       if ('estimatedTime' in dataForFirestore) {
         const estTime = Number(dataForFirestore.estimatedTime);
         if (isNaN(estTime) || estTime <= 0) {
@@ -328,14 +326,18 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // Convert empty 'dueDate' to a deleteField() operation
       if (dataForFirestore.dueDate === '') {
         dataForFirestore.dueDate = deleteField();
       }
 
-      // Handle teamId separately
+      // THIS IS THE FIX
+      // If completedAt is undefined (from Kanban drag) and the task was previously completed,
+      // use deleteField() to remove it from Firestore.
+      if (taskData.completedAt === undefined && originalTask?.status === 'completed' && taskData.status !== 'completed') {
+        dataForFirestore.completedAt = deleteField();
+      }
+
       dataForFirestore.teamId = updatedTaskForState.teamId || deleteField();
-      // --- FIX ENDS HERE ---
       
       if (movingCollections) {
         const currentTaskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
@@ -343,7 +345,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         const newTaskRef = doc(db, updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         const { id, ...dataForFirestoreWithMove } = updatedTaskForState;
         
-        // Clean the moved data as well
         Object.keys(dataForFirestoreWithMove).forEach(key => {
             if (dataForFirestoreWithMove[key as keyof typeof dataForFirestoreWithMove] === undefined) {
                 delete dataForFirestoreWithMove[key as keyof typeof dataForFirestoreWithMove];
