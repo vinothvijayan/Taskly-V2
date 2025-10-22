@@ -216,8 +216,8 @@ const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, se
 };
 
 export default function SalesOpportunityPage() {
-  const { opportunities, updateOpportunity, addOpportunity, deleteOpportunity, loading, addOpportunitiesFromContacts } = useSalesOpportunity();
-  const { contacts: allContacts } = useContacts();
+  const { opportunities, updateOpportunity, addOpportunity, deleteOpportunity, loading: opportunitiesLoading, addOpportunitiesFromContacts } = useSalesOpportunity();
+  const { contacts: allContacts, loading: contactsLoading } = useContacts();
   const { toast } = useToast();
   const [activeOpp, setActiveOpp] = useState<Opportunity | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -229,13 +229,18 @@ export default function SalesOpportunityPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   useEffect(() => {
-    if (allContacts.length > 0 && opportunities) {
+    // Guard against running before data is loaded
+    if (opportunitiesLoading || contactsLoading) {
+      return;
+    }
+
+    if (allContacts.length > 0) {
       const interestedContacts = allContacts.filter(c => c.status === 'Interested');
       if (interestedContacts.length > 0) {
         addOpportunitiesFromContacts(interestedContacts);
       }
     }
-  }, [allContacts, opportunities, addOpportunitiesFromContacts]);
+  }, [allContacts, opportunities, opportunitiesLoading, contactsLoading, addOpportunitiesFromContacts]);
 
   const totalValue = useMemo(() => 
     opportunities
@@ -325,7 +330,7 @@ export default function SalesOpportunityPage() {
     }
   };
 
-  if (loading) {
+  if (opportunitiesLoading || contactsLoading) {
     return <SalesTrackerSkeleton />;
   }
 
