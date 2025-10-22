@@ -71,11 +71,14 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
   const addOpportunitiesFromContacts = async (contacts: Contact[]) => {
     if (!user || !userProfile?.teamId || contacts.length === 0) return;
 
-    const existingContactNames = new Set(opportunities.map(opp => opp.contact));
-    const newOpportunities = contacts.filter(contact => !existingContactNames.has(contact.name));
+    const openOpportunities = opportunities.filter(
+      opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost'
+    );
+    const existingOpenContactNames = new Set(openOpportunities.map(opp => opp.contact));
+    const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
 
     if (newOpportunities.length === 0) {
-      toast({ title: "No new opportunities to add", description: "All selected contacts already exist in the pipeline." });
+      toast({ title: "No new opportunities to add", description: "All selected contacts already exist in the open pipeline." });
       return;
     }
 
@@ -89,7 +92,7 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
         contact: contact.name,
         value: 0,
         closeDate: new Date().toISOString(),
-        stage: 'Lead' as const,
+        stage: 'Interested Lead' as const,
         teamId: userProfile.teamId,
         createdBy: user.uid,
         createdAt: new Date().toISOString(),
