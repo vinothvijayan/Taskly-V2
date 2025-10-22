@@ -86,8 +86,8 @@ export function KanbanBoard({ tasks, teamMembers, onEdit, onDelete, onStartTimer
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <ScrollArea className="w-full whitespace-nowrap">
-        <div className="flex gap-6 p-4 h-[calc(100vh-220px)]">
+      <ScrollArea className="w-full whitespace-nowrap h-full">
+        <div className="flex gap-6 p-1 h-full">
           {columns.map(column => (
             <KanbanColumn
               key={column.id}

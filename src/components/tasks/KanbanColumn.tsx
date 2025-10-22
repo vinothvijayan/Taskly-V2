@@ -33,15 +33,15 @@ export function KanbanColumn({ id, title, tasks, assignedProfilesMap, onEdit, on
   const visibleTasks = tasks.slice(0, visibleCount);
 
   return (
-    <Card ref={setNodeRef} className="w-96 flex-shrink-0 h-full flex flex-col bg-muted/30">
-      <CardHeader className="p-4 border-b">
-        <CardTitle className="flex items-center justify-between text-base">
-          <span>{title}</span>
-          <Badge variant="secondary">{tasks.length}</Badge>
-        </CardTitle>
-      </CardHeader>
+    <div ref={setNodeRef} className="w-80 flex-shrink-0 h-full flex flex-col">
+      <div className="p-2">
+        <div className="flex items-center justify-between px-2 py-1">
+          <h3 className="font-semibold text-sm">{title}</h3>
+          <Badge variant="secondary" className="text-xs">{tasks.length}</Badge>
+        </div>
+      </div>
       <ScrollArea className="flex-1">
-        <CardContent className="p-4">
+        <div className="p-2 space-y-3">
           <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
             {tasks.length > 0 ? (
               <>
@@ -64,13 +64,13 @@ export function KanbanColumn({ id, title, tasks, assignedProfilesMap, onEdit, on
                 )}
               </>
             ) : (
-              <div className="text-center text-sm text-muted-foreground py-8">
+              <div className="text-center text-sm text-muted-foreground py-16 px-4 border-2 border-dashed rounded-lg">
                 No tasks here.
               </div>
             )}
           </SortableContext>
-        </CardContent>
+        </div>
       </ScrollArea>
-    </Card>
+    </div>
   );
 }
