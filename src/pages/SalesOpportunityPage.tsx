@@ -91,6 +91,7 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
             </DropdownMenu>
           </div>
           <div className="space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5"><User className="h-3 w-3" /> {opportunity.contact}</div>
             {opportunity.phone && (
               <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {opportunity.phone}</div>
             )}

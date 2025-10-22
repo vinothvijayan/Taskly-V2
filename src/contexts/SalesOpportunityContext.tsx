@@ -74,7 +74,6 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     try {
         const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
         
-        // 1. Get all existing opportunity contacts from Firestore
         const querySnapshot = await getDocs(opportunitiesCollectionRef);
         const existingOpportunities = querySnapshot.docs.map(doc => doc.data() as Opportunity);
         
@@ -83,7 +82,6 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
         );
         const existingOpenContactNames = new Set(openOpportunities.map(opp => opp.contact));
 
-        // 2. Filter out contacts that already exist as open opportunities
         const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
 
         if (newOpportunities.length === 0) {
@@ -91,13 +89,19 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
             return;
         }
 
-        // 3. Batch write the new ones
         const batch = writeBatch(db);
         newOpportunities.forEach(contact => {
             const newOppRef = doc(opportunitiesCollectionRef);
+
+            const latestCallWithSpokenTo = [...contact.callHistory]
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                .find(log => log.spokenToName && log.spokenToName.trim() !== '');
+            
+            const contactPersonName = latestCallWithSpokenTo?.spokenToName || contact.name;
+
             const opportunityData: Omit<Opportunity, "id"> = {
-                title: contact.name,
-                contact: contact.name,
+                title: contact.name, // Company Name
+                contact: contactPersonName, // Contact Person Name
                 phone: contact.phone,
                 value: 0,
                 closeDate: new Date().toISOString(),
