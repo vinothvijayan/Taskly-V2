@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search, Phone } from "lucide-react";
+import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search, Phone, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
 import { Opportunity, Note } from "@/types";
@@ -15,22 +15,24 @@ import { SalesTrackerSkeleton } from "@/components/skeletons";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useContacts } from "@/contexts/ContactsContext";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const stages = ['Interested Lead', 'Meeting', 'Follow-ups', 'Negotiation', 'Closed Won', 'Closed Lost'];
 
 const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }: { opportunity: Opportunity, onEdit: (opp: Opportunity) => void, onDelete: (opp: Opportunity) => void, isExpanded: boolean, onExpand: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: opportunity.id });
-  const { addNoteToOpportunity } = useSalesOpportunity();
+  const { addNoteToOpportunity, updateOpportunity } = useSalesOpportunity();
   const { userProfile } = useAuth();
   const [newNote, setNewNote] = useState("");
-  
+  const [meetingDateInput, setMeetingDateInput] = useState("");
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition: isDragging ? 'none' : transition,
@@ -42,6 +44,21 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
       addNoteToOpportunity(opportunity.id, newNote);
       setNewNote("");
     }
+  };
+
+  const handleScheduleMeeting = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (meetingDateInput) {
+      updateOpportunity(opportunity.id, {
+        meetingDate: new Date(meetingDateInput).toISOString(),
+        meetingStatus: 'scheduled'
+      });
+    }
+  };
+
+  const handleMeetingFinished = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateOpportunity(opportunity.id, { meetingStatus: 'done' });
   };
 
   const getFirstName = (name: string) => {
@@ -64,7 +81,7 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
         )}
         onClick={(e) => {
           const target = e.target as Element;
-          if (!target.closest('button, a, [role="menuitem"], textarea')) {
+          if (!target.closest('button, a, [role="menuitem"], textarea, input')) {
             onExpand();
           }
         }}
@@ -100,6 +117,41 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
                 <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{new Date(opportunity.closeDate).toLocaleDateString()}</span>
             </div>
           </div>
+          {opportunity.stage === 'Meeting' && (
+            <div className="mt-3 pt-3 border-t border-dashed space-y-2">
+              {!opportunity.meetingDate ? (
+                <div className="space-y-2">
+                  <Label htmlFor={`meeting-date-${opportunity.id}`} className="text-xs text-muted-foreground">Schedule Meeting</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id={`meeting-date-${opportunity.id}`}
+                      type="datetime-local"
+                      className="h-8 text-xs"
+                      value={meetingDateInput}
+                      onChange={(e) => setMeetingDateInput(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <Button size="sm" className="h-8 px-2" onClick={handleScheduleMeeting} disabled={!meetingDateInput}>Set</Button>
+                  </div>
+                </div>
+              ) : opportunity.meetingStatus !== 'done' ? (
+                <div className="space-y-2">
+                  <div className="text-xs text-muted-foreground">
+                    <p className="font-semibold">Meeting Scheduled:</p>
+                    <p>{format(new Date(opportunity.meetingDate), 'PPp')}</p>
+                  </div>
+                  <Button size="sm" className="w-full h-8 bg-green-600 hover:bg-green-700" onClick={handleMeetingFinished}>
+                    Meeting Finished
+                  </Button>
+                </div>
+              ) : (
+                <Badge className="bg-green-100 text-green-800 border-green-200 w-full justify-center py-1">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Meeting Done
+                </Badge>
+              )}
+            </div>
+          )}
         </CardContent>
         <AnimatePresence>
           {isExpanded && (

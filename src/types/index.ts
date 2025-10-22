@@ -136,4 +136,6 @@ export interface Opportunity {
   createdBy: string;
   createdAt: string; // ISO string
   notes?: Note[];
+  meetingDate?: string;
+  meetingStatus?: 'scheduled' | 'done';
 }
