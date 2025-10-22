@@ -359,7 +359,7 @@ export default function SalesTrackerPage() {
       return {
         'Company Name': contact.name,
         'Phone Number': contact.phone,
-        'Spoke To': latestCall?.spokenTo || 'N/A',
+        'Spoke To': latestCall?.spokenToName || 'N/A',
         'Last Status': contact.status,
         'Last Contacted': contact.lastContacted ? format(new Date(contact.lastContacted), 'PPp') : 'N/A'
       };

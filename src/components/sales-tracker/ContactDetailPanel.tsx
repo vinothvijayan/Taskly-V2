@@ -171,7 +171,7 @@ export const ContactDetailPanel: React.FC<ContactDetailPanelProps> = ({ contact,
                           )
                         )}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          {log.spokenTo && <div className="flex items-center gap-1.5"><UserCheck className="h-3 w-3" /> Spoke to: <span className="font-medium text-foreground">{log.spokenTo}</span></div>}
+                          {log.spokenToName && <div className="flex items-center gap-1.5"><UserCheck className="h-3 w-3" /> Spoke to: <span className="font-medium text-foreground">{log.spokenToName}</span></div>}
                           <div className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> Duration: <span className="font-medium text-foreground">{formatDuration(log.duration)}</span></div>
                         </div>
                       </div>

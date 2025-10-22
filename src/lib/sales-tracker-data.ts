@@ -7,7 +7,7 @@ export interface CallLog {
   duration: number; // in seconds
   feedback: 'Interested' | 'Not Interested' | 'Follow Up' | 'Callback' | 'Not Picked' | 'Send Details';
   message: string;
-  spokenTo?: string;
+  spokenToName?: string;
 }
 
 export interface Contact {
