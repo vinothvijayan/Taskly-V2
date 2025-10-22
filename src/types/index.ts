@@ -126,7 +126,7 @@ export interface Note {
 
 export interface Opportunity {
   id: string;
-  stage: 'Lead' | 'Contact Made' | 'Proposal Sent' | 'Negotiation' | 'Closed Won' | 'Closed Lost';
+  stage: 'Interested Lead' | 'Meeting' | 'Follow-ups' | 'Negotiation' | 'Closed Won' | 'Closed Lost';
   title: string;
   value: number;
   contact: string;

@@ -24,7 +24,7 @@ const formSchema = z.object({
   contact: z.string().min(2, "Contact name is required."),
   value: z.coerce.number().min(0, "Value must be a positive number."),
   closeDate: z.date({ required_error: "A close date is required." }),
-  stage: z.enum(['Lead', 'Contact Made', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost']).default('Lead'),
+  stage: z.enum(['Interested Lead', 'Meeting', 'Follow-ups', 'Negotiation', 'Closed Won', 'Closed Lost']).default('Interested Lead'),
 });
 
 type OpportunityFormData = z.infer<typeof formSchema>;
@@ -43,7 +43,7 @@ export function OpportunityForm({ opportunity, onSubmit, onCancel }: Opportunity
       contact: opportunity?.contact || "",
       value: opportunity?.value || 0,
       closeDate: opportunity?.closeDate ? new Date(opportunity.closeDate) : new Date(),
-      stage: opportunity?.stage || 'Lead',
+      stage: opportunity?.stage || 'Interested Lead',
     },
   });
 

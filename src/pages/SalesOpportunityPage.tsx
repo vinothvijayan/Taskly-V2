@@ -20,7 +20,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 
-const stages = ['Lead', 'Contact Made', 'Proposal Sent', 'Negotiation', 'Closed Won', 'Closed Lost'];
+const stages = ['Interested Lead', 'Meeting', 'Follow-ups', 'Negotiation', 'Closed Won', 'Closed Lost'];
 
 const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }: { opportunity: Opportunity, onEdit: (opp: Opportunity) => void, onDelete: (opp: Opportunity) => void, isExpanded: boolean, onExpand: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: opportunity.id });
