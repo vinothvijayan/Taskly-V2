@@ -196,7 +196,7 @@ export default function TasksPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0">
           {viewMode === 'list' ? (
             <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border shadow-sm">
               <ResizablePanel defaultSize={60} minSize={40}>
