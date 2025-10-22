@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search, Phone } from "lucide-react";
+import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search, Phone, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
 import { Opportunity, Note } from "@/types";
@@ -227,21 +227,15 @@ export default function SalesOpportunityPage() {
   const [expandedOppId, setExpandedOppId] = useState<string | null>(null);
   const [interestedLeadSearch, setInterestedLeadSearch] = useState("");
   const [visibleInterestedLeads, setVisibleInterestedLeads] = useState(15);
+  const [isSyncing, setIsSyncing] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  useEffect(() => {
-    if (opportunitiesLoading || contactsLoading) {
-      return;
-    }
-
-    if (allContacts.length > 0) {
-      const interestedContacts = allContacts.filter(c => c.status === 'Interested');
-      if (interestedContacts.length > 0) {
-        addOpportunitiesFromContacts(interestedContacts);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allContacts, opportunitiesLoading, contactsLoading]);
+  const handleSync = async () => {
+    setIsSyncing(true);
+    const interestedContacts = allContacts.filter(c => c.status === 'Interested');
+    await addOpportunitiesFromContacts(interestedContacts);
+    setIsSyncing(false);
+  };
 
   const totalValue = useMemo(() => 
     opportunities
@@ -366,6 +360,10 @@ export default function SalesOpportunityPage() {
                 </CardContent>
               </Card>
             </div>
+            <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+              {isSyncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync Interested Leads
+            </Button>
             <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) handleFormCancel(); else setIsFormOpen(true); }}>
               <DialogTrigger asChild>
                 <Button variant="focus"><Plus className="h-4 w-4 mr-2" /> New Opportunity</Button>
