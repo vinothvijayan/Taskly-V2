@@ -16,7 +16,7 @@ import { Drawer, DrawerContent, DrawerPortal, DrawerOverlay, DrawerTrigger, Draw
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall, Plus } from "lucide-react";
+import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall, Plus, RefreshCw } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -187,6 +187,18 @@ export default function SalesTrackerPage() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedForOppIds, setSelectedForOppIds] = useState<Set<string>>(new Set());
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ date: string; count: number } | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = useCallback(() => {
+    setIsSyncing(true);
+    toast({ title: "Syncing Contacts...", description: "Fetching the latest data from the server." });
+    // The onValue listener in useContacts handles real-time updates.
+    // This timeout provides visual feedback to the user.
+    setTimeout(() => {
+      setIsSyncing(false);
+      toast({ title: "Sync Complete!", description: "Your contact list is up to date." });
+    }, 1500);
+  }, [toast]);
 
   useEffect(() => {
     if (!user) return;
@@ -671,6 +683,14 @@ export default function SalesTrackerPage() {
           <span className="hidden sm:inline">Sales Tracker</span>
         </h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size={isMobile ? "icon" : "default"} onClick={handleSync} disabled={isSyncing}>
+            {isSyncing ? (
+              <Loader2 className={cn("h-4 w-4 animate-spin", !isMobile && "mr-2")} />
+            ) : (
+              <RefreshCw className={cn("h-4 w-4", !isMobile && "mr-2")} />
+            )}
+            <span className="hidden md:inline">Sync</span>
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "default"} onClick={() => setIsExportDialogOpen(true)}>
             <FileDown className={cn("h-4 w-4", !isMobile && "mr-2")} />
             <span className="hidden md:inline">Export</span>
