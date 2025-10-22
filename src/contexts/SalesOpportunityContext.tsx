@@ -22,40 +22,6 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
   const [loading, setLoading] = useState(true);
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
-  const [hasCleared, setHasCleared] = useState(false);
-
-  // One-time data clearing effect
-  useEffect(() => {
-    const clearData = async () => {
-      if (user && userProfile?.teamId && !loading && !hasCleared) {
-        console.log("Performing one-time clear of all opportunities.");
-        const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
-        const snapshot = await getDocs(query(opportunitiesCollectionRef));
-        
-        if (snapshot.empty) {
-          setHasCleared(true); // No data to clear, so we're done.
-          return;
-        }
-
-        const batch = writeBatch(db);
-        snapshot.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-
-        try {
-          await batch.commit();
-          toast({ title: "Opportunities Cleared", description: "Starting fresh as requested." });
-          setHasCleared(true); // Mark as cleared to prevent re-running
-        } catch (error) {
-          console.error("Error deleting all opportunities:", error);
-          toast({ title: "Error", description: "Could not clear opportunities.", variant: "destructive" });
-        }
-      }
-    };
-
-    clearData();
-  }, [user, userProfile, loading, hasCleared, toast]);
-
 
   useEffect(() => {
     if (!user || !userProfile?.teamId) {
