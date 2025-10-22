@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react';
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
 import { Task, UserProfile } from '@/types';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanTaskCard } from './KanbanTaskCard';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -86,23 +84,20 @@ export function KanbanBoard({ tasks, teamMembers, onEdit, onDelete, onStartTimer
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <ScrollArea className="w-full whitespace-nowrap h-full">
-        <div className="flex gap-6 p-1 h-full">
-          {columns.map(column => (
-            <KanbanColumn
-              key={column.id}
-              id={column.id}
-              title={column.title}
-              tasks={tasksByStatus[column.id]}
-              assignedProfilesMap={assignedProfilesMap}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              onStartTimer={onStartTimer}
-            />
-          ))}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
+      <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
+        {columns.map(column => (
+          <KanbanColumn
+            key={column.id}
+            id={column.id}
+            title={column.title}
+            tasks={tasksByStatus[column.id]}
+            assignedProfilesMap={assignedProfilesMap}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onStartTimer={onStartTimer}
+          />
+        ))}
+      </div>
       <DragOverlay>
         {activeTask ? (
           <KanbanTaskCard

@@ -39,7 +39,7 @@ export function KanbanTaskCard({ task, assignedProfiles, onEdit, onDelete, onSta
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Card
         className={cn(
-          "mb-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing",
+          "mb-4 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing",
           isDragging && "opacity-50 ring-2 ring-primary",
           isCompleted && "bg-muted/50 opacity-70"
         )}
