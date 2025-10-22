@@ -400,24 +400,24 @@ export default function SalesOpportunityPage() {
             <p className="text-muted-foreground">Manage your sales pipeline from lead to close.</p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="grid gap-4 grid-cols-2">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Pipeline Value</CardTitle>
-                  <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">₹{totalValue.toLocaleString()}</div>
+            <div className="flex gap-4">
+              <Card className="w-52">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-muted-foreground">Total Pipeline Value</p>
+                    <IndianRupee className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="text-xl font-bold">₹{totalValue.toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground">from {opportunities.filter(o => o.stage !== 'Closed Won' && o.stage !== 'Closed Lost').length} opportunities</p>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Won Value</CardTitle>
-                  <Award className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">₹{wonValue.toLocaleString()}</div>
+              <Card className="w-52">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs font-medium text-muted-foreground">Total Won Value</p>
+                    <Award className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="text-xl font-bold text-green-600">₹{wonValue.toLocaleString()}</div>
                   <p className="text-xs text-muted-foreground">from {opportunities.filter(o => o.stage === 'Closed Won').length} deals</p>
                 </CardContent>
               </Card>
