@@ -33,17 +33,30 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
         const data = snapshot.val();
         if (data) {
           const transformedContacts: Contact[] = Object.entries(data).map(([phone, contactData]: [string, any]) => {
-            const callHistoryArray: CallLog[] = contactData.callHistory 
+            const callHistoryWithOriginalIndex: (CallLog & { originalIndex: string })[] = contactData.callHistory 
               ? Object.entries(contactData.callHistory as Record<string, any>)
-                  .map(([key, value]) => ({ ...(value as object), originalIndex: key }))
-                  .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                  .map((log: any, index: number, array: any[]) => ({
-                    ...log,
-                    type: index === array.length - 1 ? 'New Call' : 'Follow-up',
-                  }))
+                  .map(([key, value]) => ({ ...(value as CallLog), originalIndex: key }))
               : [];
 
-            const latestCall = callHistoryArray[0] || null;
+            // Sort oldest to newest to find the first call
+            const sortedOldestFirst = [...callHistoryWithOriginalIndex].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+            // Create a map of originalIndex to type
+            const typeMap = new Map<'New Call' | 'Follow-up'>();
+            sortedOldestFirst.forEach((log, index) => {
+                typeMap.set(log.originalIndex, index === 0 ? 'New Call' : 'Follow-up');
+            });
+
+            // Sort newest to oldest for display and finding the latest call
+            const sortedNewestFirst = [...callHistoryWithOriginalIndex].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+            // Add the type to the final, newest-first array
+            const finalCallHistory: CallLog[] = sortedNewestFirst.map(log => ({
+                ...log,
+                type: typeMap.get(log.originalIndex) || 'Follow-up',
+            }));
+
+            const latestCall = finalCallHistory[0] || null;
 
             return {
               id: phone,
@@ -52,7 +65,7 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
               status: latestCall?.feedback || 'No History',
               lastContacted: latestCall?.timestamp || new Date().toISOString(),
               callCount: contactData.callCount || 0,
-              callHistory: callHistoryArray,
+              callHistory: finalCallHistory,
             };
           });
           
