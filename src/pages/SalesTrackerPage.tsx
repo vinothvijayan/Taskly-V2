@@ -361,6 +361,7 @@ export default function SalesTrackerPage() {
         'Phone Number': contact.phone,
         'Spoke To': latestCall?.spokenToName || 'N/A',
         'Last Status': contact.status,
+        'Last Message': latestCall?.message || 'N/A',
         'Last Contacted': contact.lastContacted ? format(new Date(contact.lastContacted), 'PPp') : 'N/A'
       };
     });
@@ -369,7 +370,7 @@ export default function SalesTrackerPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Contacts");
 
-    worksheet['!cols'] = [ { wch: 30 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 30 } ];
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 40 }, { wch: 30 } ];
 
     XLSX.writeFile(workbook, "Filtered_Contacts.xlsx");
 
