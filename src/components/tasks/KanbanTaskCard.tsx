@@ -31,6 +31,8 @@ export function KanbanTaskCard({ task, assignedProfiles, onEdit, onDelete, onSta
     transform: CSS.Transform.toString(transform),
   };
 
+  const isCompleted = task.status === 'completed';
+
   const getInitials = (name?: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
 
   return (
@@ -38,12 +40,16 @@ export function KanbanTaskCard({ task, assignedProfiles, onEdit, onDelete, onSta
       <Card
         className={cn(
           "mb-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing",
-          isDragging && "opacity-50 ring-2 ring-primary"
+          isDragging && "opacity-50 ring-2 ring-primary",
+          isCompleted && "bg-muted/50 opacity-70"
         )}
       >
         <CardContent className="p-3 space-y-2">
           <div className="flex justify-between items-start">
-            <p className="font-semibold text-sm leading-snug pr-2">{task.title}</p>
+            <p className={cn(
+              "font-semibold text-sm leading-snug pr-2",
+              isCompleted && "line-through text-muted-foreground"
+            )}>{task.title}</p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0" onClick={e => e.stopPropagation()}>
