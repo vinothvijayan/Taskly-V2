@@ -5,7 +5,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award } from "lucide-react";
+import { Plus, IndianRupee, User, Calendar, MoreVertical, Edit, Trash2, MessageSquare, Send, Award, Download, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSalesOpportunity } from "@/contexts/SalesOpportunityContext";
 import { Opportunity, Note } from "@/types";
@@ -19,6 +19,9 @@ import { formatDistanceToNow } from "date-fns";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
+import { useContacts } from "@/contexts/ContactsContext";
+import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 const stages = ['Interested Lead', 'Meeting', 'Follow-ups', 'Negotiation', 'Closed Won', 'Closed Lost'];
 
@@ -153,15 +156,48 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
   );
 };
 
-const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, setExpandedOppId }: { title: string, opportunities: Opportunity[], onEdit: (opp: Opportunity) => void, onDelete: (opp: Opportunity) => void, expandedOppId: string | null, setExpandedOppId: (id: string | null) => void }) => {
+interface StageColumnProps {
+  title: string;
+  opportunities: Opportunity[];
+  onEdit: (opp: Opportunity) => void;
+  onDelete: (opp: Opportunity) => void;
+  expandedOppId: string | null;
+  setExpandedOppId: (id: string | null) => void;
+  isSearchable?: boolean;
+  searchTerm?: string;
+  onSearchChange?: (term: string) => void;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  onImportInterested?: () => void;
+  totalCount?: number;
+}
+
+const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, setExpandedOppId, isSearchable, searchTerm, onSearchChange, hasMore, onLoadMore, onImportInterested, totalCount }: StageColumnProps) => {
   const { setNodeRef } = useSortable({ id: title });
   return (
     <div ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/50 rounded-xl flex flex-col h-full">
-      <div className="p-4 border-b">
+      <div className="p-4 border-b space-y-2">
         <h3 className="font-semibold text-sm flex items-center justify-between">
           {title}
-          <Badge variant="secondary">{opportunities.length}</Badge>
+          <Badge variant="secondary">{totalCount !== undefined ? totalCount : opportunities.length}</Badge>
         </h3>
+        {isSearchable && (
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search leads..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange?.(e.target.value)}
+              className="pl-8 h-8"
+            />
+          </div>
+        )}
+        {onImportInterested && (
+          <Button size="sm" variant="outline" className="w-full" onClick={onImportInterested}>
+            <Download className="h-4 w-4 mr-2" />
+            Import 'Interested' Contacts
+          </Button>
+        )}
       </div>
       <SortableContext items={opportunities.map(o => o.id)} strategy={verticalListSortingStrategy}>
         <div className="p-2 flex-1 overflow-y-auto">
@@ -175,6 +211,11 @@ const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, se
               onExpand={() => setExpandedOppId(expandedOppId === opp.id ? null : opp.id)}
             />
           ))}
+          {hasMore && (
+            <div className="flex justify-center mt-2">
+              <Button variant="ghost" size="sm" onClick={onLoadMore}>Load More</Button>
+            </div>
+          )}
         </div>
       </SortableContext>
     </div>
@@ -182,12 +223,16 @@ const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, se
 };
 
 export default function SalesOpportunityPage() {
-  const { opportunities, updateOpportunity, addOpportunity, deleteOpportunity, loading } = useSalesOpportunity();
+  const { opportunities, updateOpportunity, addOpportunity, deleteOpportunity, loading, addOpportunitiesFromContacts } = useSalesOpportunity();
+  const { contacts: allContacts } = useContacts();
+  const { toast } = useToast();
   const [activeOpp, setActiveOpp] = useState<Opportunity | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [opportunityToEdit, setOpportunityToEdit] = useState<Opportunity | null>(null);
   const [opportunityToDelete, setOpportunityToDelete] = useState<Opportunity | null>(null);
   const [expandedOppId, setExpandedOppId] = useState<string | null>(null);
+  const [interestedLeadSearch, setInterestedLeadSearch] = useState("");
+  const [visibleInterestedLeads, setVisibleInterestedLeads] = useState(15);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const totalValue = useMemo(() => 
@@ -203,6 +248,15 @@ export default function SalesOpportunityPage() {
       .reduce((sum, opp) => sum + opp.value, 0),
     [opportunities]
   );
+
+  const handleImportInterested = () => {
+    const interestedContacts = allContacts.filter(c => c.status === 'Interested');
+    if (interestedContacts.length > 0) {
+      addOpportunitiesFromContacts(interestedContacts);
+    } else {
+      toast({ title: "No 'Interested' contacts found to import." });
+    }
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -334,17 +388,48 @@ export default function SalesOpportunityPage() {
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={closestCenter}>
         <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-          {stages.map(stage => (
-            <StageColumn
-              key={stage}
-              title={stage}
-              opportunities={opportunities.filter(o => o.stage === stage)}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              expandedOppId={expandedOppId}
-              setExpandedOppId={setExpandedOppId}
-            />
-          ))}
+          {stages.map(stage => {
+            const stageOpportunities = opportunities.filter(o => o.stage === stage);
+
+            if (stage === 'Interested Lead') {
+              const filteredLeads = stageOpportunities.filter(opp =>
+                opp.title.toLowerCase().includes(interestedLeadSearch.toLowerCase()) ||
+                opp.contact.toLowerCase().includes(interestedLeadSearch.toLowerCase())
+              );
+              const visibleLeads = filteredLeads.slice(0, visibleInterestedLeads);
+
+              return (
+                <StageColumn
+                  key={stage}
+                  title={stage}
+                  opportunities={visibleLeads}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  expandedOppId={expandedOppId}
+                  setExpandedOppId={setExpandedOppId}
+                  isSearchable={true}
+                  searchTerm={interestedLeadSearch}
+                  onSearchChange={setInterestedLeadSearch}
+                  hasMore={filteredLeads.length > visibleInterestedLeads}
+                  onLoadMore={() => setVisibleInterestedLeads(prev => prev + 15)}
+                  onImportInterested={handleImportInterested}
+                  totalCount={filteredLeads.length}
+                />
+              );
+            }
+
+            return (
+              <StageColumn
+                key={stage}
+                title={stage}
+                opportunities={stageOpportunities}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                expandedOppId={expandedOppId}
+                setExpandedOppId={setExpandedOppId}
+              />
+            );
+          })}
         </div>
         <DragOverlay dropAnimation={dropAnimationConfig}>
           {activeOpp ? <OpportunityCard opportunity={activeOpp} onEdit={() => {}} onDelete={() => {}} isExpanded={false} onExpand={() => {}} /> : null}
