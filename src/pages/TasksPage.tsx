@@ -1,4 +1,4 @@
-import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Plus, CheckSquare, Clock, ChevronLeft, ChevronRight, Search, List, LayoutGrid } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,6 +9,7 @@ import { MobileTaskCard } from "@/components/tasks/MobileTaskCard";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { FloatingActionButton } from "@/components/tasks/FloatingActionButton";
 import { TopPerformer } from "@/components/tasks/TopPerformer";
+import { KanbanBoard } from "@/components/tasks/KanbanBoard"; // Import KanbanBoard
 import { useTasks } from "@/contexts/TasksContext";
 import { useTimer } from "@/contexts/TimerContext";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -31,6 +32,7 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
 
   useEffect(() => {
     const isFormActive = !!editingTask;
@@ -138,6 +140,13 @@ export default function TasksPage() {
     }
   };
 
+  const handleTaskStatusChangeFromKanban = (taskId: string, newStatus: Task['status']) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task && task.status !== newStatus) {
+      updateTask(taskId, { status: newStatus, completedAt: newStatus === 'completed' ? new Date().toISOString() : undefined });
+    }
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleQuickAddTask();
   };
@@ -161,72 +170,6 @@ export default function TasksPage() {
     return <TasksPageSkeleton />;
   }
 
-  if (isMobile) {
-    return (
-      <>
-        <div className="h-full overflow-y-auto scrollbar-hide touch-pan-y">
-          <div className="container max-w-7xl mx-auto p-4 flex flex-col flex-1 min-h-0">
-            <div className="flex items-center justify-center space-x-2 text-center mb-4 px-2">
-              <Button variant="ghost" size="icon" onClick={handlePrevDay} className="h-12 w-12 rounded-full">
-                <ChevronLeft className="h-7 w-7" strokeWidth={2.5} />
-              </Button>
-              <div className="space-y-1 flex-1">
-                <h1 className="font-bold bg-gradient-to-r from-primary to-focus bg-clip-text text-transparent text-2xl">
-                  {getHeaderTitle()}
-                </h1>
-                <p className="text-muted-foreground text-sm">
-                  {format(currentDate, 'EEEE, MMMM d')}
-                </p>
-              </div>
-              <Button variant="ghost" size="icon" onClick={handleNextDay} className="h-12 w-12 rounded-full">
-                <ChevronRight className="h-7 w-7" strokeWidth={2.5} />
-              </Button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <div className="space-y-4 pb-24 px-2">
-                <div className="flex flex-col space-y-3">
-                  <div className="flex items-center gap-3 px-3 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20 mx-1">
-                    <CheckSquare className="h-5 w-5 text-primary" />
-                    <h2 className="text-base font-semibold text-primary">Active Tasks</h2>
-                    <div className="ml-auto bg-primary text-primary-foreground px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">{todoTasks.length}</div>
-                  </div>
-                  <div className="space-y-3">
-                    {todoTasks.length === 0 && completedTasks.length === 0 ? (
-                      <div className="text-center py-12 space-y-3 mx-2">
-                        <div className="h-20 w-20 bg-gradient-to-br from-primary/10 to-focus/10 rounded-2xl flex items-center justify-center mx-auto shadow-lg"><CheckSquare className="h-8 w-8 text-muted-foreground/50" /></div>
-                        <div><h3 className="text-lg font-medium text-muted-foreground mb-2">No tasks for this day</h3><p className="text-sm text-muted-foreground px-4">Tap the + button to add a task</p></div>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <AnimatePresence>
-                          {todoTasks.map(task => (
-                            <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
-                              <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
-                            </motion.div>
-                          ))}
-                        </AnimatePresence>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {completedTasks.length > 0 && (
-                  <div className="flex flex-col space-y-4 pt-6">
-                    <div className="flex items-center gap-3 px-3 py-2 bg-gradient-to-r from-success/5 to-success/10 rounded-xl border border-success/20"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold text-success">Completed</h2><div className="ml-auto bg-success text-success-foreground px-3 py-1 rounded-full text-sm font-bold shadow-sm">{completedTasks.length}</div></div>
-                    <div className="space-y-4">{completedTasks.map(task => <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />)}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        <FloatingActionButton onCreateTask={handleQuickCapture} />
-        <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
-          <DialogContent className="sm:max-w-[500px] shadow-elegant"><DialogHeader><DialogTitle className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" />Edit Task</DialogTitle><DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription></DialogHeader>{editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}</DialogContent>
-        </Dialog>
-      </>
-    );
-  }
-
   return (
     <>
       <div className="h-full flex flex-col p-6">
@@ -244,37 +187,53 @@ export default function TasksPage() {
               <ChevronRight className="h-6 w-6" strokeWidth={2.5} />
             </Button>
           </div>
-          <div className="flex justify-end w-48">
+          <div className="flex justify-end w-48 items-center gap-2">
+            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+              <Button size="sm" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-7 px-2"><List className="h-4 w-4" /></Button>
+              <Button size="sm" variant={viewMode === 'board' ? 'default' : 'ghost'} onClick={() => setViewMode('board')} className="h-7 px-2"><LayoutGrid className="h-4 w-4" /></Button>
+            </div>
             <TopPerformer />
           </div>
         </div>
-        <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
-          <ResizablePanel defaultSize={60} minSize={40}>
-            <div className="flex flex-col h-full">
-              <div className="p-4 border-b space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckSquare className="h-5 w-5 text-primary" />
-                    <h2 className="text-lg font-semibold">Active Tasks</h2>
-                    <Badge variant="secondary">{todoTasks.length}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
-                    <Plus className="h-4 w-4 text-muted-foreground" />
-                    <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
+
+        {viewMode === 'list' ? (
+          <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-lg border shadow-sm">
+            <ResizablePanel defaultSize={60} minSize={40}>
+              <div className="flex flex-col h-full">
+                <div className="p-4 border-b space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="h-5 w-5 text-primary" />
+                      <h2 className="text-lg font-semibold">Active Tasks</h2>
+                      <Badge variant="secondary">{todoTasks.length}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2 w-full max-w-xs bg-muted/50 rounded-lg px-3">
+                      <Plus className="h-4 w-4 text-muted-foreground" />
+                      <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-8" />
+                    </div>
                   </div>
                 </div>
+                <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
               </div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{todoTasks.length > 0 || completedTasks.length > 0 ? todoTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No tasks for this day.</p></div>}</div></ScrollArea>
-            </div>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={40} minSize={30}>
-            <div className="flex flex-col h-full">
-              <div className="p-4 border-b flex items-center justify-between"><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold">Completed</h2></div><Badge variant="secondary">{completedTasks.length}</Badge></div>
-              <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks for this day.</p></div>}</div></ScrollArea>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={40} minSize={30}>
+              <div className="flex flex-col h-full">
+                <div className="p-4 border-b flex items-center justify-between"><div className="flex items-center gap-2"><Clock className="h-5 w-5 text-success" /><h2 className="text-lg font-semibold">Completed</h2></div><Badge variant="secondary">{completedTasks.length}</Badge></div>
+                <ScrollArea className="flex-1"><div className="p-4 space-y-2">{completedTasks.length > 0 ? completedTasks.map(task => <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />) : <div className="text-center py-16 text-muted-foreground"><p>No completed tasks for this day.</p></div>}</div></ScrollArea>
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <KanbanBoard
+            tasks={tasks}
+            teamMembers={teamMembers}
+            onEdit={setEditingTask}
+            onDelete={handleDeleteTask}
+            onStartTimer={handleStartTimer}
+            onTaskStatusChange={handleTaskStatusChangeFromKanban}
+          />
+        )}
       </div>
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] shadow-elegant"><DialogHeader><DialogTitle className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" />Edit Task</DialogTitle><DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription></DialogHeader>{editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}</DialogContent>
