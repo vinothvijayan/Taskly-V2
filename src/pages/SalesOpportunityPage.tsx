@@ -448,7 +448,31 @@ export default function SalesOpportunityPage() {
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} collisionDetection={closestCenter}>
         <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
           {stages.map(stage => {
-            const stageOpportunities = opportunities.filter(o => o.stage === stage);
+            let stageOpportunities = opportunities.filter(o => o.stage === stage);
+
+            if (stage === 'Meeting') {
+              stageOpportunities.sort((a, b) => {
+                const getSortOrder = (opp: Opportunity) => {
+                  if (opp.meetingStatus === 'done') return 3; // Finished meetings last
+                  if (opp.meetingDate && opp.meetingStatus === 'scheduled') return 1; // Scheduled meetings first
+                  return 2; // Unscheduled meetings in the middle
+                };
+
+                const orderA = getSortOrder(a);
+                const orderB = getSortOrder(b);
+
+                if (orderA !== orderB) {
+                  return orderA - orderB;
+                }
+
+                // If both are scheduled, sort by date (soonest first)
+                if (orderA === 1 && a.meetingDate && b.meetingDate) {
+                  return new Date(a.meetingDate).getTime() - new Date(b.meetingDate).getTime();
+                }
+
+                return 0;
+              });
+            }
 
             if (stage === 'Interested Lead') {
               const filteredLeads = stageOpportunities.filter(opp =>
