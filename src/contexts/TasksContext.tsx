@@ -330,10 +330,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         dataForFirestore.dueDate = deleteField();
       }
 
-      // THIS IS THE FIX
-      // If completedAt is undefined (from Kanban drag) and the task was previously completed,
-      // use deleteField() to remove it from Firestore.
-      if (taskData.completedAt === undefined && originalTask?.status === 'completed' && taskData.status !== 'completed') {
+      // If completedAt is explicitly passed as undefined (e.g., from a Kanban drag),
+      // and the new status is not 'completed', we should remove the field from Firestore.
+      if ('completedAt' in taskData && taskData.completedAt === undefined && taskData.status !== 'completed') {
         dataForFirestore.completedAt = deleteField();
       }
 
