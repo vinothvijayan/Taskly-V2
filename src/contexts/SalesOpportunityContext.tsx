@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, arrayUnion, writeBatch } from "firebase/firestore";
+import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, arrayUnion, writeBatch, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Opportunity, Note, Contact } from "@/types";
@@ -12,7 +12,7 @@ interface SalesOpportunityContextType {
   updateOpportunity: (id: string, data: Partial<Opportunity>) => Promise<void>;
   deleteOpportunity: (id: string) => Promise<void>;
   addNoteToOpportunity: (opportunityId: string, noteContent: string) => Promise<void>;
-  addOpportunitiesFromContacts: (contacts: Contact[]) => Promise<void>; // New function
+  addOpportunitiesFromContacts: (contacts: Contact[]) => Promise<void>;
 }
 
 const SalesOpportunityContext = createContext<SalesOpportunityContextType | undefined>(undefined);
@@ -22,6 +22,40 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
   const [loading, setLoading] = useState(true);
   const { user, userProfile } = useAuth();
   const { toast } = useToast();
+  const [hasCleared, setHasCleared] = useState(false);
+
+  // One-time data clearing effect
+  useEffect(() => {
+    const clearData = async () => {
+      if (user && userProfile?.teamId && !loading && !hasCleared) {
+        console.log("Performing one-time clear of all opportunities.");
+        const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
+        const snapshot = await getDocs(query(opportunitiesCollectionRef));
+        
+        if (snapshot.empty) {
+          setHasCleared(true); // No data to clear, so we're done.
+          return;
+        }
+
+        const batch = writeBatch(db);
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+
+        try {
+          await batch.commit();
+          toast({ title: "Opportunities Cleared", description: "Starting fresh as requested." });
+          setHasCleared(true); // Mark as cleared to prevent re-running
+        } catch (error) {
+          console.error("Error deleting all opportunities:", error);
+          toast({ title: "Error", description: "Could not clear opportunities.", variant: "destructive" });
+        }
+      }
+    };
+
+    clearData();
+  }, [user, userProfile, loading, hasCleared, toast]);
+
 
   useEffect(() => {
     if (!user || !userProfile?.teamId) {
@@ -78,8 +112,7 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
 
     if (newOpportunities.length === 0) {
-      toast({ title: "No new opportunities to add", description: "All selected contacts already exist in the open pipeline." });
-      return;
+      return; // No new opportunities to add, so no toast.
     }
 
     const batch = writeBatch(db);
@@ -103,10 +136,10 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
 
     try {
       await batch.commit();
-      toast({ title: "Success!", description: `${newOpportunities.length} contact(s) added as new leads.` });
+      toast({ title: "Leads Synced", description: `${newOpportunities.length} new 'Interested' contact(s) were automatically added to your pipeline.` });
     } catch (error) {
       console.error("Error adding opportunities from contacts:", error);
-      toast({ title: "Error", description: "Could not create opportunities.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not auto-import new leads.", variant: "destructive" });
     }
   };
 

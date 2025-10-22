@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, DropAnimation, defaultDropAnimationSideEffects } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -168,11 +168,10 @@ interface StageColumnProps {
   onSearchChange?: (term: string) => void;
   hasMore?: boolean;
   onLoadMore?: () => void;
-  onImportInterested?: () => void;
   totalCount?: number;
 }
 
-const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, setExpandedOppId, isSearchable, searchTerm, onSearchChange, hasMore, onLoadMore, onImportInterested, totalCount }: StageColumnProps) => {
+const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, setExpandedOppId, isSearchable, searchTerm, onSearchChange, hasMore, onLoadMore, totalCount }: StageColumnProps) => {
   const { setNodeRef } = useSortable({ id: title });
   return (
     <div ref={setNodeRef} className="w-72 flex-shrink-0 bg-muted/50 rounded-xl flex flex-col h-full">
@@ -191,12 +190,6 @@ const StageColumn = ({ title, opportunities, onEdit, onDelete, expandedOppId, se
               className="pl-8 h-8"
             />
           </div>
-        )}
-        {onImportInterested && (
-          <Button size="sm" variant="outline" className="w-full" onClick={onImportInterested}>
-            <Download className="h-4 w-4 mr-2" />
-            Import 'Interested' Contacts
-          </Button>
         )}
       </div>
       <SortableContext items={opportunities.map(o => o.id)} strategy={verticalListSortingStrategy}>
@@ -235,6 +228,15 @@ export default function SalesOpportunityPage() {
   const [visibleInterestedLeads, setVisibleInterestedLeads] = useState(15);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  useEffect(() => {
+    if (allContacts.length > 0 && opportunities) {
+      const interestedContacts = allContacts.filter(c => c.status === 'Interested');
+      if (interestedContacts.length > 0) {
+        addOpportunitiesFromContacts(interestedContacts);
+      }
+    }
+  }, [allContacts, opportunities, addOpportunitiesFromContacts]);
+
   const totalValue = useMemo(() => 
     opportunities
       .filter(opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost')
@@ -248,15 +250,6 @@ export default function SalesOpportunityPage() {
       .reduce((sum, opp) => sum + opp.value, 0),
     [opportunities]
   );
-
-  const handleImportInterested = () => {
-    const interestedContacts = allContacts.filter(c => c.status === 'Interested');
-    if (interestedContacts.length > 0) {
-      addOpportunitiesFromContacts(interestedContacts);
-    } else {
-      toast({ title: "No 'Interested' contacts found to import." });
-    }
-  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -412,7 +405,6 @@ export default function SalesOpportunityPage() {
                   onSearchChange={setInterestedLeadSearch}
                   hasMore={filteredLeads.length > visibleInterestedLeads}
                   onLoadMore={() => setVisibleInterestedLeads(prev => prev + 15)}
-                  onImportInterested={handleImportInterested}
                   totalCount={filteredLeads.length}
                 />
               );
