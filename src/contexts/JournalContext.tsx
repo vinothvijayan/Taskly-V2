@@ -7,6 +7,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording as JournalEntry } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem } from '@capacitor/filesystem';
+
+// Declare the global Media object from cordova-plugin-media
+declare var Media: any;
 
 export type { JournalEntry };
 
@@ -35,6 +40,7 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const mediaRef = useRef<any>(null);
 
   // Fetches entries for the selected date from Firestore
   useEffect(() => {
@@ -78,42 +84,85 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
     if (isRecording) return;
     if (!user) { toast({ title: "Please sign in to record.", variant: "destructive" }); return; }
     if (recordedAudio) setRecordedAudio(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
-      };
-      recorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: recorder.mimeType });
-        setRecordedAudio(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-      recorder.start();
-      setIsRecording(true);
-      setRecordingStartTime(Date.now());
-      setRecordingDuration(0);
-      toast({ title: "Recording started 🎙️" });
-    } catch (error) {
-      console.error("Error starting recording:", error);
-      toast({ title: "Recording Failed", description: "Please check microphone permissions.", variant: "destructive" });
+    
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const fileName = `journal_${Date.now()}.wav`;
+        mediaRef.current = new Media(fileName, 
+          () => console.log('Native journal recording success.'), 
+          (err: any) => {
+            console.error('Native journal recording error:', err);
+            toast({ title: "Recording Error", description: `Code: ${err.code}`, variant: "destructive" });
+          }
+        );
+        mediaRef.current.startRecord();
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
+        toast({ title: "Recording started 🎙️" });
+      } catch (error) {
+        console.error("Native recording failed to start:", error);
+        toast({ title: "Recording Failed", description: "Could not start native recorder.", variant: "destructive" });
+      }
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunks.push(event.data);
+        };
+        recorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: recorder.mimeType });
+          setRecordedAudio(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        };
+        recorder.start();
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
+        toast({ title: "Recording started 🎙️" });
+      } catch (error) {
+        console.error("Error starting recording:", error);
+        toast({ title: "Recording Failed", description: "Please check microphone permissions.", variant: "destructive" });
+      }
     }
   };
 
   // Stops the audio recording
   const stopRecording = () => {
-    if (!mediaRecorderRef.current || !isRecording) return;
-    mediaRecorderRef.current.stop();
+    if (!isRecording) return;
+
+    if (Capacitor.isNativePlatform()) {
+      if (mediaRef.current) {
+        mediaRef.current.stopRecord();
+        const filePath = mediaRef.current.src;
+        mediaRef.current.release();
+        mediaRef.current = null;
+
+        Filesystem.readFile({ path: filePath }).then(result => {
+          return fetch(`data:audio/wav;base64,${result.data}`);
+        }).then(res => res.blob()).then(blob => {
+          setRecordedAudio(blob);
+        }).catch(e => {
+          console.error("Error reading recorded journal file", e);
+          toast({ title: "Error saving recording", variant: "destructive" });
+        });
+      }
+    } else {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+      }
+    }
+    
     setIsRecording(false);
-    mediaRecorderRef.current = null;
     toast({ title: "Recording stopped ⏹️", description: "Your reflection is ready to save." });
   };
 
   const clearRecordedAudio = useCallback(() => setRecordedAudio(null), []);
 
-  // --- THIS IS THE CORRECTED UPLOAD FUNCTION ---
   const uploadEntry = async (audioBlob: Blob, title: string, duration: number, journalDate: Date) => {
     if (!user) {
       console.error("Upload failed: No user is logged in.");
@@ -121,15 +170,12 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
       return;
     }
 
-    console.log(`Starting upload for user: ${user.uid}`);
     const formattedDate = format(journalDate, "yyyy-MM-dd");
     const timestamp = new Date();
     
     let docRef;
 
     try {
-      // Step 1: Create the Firestore document first to get its unique ID
-      console.log("Step 1: Creating Firestore document...");
       docRef = await addDoc(collection(db, 'journalEntries'), {
         title,
         duration,
@@ -138,38 +184,28 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
         journalDate: formattedDate,
         createdBy: user.uid,
         fileSize: audioBlob.size,
-        filePath: '', // Will be updated after upload
+        filePath: '',
         audioUrl: '',
       });
-      const firestoreId = docRef.id; // Get the unique ID from the created document
-      console.log(`Firestore document created with ID: ${firestoreId}`);
+      const firestoreId = docRef.id;
 
-      // Step 2: Prepare storage location and metadata
-      // The filePath MUST match the structure your backend expects
       const filePath = `journal-audio/${user.uid}/${firestoreId}.webm`;
       const audioStorageRef = storageRef(storage, filePath);
       
-      // CRITICAL: Create the metadata object to link the file to the Firestore document
       const metadata = {
         customMetadata: {
           'firestoreId': firestoreId
         }
       };
 
-      // Step 3: Upload the file to Storage WITH the metadata
-      console.log("Step 2: Uploading file to Storage with metadata...");
       const uploadResult = await uploadBytes(audioStorageRef, audioBlob, metadata);
       const audioUrl = await getDownloadURL(uploadResult.ref);
-      console.log("File successfully uploaded to Storage.");
 
-      // Step 4: Update the Firestore document with the final URLs and set status to 'processing'
-      console.log("Step 3: Updating Firestore document with URLs and status...");
       await updateDoc(docRef, {
         audioUrl: audioUrl,
-        filePath: filePath, // Also save the final file path for easy deletion
-        status: 'processing' // This will trigger your backend function
+        filePath: filePath,
+        status: 'processing'
       });
-      console.log("Firestore document updated successfully.");
       
       clearRecordedAudio();
       toast({ title: "Reflection uploaded! 📤", description: "AI is now analyzing your entry." });
@@ -178,13 +214,11 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
       console.error("!!! UPLOAD FAILED IN CATCH BLOCK !!!", error);
       if (docRef) {
         await deleteDoc(doc(db, 'journalEntries', docRef.id));
-        console.log("Cleaned up failed Firestore document.");
       }
       toast({ title: "Upload Failed", description: "Please check security rules or your network.", variant: "destructive" });
     }
   };
 
-  // --- COMPLETE AND CORRECTED DELETE FUNCTION ---
   const deleteEntry = async (entryId: string) => {
     if (!user) {
       toast({ title: "Authentication Error", variant: "destructive" });
@@ -193,17 +227,12 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
     try {
       const entryToDelete = entries.find(e => e.id === entryId);
       if (!entryToDelete) {
-        console.warn(`Attempted to delete an entry not found in state: ${entryId}`);
         return;
       }
       
-      console.log(`Deleting entry: ${entryId}`);
-      // Delete the Firestore document first
       await deleteDoc(doc(db, 'journalEntries', entryId));
       
-      // If a filePath exists, delete the corresponding file from Storage
       if (entryToDelete.filePath) {
-        console.log(`Deleting file from Storage: ${entryToDelete.filePath}`);
         const audioStorageRef = storageRef(storage, entryToDelete.filePath);
         await deleteObject(audioStorageRef);
       }

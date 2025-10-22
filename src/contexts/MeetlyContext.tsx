@@ -22,7 +22,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
-import { VoiceRecorder, RecordingData, GenericResponse } from '@capacitor-community/voice-recorder';
+import { Filesystem } from '@capacitor/filesystem';
+
+// Declare the global Media object from cordova-plugin-media
+declare var Media: any;
 
 interface MeetlyContextType {
   recordings: MeetingRecording[];
@@ -49,6 +52,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const mediaRef = React.useRef<any>(null);
 
   // Set up real-time listener for recordings
   useEffect(() => {
@@ -124,7 +128,15 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     if (Capacitor.isNativePlatform()) {
       // --- NATIVE PLATFORM LOGIC ---
       try {
-        await VoiceRecorder.startRecording();
+        const fileName = `meetly_${Date.now()}.wav`;
+        mediaRef.current = new Media(fileName, 
+          () => console.log('Native recording success.'), 
+          (err: any) => {
+            console.error('Native recording error:', err);
+            toast({ title: "Recording Error", description: `Code: ${err.code}`, variant: "destructive" });
+          }
+        );
+        mediaRef.current.startRecord();
         setIsRecording(true);
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
@@ -188,16 +200,21 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
 
     if (Capacitor.isNativePlatform()) {
       // --- NATIVE PLATFORM LOGIC ---
-      try {
-        const result: RecordingData = await VoiceRecorder.stopRecording();
-        if (result.value && result.value.recordDataBase64) {
-          // Convert base64 to Blob
-          const fetchRes = await fetch(`data:${result.value.mimeType};base64,${result.value.recordDataBase64}`);
+      if (mediaRef.current) {
+        mediaRef.current.stopRecord();
+        const filePath = mediaRef.current.src;
+        mediaRef.current.release();
+        mediaRef.current = null;
+
+        try {
+          const result = await Filesystem.readFile({ path: filePath });
+          const fetchRes = await fetch(`data:audio/wav;base64,${result.data}`);
           const blob = await fetchRes.blob();
           setRecordedAudio(blob);
+        } catch (e) {
+          console.error("Error reading recorded file", e);
+          toast({ title: "Error saving recording", variant: "destructive" });
         }
-      } catch (error) {
-        console.error("Native recording failed to stop:", error);
       }
     } else {
       // --- WEB PLATFORM LOGIC ---
@@ -218,46 +235,35 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     setRecordedAudio(null);
   }, []);
 
-  // --- THIS IS THE CORRECTED UPLOAD FUNCTION ---
   const uploadRecording = async (audioBlob: Blob, title: string, duration: number) => {
     if (!user) return;
 
-    // 1. Create the Firestore document first to get a unique ID.
-    // We start with an empty audioUrl and a status of 'uploading' to show in the UI.
     const timestamp = new Date().toISOString();
     const docRef = await addDoc(collection(db, 'meetingRecordings'), {
       title,
-      audioUrl: '', // Will be updated after upload
+      audioUrl: '',
       duration,
-      status: 'uploading', // Initial status
+      status: 'uploading',
       createdAt: timestamp,
       createdBy: user.uid,
       fileSize: audioBlob.size,
     });
     
-    // This is the unique ID for our new document.
     const firestoreId = docRef.id;
     
     try {
-      // 2. Prepare the storage location and metadata.
       const fileName = `meetly-audio/${user.uid}/${timestamp}-${title.replace(/[^a-zA-Z0-9]/g, '_')}.webm`;
       const audioRef = storageRef(storage, fileName);
 
-      // This is the crucial part: we embed the Firestore ID in the file's metadata.
       const metadata = {
         customMetadata: {
           'firestoreId': firestoreId 
         }
       };
 
-      // 3. Upload the file with the new metadata.
       const uploadResult = await uploadBytes(audioRef, audioBlob, metadata);
-
-      // 4. Get the download URL and update the original Firestore document.
       const audioUrl = await getDownloadURL(uploadResult.ref);
       
-      // Now we update the document with the final URL and set status to 'processing'
-      // so the backend function can take over.
       await updateDoc(docRef, {
         audioUrl: audioUrl,
         status: 'processing'
@@ -272,10 +278,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
 
     } catch (error) {
       console.error("Error uploading recording:", error);
-      
-      // If the upload fails, delete the Firestore document we created.
       await deleteDoc(doc(db, 'meetingRecordings', firestoreId));
-
       toast({
         title: "Upload failed",
         description: "Could not upload recording. Please try again.",
@@ -290,17 +293,12 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       const recording = recordings.find(r => r.id === recordingId);
       if (!recording) return;
       
-      // Delete the Firestore document first
       await deleteDoc(doc(db, 'meetingRecordings', recordingId));
       
-      // Then, attempt to delete the file from storage
       try {
-        // We need to get a reference from the download URL, which is not direct.
-        // It's better to store the file path for easier deletion, but for now, this works if the URL is predictable.
         const audioRef = storageRef(storage, recording.audioUrl);
         await deleteObject(audioRef);
       } catch (storageError: any) {
-        // If the file is already gone or the URL is invalid, we don't want the whole operation to fail.
         if (storageError.code !== 'storage/object-not-found') {
           console.warn("Could not delete audio file from storage:", storageError);
         }

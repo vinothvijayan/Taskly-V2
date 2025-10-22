@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Capacitor } from "@capacitor/core";
-import { VoiceRecorder } from '@capacitor-community/voice-recorder';
 
 interface AudioRecorderProps {
   className?: string;
@@ -39,7 +38,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
   } = useMeetly();
   const { toast } = useToast();
 
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -50,10 +48,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number>();
-
-  useEffect(() => {
-    checkMicrophonePermission();
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -70,54 +64,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
       setShowUploadDialog(true);
     }
   }, [recordedAudio]);
-
-  const checkMicrophonePermission = async () => {
-    if (Capacitor.isNativePlatform()) {
-      const { value: permission } = await VoiceRecorder.getAudioRecordingPermission();
-      setHasPermission(permission === 'granted');
-    } else {
-      try {
-        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        setHasPermission(result.state === 'granted');
-        result.onchange = () => {
-          setHasPermission(result.state === 'granted');
-        };
-      } catch (error) {
-        console.warn("Permission API not supported or error querying permission:", error);
-        setHasPermission(null);
-      }
-    }
-  };
-
-  const requestMicrophonePermission = async () => {
-    if (Capacitor.isNativePlatform()) {
-      const { value: permission } = await VoiceRecorder.requestAudioRecordingPermission();
-      const granted = permission === 'granted';
-      setHasPermission(granted);
-      if (granted) {
-        toast({ title: "Microphone access granted! 🎙️" });
-      } else {
-        toast({ title: "Microphone access denied", variant: "destructive" });
-      }
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-        setHasPermission(true);
-        toast({
-          title: "Microphone access granted! 🎙️",
-          description: "You can now start recording meetings."
-        });
-      } catch (error) {
-        setHasPermission(false);
-        toast({
-          title: "Microphone access denied",
-          description: "Please allow microphone access to record meetings.",
-          variant: "destructive"
-        });
-      }
-    }
-  };
 
   const setupAudioAnalyser = (stream: MediaStream) => {
     try {
@@ -148,14 +94,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
   };
 
   const handleStartRecording = async () => {
-    if (hasPermission === false) {
-      await requestMicrophonePermission();
-      // Re-check after request
-      const { value: permission } = Capacitor.isNativePlatform() 
-        ? await VoiceRecorder.getAudioRecordingPermission()
-        : await navigator.permissions.query({ name: 'microphone' as PermissionName });
-      if (permission !== 'granted') return;
-    }
     try {
       await startRecording();
       if (!Capacitor.isNativePlatform()) {
@@ -163,7 +101,7 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
         setupAudioAnalyser(stream);
       }
     } catch (error) {
-      console.error("Failed to start recording after permission check:", error);
+      console.error("Failed to start recording:", error);
       toast({
         title: "Recording failed",
         description: "Could not access microphone. Please check permissions.",
@@ -255,17 +193,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          {hasPermission === false && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <span className="font-medium text-destructive">Microphone Access Required</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">Please allow microphone access to record meetings.</p>
-              <Button onClick={requestMicrophonePermission} size="sm" variant="outline">Grant Permission</Button>
-            </div>
-          )}
-
           <div className="text-center space-y-4">
             {isRecording && (
               <div className="space-y-3">
@@ -290,7 +217,6 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
               {!isRecording ? (
                 <Button 
                   onClick={handleStartRecording} 
-                  disabled={hasPermission === false} 
                   size="lg" 
                   className="rounded-full h-16 w-16 bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transition-all"
                 >

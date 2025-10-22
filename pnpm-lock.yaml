@@ -23,6 +23,9 @@ importers:
       '@capacitor/core':
         specifier: ^7.4.2
         version: 7.4.3
+      '@capacitor/filesystem':
+        specifier: ^7.1.4
+        version: 7.1.4(@capacitor/core@7.4.3)
       '@capacitor/ios':
         specifier: ^7.4.2
         version: 7.4.3(@capacitor/core@7.4.3)
@@ -140,6 +143,9 @@ importers:
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@18.3.7(@types/react@18.3.26))(@types/react@18.3.26)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      cordova-plugin-media:
+        specifier: ^7.0.0
+        version: 7.0.0
       date-fns:
         specifier: ^3.6.0
         version: 3.6.0
@@ -330,6 +336,11 @@ packages:
   '@capacitor/core@7.4.3':
     resolution: {integrity: sha512-wCWr8fQ9Wxn0466vPg7nMn0tivbNVjNy1yL4GvDSIZuZx7UpU2HeVGNe9QjN/quEd+YLRFeKEBLBw619VqUiNg==}
 
+  '@capacitor/filesystem@7.1.4':
+    resolution: {integrity: sha512-BdUnOVulHAtruW2GeC9o7e9LO5aFcVYqNn3dLypJSOck/WipUFNfI0QWoUS0FVGeqBbDJgFGi3zjXJx0lzbDkA==}
+    peerDependencies:
+      '@capacitor/core': '>=7.0.0'
+
   '@capacitor/ios@7.4.3':
     resolution: {integrity: sha512-VNm7cHODgh3KK/4ZC2rXU9gBlvHii/mYFLI+XMXwq24nhB679QxHhz+pUuI7PatYoM2q4MAL0NR/dRgehKCaSA==}
     peerDependencies:
@@ -344,6 +355,9 @@ packages:
     resolution: {integrity: sha512-4qt5dRVBkHzq202NEoj3JC+S+zQCrZ1FJh7sjkICy/i1iEos+VaoB3bie8eWDQ2LTARktB4+k2xkdpu8pcVo/g==}
     peerDependencies:
       '@capacitor/core': '>=7.0.0'
+
+  '@capacitor/synapse@1.0.4':
+    resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
 
   '@dnd-kit/accessibility@3.1.1':
     resolution: {integrity: sha512-2P+YgaXF+gRsIihwwY1gCsQSYnu9Zyj2py8kY5fFvUM1qm2WA2u639R6YNVfU4GWr+ZM5mqEsfHZZLoRONbemw==}
@@ -2267,6 +2281,10 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
+  cordova-plugin-media@7.0.0:
+    resolution: {integrity: sha512-bnf03ZPii6WSkCTAO0SEDyyVK+q9M3tIR1YbNCh7k7N/sFrXSwo+2Equ+Tgp+u8emlNdawSPmpJtAi/J67Nutg==}
+    engines: {cordovaDependencies: {3.0.0: {cordova-android: '>=6.1.0'}, 4.0.0: {cordova-android: '>=6.3.0'}, 6.0.0: {cordova-android: '>=10.0.0'}, 7.0.0: {cordova-android: '>=12.0.0'}, 8.0.0: {cordova: '>100'}}}
+
   core-js@3.46.0:
     resolution: {integrity: sha512-vDMm9B0xnqqZ8uSBpZ8sNtRtOdmfShrvT6h2TuQGLs0Is+cR0DYbj/KWP6ALVNbWPpqA/qPLoOuppJN07humpA==}
 
@@ -4046,6 +4064,11 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  '@capacitor/filesystem@7.1.4(@capacitor/core@7.4.3)':
+    dependencies:
+      '@capacitor/core': 7.4.3
+      '@capacitor/synapse': 1.0.4
+
   '@capacitor/ios@7.4.3(@capacitor/core@7.4.3)':
     dependencies:
       '@capacitor/core': 7.4.3
@@ -4057,6 +4080,8 @@ snapshots:
   '@capacitor/push-notifications@7.0.3(@capacitor/core@7.4.3)':
     dependencies:
       '@capacitor/core': 7.4.3
+
+  '@capacitor/synapse@1.0.4': {}
 
   '@dnd-kit/accessibility@3.1.1(react@18.3.1)':
     dependencies:
@@ -5987,6 +6012,8 @@ snapshots:
   commander@4.1.1: {}
 
   concat-map@0.0.1: {}
+
+  cordova-plugin-media@7.0.0: {}
 
   core-js@3.46.0:
     optional: true
