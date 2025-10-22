@@ -238,7 +238,18 @@ export default function TasksPage() {
         </div>
       </div>
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
-        <DialogContent className="sm:max-w-[500px] shadow-elegant"><DialogHeader><DialogTitle className="flex items-center gap-2"><CheckSquare className="h-5 w-5 text-primary" />Edit Task</DialogTitle><DialogDescription>Make changes to your task here. Click save when you're done.</DialogDescription></DialogHeader>{editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}</DialogContent>
+        <DialogContent className="sm:max-w-[500px] shadow-elegant max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-primary" />
+              Edit Task
+            </DialogTitle>
+            <DialogDescription>
+              Make changes to your task here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}
+        </DialogContent>
       </Dialog>
     </>
   );
