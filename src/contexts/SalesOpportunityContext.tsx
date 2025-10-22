@@ -72,67 +72,50 @@ export function SalesOpportunityProvider({ children }: { children: ReactNode }) 
     if (!user || !userProfile?.teamId || contacts.length === 0) return;
 
     try {
-      const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
-      const querySnapshot = await getDocs(opportunitiesCollectionRef);
-      const existingOpportunities = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Opportunity));
-      
-      const openOpportunitiesMap = new Map(
-        existingOpportunities
-          .filter(opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost')
-          .map(opp => [opp.contact, opp])
-      );
+        const opportunitiesCollectionRef = collection(db, 'teams', userProfile.teamId, 'opportunities');
+        
+        // 1. Get all existing opportunity contacts from Firestore
+        const querySnapshot = await getDocs(opportunitiesCollectionRef);
+        const existingOpportunities = querySnapshot.docs.map(doc => doc.data() as Opportunity);
+        
+        const openOpportunities = existingOpportunities.filter(
+            opp => opp.stage !== 'Closed Won' && opp.stage !== 'Closed Lost'
+        );
+        const existingOpenContactNames = new Set(openOpportunities.map(opp => opp.contact));
 
-      const batch = writeBatch(db);
-      let newCount = 0;
-      let updatedCount = 0;
+        // 2. Filter out contacts that already exist as open opportunities
+        const newOpportunities = contacts.filter(contact => !existingOpenContactNames.has(contact.name));
 
-      contacts.forEach(contact => {
-        const existingOpp = openOpportunitiesMap.get(contact.name);
-
-        if (existingOpp) {
-          // It exists, check if it needs updating
-          const needsUpdate = existingOpp.title !== contact.name || existingOpp.phone !== contact.phone;
-          if (needsUpdate) {
-            const oppRef = doc(opportunitiesCollectionRef, existingOpp.id);
-            batch.update(oppRef, { title: contact.name, phone: contact.phone });
-            updatedCount++;
-          }
-        } else {
-          // It doesn't exist, create it
-          const newOppRef = doc(opportunitiesCollectionRef);
-          const opportunityData: Omit<Opportunity, "id"> = {
-            title: contact.name,
-            contact: contact.name,
-            phone: contact.phone,
-            value: 0,
-            closeDate: new Date().toISOString(),
-            stage: 'Interested Lead' as const,
-            teamId: userProfile.teamId!,
-            createdBy: user.uid,
-            createdAt: new Date().toISOString(),
-            notes: [],
-          };
-          batch.set(newOppRef, opportunityData);
-          newCount++;
+        if (newOpportunities.length === 0) {
+            console.log("No new interested contacts to add as opportunities.");
+            return;
         }
-      });
 
-      if (newCount === 0 && updatedCount === 0) {
-        toast({ title: "Leads are up to date!", description: "No new 'Interested' contacts to sync." });
-        return;
-      }
+        // 3. Batch write the new ones
+        const batch = writeBatch(db);
+        newOpportunities.forEach(contact => {
+            const newOppRef = doc(opportunitiesCollectionRef);
+            const opportunityData: Omit<Opportunity, "id"> = {
+                title: contact.name,
+                contact: contact.name,
+                phone: contact.phone,
+                value: 0,
+                closeDate: new Date().toISOString(),
+                stage: 'Interested Lead' as const,
+                teamId: userProfile.teamId!,
+                createdBy: user.uid,
+                createdAt: new Date().toISOString(),
+                notes: [],
+            };
+            batch.set(newOppRef, opportunityData);
+        });
 
-      await batch.commit();
-      
-      let description = "";
-      if (newCount > 0) description += `${newCount} new lead(s) added. `;
-      if (updatedCount > 0) description += `${updatedCount} existing lead(s) updated.`;
-      
-      toast({ title: "Leads Synced Successfully!", description: description.trim() });
+        await batch.commit();
+        toast({ title: "Leads Synced", description: `${newOpportunities.length} new 'Interested' contact(s) were added to your pipeline.` });
 
     } catch (error) {
-      console.error("Error syncing opportunities from contacts:", error);
-      toast({ title: "Error", description: "Could not sync new leads.", variant: "destructive" });
+        console.error("Error adding opportunities from contacts:", error);
+        toast({ title: "Error", description: "Could not auto-import new leads.", variant: "destructive" });
     }
   };
 
