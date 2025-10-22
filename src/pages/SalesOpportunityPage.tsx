@@ -108,14 +108,18 @@ const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }
             </DropdownMenu>
           </div>
           <div className="space-y-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5"><User className="h-3 w-3" /> {opportunity.contact}</div>
+            {opportunity.stage !== 'Meeting' && (
+              <div className="flex items-center gap-1.5"><User className="h-3 w-3" /> {opportunity.contact}</div>
+            )}
             {opportunity.phone && (
               <div className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {opportunity.phone}</div>
             )}
-            <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5"><IndianRupee className="h-3 w-3" />{opportunity.value.toLocaleString()}</span>
-                <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{new Date(opportunity.closeDate).toLocaleDateString()}</span>
-            </div>
+            {opportunity.stage !== 'Meeting' && (
+              <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5"><IndianRupee className="h-3 w-3" />{opportunity.value.toLocaleString()}</span>
+                  <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{new Date(opportunity.closeDate).toLocaleDateString()}</span>
+              </div>
+            )}
           </div>
           {opportunity.stage === 'Meeting' && (
             <div className="mt-3 pt-3 border-t border-dashed space-y-2">
