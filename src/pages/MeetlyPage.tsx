@@ -24,44 +24,46 @@ export default function MeetlyPage() {
   }
 
   return (
-    <div className="container max-w-5xl mx-auto p-4 md:p-6 space-y-8">
+    <div className="container max-w-7xl mx-auto p-6 space-y-12">
       {/* Header */}
       <motion.div
-        className="text-center space-y-4"
+        className="text-center space-y-6"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="inline-block p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-2xl">
-          <div className="p-3 bg-background rounded-xl shadow-inner">
-            <Mic className="h-8 w-8 text-primary" />
+        <div className="inline-block p-4 bg-gradient-to-br from-purple-500/10 to-blue-500/10 rounded-3xl">
+          <div className="p-4 bg-background rounded-2xl shadow-inner">
+            <Mic className="h-10 w-10 text-primary" />
           </div>
         </div>
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+          <h1 className="text-4xl font-bold tracking-tight">
             Meetly AI
           </h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto mt-2">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto mt-3">
             Record your meetings, get instant transcripts, and AI-powered summaries with actionable insights.
           </p>
         </div>
       </motion.div>
 
-      {/* Main Content - Single Column Layout */}
-      <div className="space-y-8">
-        {/* Audio Recorder */}
+      {/* Main Content - Two Column Layout for Desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Recorder and other potential widgets */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-1 space-y-6"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <AudioRecorder className="max-w-2xl mx-auto" />
+          <AudioRecorder />
         </motion.div>
 
-        {/* Recordings List */}
+        {/* Right Column: Recordings List */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="lg:col-span-2"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
         >
           <RecordingsList onViewRecording={handleViewRecording} />
