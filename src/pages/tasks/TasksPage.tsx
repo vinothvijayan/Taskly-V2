@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import TaskViewToggle from '@/components/tasks/TaskViewToggle';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Menu, Bell, Search } from 'lucide-react';
 import ActiveTasksSection from '@/components/tasks/ActiveTasksSection';
 import CompletedTasksSection from '@/components/tasks/CompletedTasksSection';
 
 type TaskView = 'list' | 'kanban';
 
-// --- Dedicated List View Component ---
+// --- Dedicated List View Component (Always stacked for My Day) ---
 const TaskListView = () => (
-  // On small screens (mobile), stack vertically (flex-col) with space-y-6.
-  // On medium screens and up (md:), use a grid layout (grid-cols-2) with gap-6.
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+  <div className="mt-4 pb-20"> {/* pb-20 to make space for the FAB */}
     <ActiveTasksSection />
     <CompletedTasksSection />
   </div>
@@ -24,52 +21,87 @@ const KanbanView = () => (
 );
 // -----------------------------------------------------------------------
 
+// Helper function to format date (using a simple placeholder for now)
+const formatDate = (date: Date) => {
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+};
+
 
 const TasksPage = () => {
-  // Initialize view state. Defaulting to 'list' for mobile compatibility.
+  // We will assume 'list' view is the 'My Day' view for now.
   const [view, setView] = useState<TaskView>('list');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  // If the user switches to kanban on a small screen, we force it back to list 
-  // because the kanban toggle is hidden on mobile.
-  const handleViewChange = (newView: TaskView) => {
-    // Simple check to ensure we don't switch to kanban if the screen is small
-    // (though TaskViewToggle already handles hiding the button, this is a safeguard)
-    if (newView === 'kanban' && window.innerWidth < 640) { // 640px is Tailwind's 'sm' breakpoint
-      setView('list');
-    } else {
-      setView(newView);
-    }
+  const handlePreviousDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() - 1);
+    setCurrentDate(newDate);
   };
 
-  return (
-    <div className="container mx-auto p-4 sm:p-6">
-      
-      {/* Header and Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-3 sm:space-y-0">
-        
-        <h1 className="text-3xl font-bold">Tasks</h1>
-        
-        {/* Controls: View Toggle and Add Button */}
-        <div className="flex items-center space-x-3 w-full sm:w-auto">
-          
-          {/* Task View Toggle (Wider on mobile, aligned right) */}
-          <div className="flex-grow sm:flex-grow-0">
-            <TaskViewToggle view={view} onViewChange={handleViewChange} />
-          </div>
-          
-          {/* Add Task Button */}
-          <Button className="flex-shrink-0">
-            <Plus className="h-4 w-4 sm:mr-2" />
-            {/* Use full text on desktop, abbreviated on mobile */}
-            <span className="hidden sm:inline">Add Task</span>
-            <span className="inline sm:hidden">Add</span>
-          </Button>
-        </div>
-      </div>
+  const handleNextDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + 1);
+    setCurrentDate(newDate);
+  };
 
-      {/* Main Content Area */}
-      {view === 'list' && <TaskListView />}
-      {view === 'kanban' && <KanbanView />}
+  // Placeholder for user initial (V)
+  const userInitial = 'V'; 
+
+  return (
+    <div className="container mx-auto p-0 sm:p-6">
+      
+      {/* Top Navigation Bar (Mobile Look) */}
+      <header className="p-4 sm:p-0 sm:hidden bg-background border-b border-border/50">
+        <div className="flex justify-between items-center">
+          <Button variant="ghost" size="icon">
+            <Menu className="h-6 w-6" />
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="icon">
+              <Search className="h-6 w-6" />
+            </Button>
+            <Button variant="ghost" size="icon">
+              <Bell className="h-6 w-6" />
+            </Button>
+            <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">
+              {userInitial}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area - Responsive Padding */}
+      <div className="p-4 sm:p-0 sm:container sm:mx-auto">
+        
+        {/* My Day Header and Date Navigation */}
+        <div className="mb-6 mt-4">
+          <h1 className="text-3xl font-bold mb-1">My Day</h1>
+          
+          <div className="flex items-center justify-between text-muted-foreground">
+            <Button variant="ghost" size="icon" onClick={handlePreviousDay}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <p className="text-base font-medium">
+              {formatDate(currentDate)}
+            </p>
+            <Button variant="ghost" size="icon" onClick={handleNextDay}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Task Content */}
+        {view === 'list' && <TaskListView />}
+        {view === 'kanban' && <KanbanView />}
+      </div>
+      
+      {/* Floating Action Button (FAB) */}
+      <Button 
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-2xl z-50"
+        size="icon"
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
       
     </div>
   );
