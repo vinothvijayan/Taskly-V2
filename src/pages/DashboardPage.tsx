@@ -57,14 +57,14 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { y: 20, opacity: 0 },
-  visible: {
+  visible: (i: number) => ({
     y: 0,
     opacity: 1,
     transition: {
       type: "spring",
       stiffness: 100,
     } as any,
-  },
+  }),
 };
 
 const StatCard = ({ title, value, icon: Icon, colorClass, bgColorClass }: any) => (
@@ -230,11 +230,14 @@ export default function DashboardPage() {
               <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
               <p className="text-sm text-muted-foreground">Welcome back, {userProfile?.displayName || user?.email}!</p>
             </div>
-            {!isMobile && (
-              <Button onClick={() => setShowForm(true)} variant="focus" className="hover-scale">
-                <Plus className="h-4 w-4 mr-2" /> New Task
-              </Button>
-            )}
+            {/* FIX: Use Tailwind class to hide button on mobile screen sizes, preventing flicker */}
+            <Button 
+              onClick={() => setShowForm(true)} 
+              variant="focus" 
+              className="hover-scale hidden md:flex"
+            >
+              <Plus className="h-4 w-4 mr-2" /> New Task
+            </Button>
           </div>
         </motion.div>
 
@@ -351,6 +354,21 @@ export default function DashboardPage() {
           )}
         </AnimatePresence>
       )}
+      
+      <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
+        <DialogContent className="sm:max-w-[500px] shadow-elegant max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5 text-primary" />
+              Edit Task
+            </DialogTitle>
+            <DialogDescription>
+              Make changes to your task here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTask && <TaskForm task={editingTask} onSubmit={handleEditTask} onCancel={() => setEditingTask(null)} teamMembers={teamMembers} />}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
