@@ -188,16 +188,62 @@ export default function TasksPage() {
             </Button>
           </div>
           <div className="flex justify-end w-48 items-center gap-2">
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <Button size="sm" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-7 px-2"><List className="h-4 w-4" /></Button>
-              <Button size="sm" variant={viewMode === 'board' ? 'default' : 'ghost'} onClick={() => setViewMode('board')} className="h-7 px-2"><LayoutGrid className="h-4 w-4" /></Button>
-            </div>
+            {!isMobile && (
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                <Button size="sm" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-7 px-2"><List className="h-4 w-4" /></Button>
+                <Button size="sm" variant={viewMode === 'board' ? 'default' : 'ghost'} onClick={() => setViewMode('board')} className="h-7 px-2"><LayoutGrid className="h-4 w-4" /></Button>
+              </div>
+            )}
             <TopPerformer />
           </div>
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">
-          {viewMode === 'list' ? (
+          {isMobile ? (
+            // --- MOBILE VIEW ---
+            <ScrollArea className="flex-1 -mx-4">
+              <div className="px-4 space-y-6 pb-20">
+                {/* Quick Add Input */}
+                <div className="flex items-center gap-2 w-full bg-muted/50 rounded-lg px-3">
+                  <Plus className="h-4 w-4 text-muted-foreground" />
+                  <Input value={quickTaskTitle} onChange={(e) => setQuickTaskTitle(e.target.value)} onKeyPress={handleKeyPress} placeholder="Add a new task..." className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-10" />
+                </div>
+
+                {/* Active Tasks Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                    <h2 className="text-lg font-semibold">Active Tasks</h2>
+                    <Badge variant="secondary">{todoTasks.length}</Badge>
+                  </div>
+                  <AnimatePresence>
+                    {todoTasks.length > 0 ? todoTasks.map(task => (
+                      <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
+                        <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                      </motion.div>
+                    )) : <div className="text-center py-8 text-muted-foreground"><p>No active tasks for this day.</p></div>}
+                  </AnimatePresence>
+                </div>
+
+                {/* Completed Tasks Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-success" />
+                    <h2 className="text-lg font-semibold text-success">Completed</h2>
+                    <Badge variant="secondary" className="bg-success/10 text-success">{completedTasks.length}</Badge>
+                  </div>
+                  <AnimatePresence>
+                    {completedTasks.length > 0 ? completedTasks.map(task => (
+                      <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
+                        <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={handleDeleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                      </motion.div>
+                    )) : <div className="text-center py-8 text-muted-foreground"><p>No completed tasks for this day.</p></div>}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </ScrollArea>
+          ) : viewMode === 'list' ? (
+            // --- DESKTOP LIST VIEW (Original Resizable Panels) ---
             <ResizablePanelGroup direction="horizontal" className="h-full rounded-lg border shadow-sm">
               <ResizablePanel defaultSize={60} minSize={40}>
                 <div className="flex flex-col h-full">
@@ -226,6 +272,7 @@ export default function TasksPage() {
               </ResizablePanel>
             </ResizablePanelGroup>
           ) : (
+            // --- DESKTOP KANBAN VIEW ---
             <KanbanBoard
               tasks={tasks}
               teamMembers={teamMembers}
@@ -237,6 +284,12 @@ export default function TasksPage() {
           )}
         </div>
       </div>
+      
+      {/* Mobile FAB */}
+      {isMobile && (
+        <FloatingActionButton onCreateTask={handleQuickCapture} />
+      )}
+      
       <Dialog open={!!editingTask} onOpenChange={() => setEditingTask(null)}>
         <DialogContent className="sm:max-w-[500px] shadow-elegant max-h-[90vh] flex flex-col p-0">
           <DialogHeader className="p-6 pb-4 border-b">
