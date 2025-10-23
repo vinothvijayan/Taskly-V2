@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock } from 'lucide-react';
-import TaskCard from './TaskCard';
+import TaskCard from './TaskCard'; // Changed from { TaskCard } to TaskCard
 
 // Placeholder data matching the screenshot style
 const mockCompletedTasks = [

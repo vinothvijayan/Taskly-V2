@@ -1,7 +1,7 @@
 import React from 'react';
 import { CheckSquare, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import TaskCard from './TaskCard';
+import TaskCard from './TaskCard'; // Changed from { TaskCard } to TaskCard
 
 // Placeholder data matching the screenshot style
 const mockTasks = [
