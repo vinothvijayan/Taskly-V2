@@ -22,7 +22,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
-import { Filesystem } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 // Declare the global Media object from cordova-plugin-media
 declare var Media: any;
@@ -207,7 +207,10 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         mediaRef.current = null;
 
         try {
-          const result = await Filesystem.readFile({ path: filePath });
+          const result = await Filesystem.readFile({ 
+            path: filePath,
+            directory: Directory.Data
+          });
           const fetchRes = await fetch(`data:audio/wav;base64,${result.data}`);
           const blob = await fetchRes.blob();
           setRecordedAudio(blob);

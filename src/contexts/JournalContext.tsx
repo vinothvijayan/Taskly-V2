@@ -8,7 +8,7 @@ import { MeetingRecording as JournalEntry } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
-import { Filesystem } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 
 // Declare the global Media object from cordova-plugin-media
 declare var Media: any;
@@ -141,7 +141,10 @@ export function JournalContextProvider({ children, selectedDate }: { children: R
         mediaRef.current.release();
         mediaRef.current = null;
 
-        Filesystem.readFile({ path: filePath }).then(result => {
+        Filesystem.readFile({ 
+          path: filePath,
+          directory: Directory.Data
+        }).then(result => {
           return fetch(`data:audio/wav;base64,${result.data}`);
         }).then(res => res.blob()).then(blob => {
           setRecordedAudio(blob);
