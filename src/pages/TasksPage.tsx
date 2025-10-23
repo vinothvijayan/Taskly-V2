@@ -174,8 +174,19 @@ export default function TasksPage() {
     <>
       <div className="h-full flex flex-col p-6">
         <div className="flex items-center justify-between mb-6">
-          {/* Left spacer removed */}
-          <div className={cn("flex items-center gap-4", isMobile ? "flex-1 justify-start" : "flex-1 justify-center")}>
+          
+          {/* Left Spacer / Desktop View Mode */}
+          <div className={cn("flex items-center gap-2", isMobile ? "flex-1" : "w-48 justify-start")}>
+            {!isMobile && (
+              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
+                <Button size="sm" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-7 px-2"><List className="h-4 w-4" /></Button>
+                <Button size="sm" variant={viewMode === 'board' ? 'default' : 'ghost'} onClick={() => setViewMode('board')} className="h-7 px-2"><LayoutGrid className="h-4 w-4" /></Button>
+              </div>
+            )}
+          </div>
+
+          {/* Center Date Controls */}
+          <div className="flex items-center gap-4">
             <Button variant="ghost" size="icon" onClick={handlePrevDay} className="rounded-full h-10 w-10">
               <ChevronLeft className="h-6 w-6" strokeWidth={2.5} />
             </Button>
@@ -188,15 +199,9 @@ export default function TasksPage() {
             </Button>
           </div>
           
-          {/* Right section: Top Performer and View Mode */}
+          {/* Right Spacer / Desktop Top Performer */}
           <div className={cn("flex justify-end items-center gap-2", isMobile ? "flex-1" : "w-48")}>
-            <TopPerformer />
-            {!isMobile && (
-              <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-                <Button size="sm" variant={viewMode === 'list' ? 'default' : 'ghost'} onClick={() => setViewMode('list')} className="h-7 px-2"><List className="h-4 w-4" /></Button>
-                <Button size="sm" variant={viewMode === 'board' ? 'default' : 'ghost'} onClick={() => setViewMode('board')} className="h-7 px-2"><LayoutGrid className="h-4 w-4" /></Button>
-              </div>
-            )}
+            {!isMobile && <TopPerformer />}
           </div>
         </div>
 
