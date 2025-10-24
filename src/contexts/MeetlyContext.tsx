@@ -1,4 +1,3 @@
-// src/contexts/MeetlyContext.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import {
   collection,
@@ -156,6 +155,9 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       let stream: MediaStream | null = null;
       let isSystemAudio = false;
 
+      // 0. Inform user about the requirement
+      const systemAudioToastId = toast.loading("A browser prompt will appear. To record system audio, please select 'Share system audio' or 'Share tab audio' in the prompt.");
+
       // 1. Attempt to capture system audio via getDisplayMedia
       if (navigator.mediaDevices.getDisplayMedia) {
         try {
@@ -169,8 +171,12 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           }
         } catch (error: any) {
           // Log the failure, but proceed to microphone fallback
-          console.warn(`getDisplayMedia failed or denied: ${error.name}. Falling back to microphone.`);
+          console.warn(`System audio capture failed: ${error.name}. Falling back to microphone.`);
+        } finally {
+          toast.dismiss(systemAudioToastId);
         }
+      } else {
+        toast.dismiss(systemAudioToastId);
       }
 
       // 2. Fallback to microphone if system audio failed or was not supported
