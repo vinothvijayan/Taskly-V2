@@ -156,9 +156,9 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       let stream: MediaStream | null = null;
       let isSystemAudio = false;
 
-      try {
-        // 1. Attempt to capture system audio via getDisplayMedia
-        if (navigator.mediaDevices.getDisplayMedia) {
+      // 1. Attempt to capture system audio via getDisplayMedia
+      if (navigator.mediaDevices.getDisplayMedia) {
+        try {
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: false,
             audio: true,
@@ -167,10 +167,10 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           if (stream.getAudioTracks().length > 0) {
             isSystemAudio = true;
           }
+        } catch (error: any) {
+          console.warn("getDisplayMedia failed or denied:", error.name);
+          // If NotSupportedError or NotAllowedError, proceed to microphone fallback
         }
-      } catch (error: any) {
-        console.warn("getDisplayMedia failed or denied:", error.name);
-        // If NotSupportedError or NotAllowedError, proceed to microphone fallback
       }
 
       // 2. Fallback to microphone if system audio failed or was not supported
@@ -186,6 +186,11 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
               }
           });
           isSystemAudio = false;
+          toast({
+              title: "Microphone Only 🎤",
+              description: "System audio capture failed. Recording microphone input.",
+              variant: "warning"
+          });
         } catch (error: any) {
           console.error("getUserMedia failed:", error);
           toast({
@@ -224,12 +229,12 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
 
-        toast({
-          title: "Recording started 🎙️",
-          description: isSystemAudio 
-            ? "Recording system audio from the selected source."
-            : "Recording microphone input only."
-        });
+        if (isSystemAudio) {
+            toast({
+                title: "Recording Started 🎙️",
+                description: "Recording system audio from the selected tab/screen.",
+            });
+        }
 
       } catch (error) {
         console.error("Error starting MediaRecorder:", error);
