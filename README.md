@@ -11,6 +11,10 @@ Taskly is a modern, full-stack productivity application designed to help teams m
 - **Cross-Platform:** Seamless experience across Web, iOS, and Android via Capacitor.
 - **Offline Support:** PWA capabilities for offline data queuing and synchronization.
 
+## 📚 Developer Guide & Architecture
+
+For detailed information on the project architecture, data flow, component structure, and implementation specifics, please refer to the [**DEVELOPER GUIDE**](DEVELOPER_GUIDE.md).
+
 ## 🛠️ Tech Stack
 
 This project utilizes a modern, high-performance stack:
