@@ -63,14 +63,19 @@ The application follows a standard React/Context/Firebase pattern:
 | **Processing Trigger** | Uploaded audio files trigger a Cloud Function via Firebase Storage. | `functions/meetly_processor.py` |
 | **AI Logic** | Python function uses Google Gemini API for transcription, translation, and structured summary generation. | `functions/meetly_processor.py` |
 
-### 3.5. Sales Tracker
+### 3.5. Sales Tracker & Dialer App Integration
+
+The Sales Tracker module is split between the web app (for setup, analytics, and CRM) and a separate native Android application (the Dialer App) for real-time calling and feedback submission.
 
 | Feature | Implementation | Key Files |
 | :--- | :--- | :--- |
-| **Contact Data** | Stored in Firebase Realtime Database (`contacts` collection) for fast updates from the native dialer app. | `src/contexts/ContactsContext.tsx` |
+| **Contact Master Data** | Stored in **RTDB** (`/contacts`) for fast, frequent updates from the Dialer App. | `src/contexts/ContactsContext.tsx` |
+| **Dialer Queue Bridge** | **RTDB** (`/dialingQueue/{userId}`) is used by the web app to push a list of contacts to the Dialer App. | `src/components/sales-tracker/DialerSetupView.tsx` |
+| **Live Call Status** | **RTDB** (`/liveCallStatus`) is updated by the Dialer App to show the web user which contact is currently being called. | `src/components/sales-tracker/LiveCallView.tsx` |
+| **Feedback Submission** | The Dialer App submits call logs directly to the RTDB (`/contacts/{phone}/callHistory`). | `vinoth/app/src/main/java/com/example/vinoth/MainActivity.java` |
 | **Analytics** | Processes call history data locally to generate daily reports and metrics. | `src/lib/sales-tracker-data.ts`, `src/components/sales-tracker/AnalyticsView.tsx` |
 | **Lead Generation** | Uses a Firebase Callable Function as a secure proxy to the Google Places API. | `functions/sales_tools.py`, `src/pages/SalesToolsPage.tsx` |
-| **Opportunities** | Kanban board for managing sales pipeline stages. Data stored in Firestore. | `src/contexts/SalesOpportunityContext.tsx`, `src/pages/SalesOpportunityPage.tsx` |
+| **Opportunities** | Kanban board for managing sales pipeline stages. Data stored in **Firestore**. | `src/contexts/SalesOpportunityContext.tsx`, `src/pages/SalesOpportunityPage.tsx` |
 
 ### 3.6. Notifications & Offline Sync
 
