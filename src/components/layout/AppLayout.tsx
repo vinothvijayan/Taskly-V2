@@ -53,7 +53,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             <SheetTitle>Main Navigation</SheetTitle>
             <SheetDescription>Navigate through the main sections of the Taskly application.</SheetDescription>
           </SheetHeader>
-          <SidebarNavContent onLinkClick={() => setState('collapsed')} collapsed={false} />
+          <SidebarNavContent onLinkClick={() => setState('collapsed')} collapsed={false} isMobile={isMobile} />
         </SheetContent>
       </Sheet>
     );

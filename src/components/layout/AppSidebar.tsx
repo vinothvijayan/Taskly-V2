@@ -43,6 +43,7 @@ const navItems = [
     title: "Sales",
     icon: DollarSign,
     adminOnly: true,
+    mobileHidden: true, // <-- ADDED: Flag to hide on mobile
     subItems: [
       { title: "Call Tracker", url: "/sales-tracker", icon: Phone },
       { title: "Opportunities", url: "/sales-opportunity", icon: Zap },
@@ -56,13 +57,16 @@ const navItems = [
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ]
 
-export const SidebarNavContent = ({ onLinkClick, collapsed }: { onLinkClick?: () => void, collapsed: boolean }) => {
+export const SidebarNavContent = ({ onLinkClick, collapsed, isMobile }: { onLinkClick?: () => void, collapsed: boolean, isMobile: boolean }) => {
   const { totalUnreadCount } = useTeamChat();
   const location = useLocation();
   const currentPath = location.pathname;
   const { userProfile } = useAuth();
 
-  const visibleItems = navItems.filter(item => !item.adminOnly || userProfile?.role === 'admin');
+  const visibleItems = navItems.filter(item => 
+    (!item.adminOnly || userProfile?.role === 'admin') &&
+    (!isMobile || !item.mobileHidden) // Filter out mobileHidden items on mobile
+  );
 
   const isActive = (path: string) => {
     if (path === "/" && currentPath === "/") return true;
@@ -246,7 +250,7 @@ export function AppSidebar({ className }: { className?: string }) {
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <SidebarNavContent collapsed={collapsed} />
+      <SidebarNavContent collapsed={collapsed} isMobile={isMobile} />
     </Sidebar>
   );
 }
