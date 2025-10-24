@@ -44,6 +44,7 @@ The application follows a standard React/Context/Firebase pattern:
 | **UI Components** | Displays task details, handles status toggling, and subtasks. | `src/components/tasks/TaskCard.tsx`, `src/components/tasks/SubtasksSection.tsx` |
 | **Kanban Board** | Uses `@dnd-kit` for drag-and-drop functionality, updating task status on drop. | `src/components/tasks/KanbanBoard.tsx`, `src/components/tasks/KanbanColumn.tsx` |
 | **Time Tracking** | Tracks time spent on tasks/subtasks, persisting session state to Firestore. | `src/contexts/TaskTimeTrackerContext.tsx` |
+| **Scoring & Streaks** | Logic to calculate task scores based on complexity, priority, and timeliness, used for the Leaderboard. | `src/lib/scoring.ts`, `src/components/dashboard/Leaderboard.tsx` |
 
 ### 3.3. Team Collaboration & Chat
 
@@ -91,10 +92,17 @@ The Sales Tracker module is split between the web app (for setup, analytics, and
 | :--- | :--- | :--- |
 | **Local Storage** | Notes are primarily stored locally using `localStorage` for simplicity and speed. | `src/pages/NotesPage.tsx` |
 | **Microsoft Auth** | Uses MSAL (`@azure/msal-browser`) to handle OAuth 2.0 flow for Microsoft Graph API access. | `src/lib/microsoftauth.ts` |
-| **OneNote Import** | Fetches OneNote page content via Microsoft Graph API, including handling embedded images and HTML sanitization. | `src/pages/NotesPage.tsx` |
-| **Security** | Access token is used client-side to fetch content directly from Microsoft Graph. | `src/lib/microsoftauth.ts` |
+| **OneNote Import** | Fetches OneNote page content via Microsoft Graph API, including handling embedded images and HTML sanitization (`dompurify`). | `src/pages/NotesPage.tsx` |
 
-### 3.8. Notifications & Offline Sync
+### 3.8. Journaling / AI Wellness Coach
+
+| Feature | Implementation | Key Files |
+| :--- | :--- | :--- |
+| **Data Model** | Journal entries stored in Firestore (`journalEntries`). Daily summaries stored in `dailySummaries`. | `src/contexts/JournalContext.tsx`, `src/types/index.ts` |
+| **AI Analysis** | Cloud Function processes audio, generates transcript/translation, and performs wellness analysis using Gemini. | `functions/process_journal.py` |
+| **PDF Export** | Callable function fetches entries, synthesizes narrative, and uses **WeasyPrint** (server-side) to generate a PDF for download. | `functions/process_journal.py`, `src/components/journal/JournalExportModal.tsx` |
+
+### 3.9. Notifications & Offline Sync
 
 | Feature | Implementation | Key Files |
 | :--- | :--- | :--- |
@@ -102,6 +110,15 @@ The Sales Tracker module is split between the web app (for setup, analytics, and
 | **PWA Scheduling** | Uses IndexedDB to persist and check scheduled notifications when the app is closed (Web/PWA only). | `src/lib/unifiedNotifications.ts`, `src/lib/indexedDB.ts` |
 | **Offline Sync** | Intercepts network requests and queues CRUD actions in IndexedDB when offline. | `src/lib/offlineSync.ts`, `src/hooks/useOfflineSync.ts` |
 | **Mobile Features** | Handles deep linking and PWA installation prompts. | `src/lib/mobileShortcuts.ts` |
+
+### 3.10. Advanced UX & Performance
+
+| Feature | Implementation | Key Files |
+| :--- | :--- | :--- |
+| **Picture-in-Picture (PiP)** | Custom hook manages PiP window creation for the Time Tracking Widget, ensuring styles are correctly copied. | `src/hooks/usePipWidgetManager.tsx`, `src/components/pip/PipWidget.tsx` |
+| **Haptic Feedback** | Custom hook for native-like vibration patterns on mobile interactions (swipes, taps). | `src/hooks/useTouchGestures.ts` |
+| **Lazy Loading** | Uses Intersection Observer API for lazy loading components (e.g., charts, long lists) to improve initial load time. | `src/hooks/usePerformance.ts`, `src/components/common/LazyLoader.tsx` |
+| **Pull-to-Refresh** | Custom hook for mobile gesture detection to trigger data refresh in scrollable areas. | `src/hooks/useTouchGestures.ts`, `src/components/common/PullToRefresh.tsx` |
 
 ## 4. Styling Conventions
 
