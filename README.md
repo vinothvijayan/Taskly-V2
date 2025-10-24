@@ -1,73 +1,101 @@
-# Welcome to your Lovable project
+# Taskly: AI-Powered Task Management & Collaboration App
 
-## Project info
+Taskly is a modern, full-stack productivity application designed to help teams manage tasks, track focus time, and leverage AI for meeting summarization and wellness coaching. It is built as a Progressive Web App (PWA) and packaged for native mobile deployment using Capacitor.
 
-**URL**: https://lovable.dev/projects/bfa15b0d-44b7-44ba-9ff9-a987cf19603d
+## 🚀 Key Features
 
-## How can I edit this code?
+- **Universal Task Management:** Create, assign, and track tasks with priority, due dates, and time tracking.
+- **AI-Powered Meetings (Meetly):** Record meetings and automatically generate transcripts, translations, and actionable summaries using Google Gemini.
+- **Team Collaboration:** Real-time team chat and shared task boards (Kanban).
+- **Sales Tracker:** Dedicated module for managing sales leads, call history, and analytics.
+- **Cross-Platform:** Seamless experience across Web, iOS, and Android via Capacitor.
+- **Offline Support:** PWA capabilities for offline data queuing and synchronization.
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+This project utilizes a modern, high-performance stack:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/bfa15b0d-44b7-44ba-9ff9-a987cf19603d) and start prompting.
+| Category | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | React, TypeScript, Vite | Fast development and type-safe UI |
+| **Styling** | Tailwind CSS, shadcn/ui | Utility-first styling and accessible components |
+| **Backend** | Firebase | Authentication, Firestore (Database), Cloud Storage, and Cloud Functions (Python/Gemini AI) |
+| **State/Data** | TanStack Query | Server state management, caching, and data synchronization |
+| **Routing** | React Router DOM | Client-side navigation |
+| **Forms** | React Hook Form, Zod | Robust, type-safe form handling and validation |
+| **Mobile** | Capacitor | Packaging the web app as native iOS/Android applications |
+| **Icons** | Lucide React | Clean and consistent icon set |
 
-Changes made via Lovable will be committed automatically to this repo.
+## 💻 Getting Started
 
-**Use your preferred IDE**
+Follow these steps to set up the project locally for development.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js (v18+) and npm/yarn/bun
+- Firebase CLI (for deploying functions)
 
-Follow these steps:
+### Installation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. **Clone the repository:**
+   ```bash
+   git clone <YOUR_GIT_URL>
+   cd <YOUR_PROJECT_NAME>
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. **Install dependencies:**
+   ```bash
+   npm install
+   # or yarn install / bun install
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. **Configure Firebase:**
+   Ensure your Firebase configuration is set up in `src/lib/firebase.ts`. You will need to replace the placeholder values with your actual project credentials.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+4. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+   The application will be available at `http://localhost:8080`.
+
+### Backend Setup (Cloud Functions)
+
+The application relies on Firebase Cloud Functions for AI processing (Meetly).
+
+1. **Install Python dependencies:**
+   The Python functions require `firebase-admin`, `google-generativeai`, `requests`, and `weasyprint`. These are listed in `functions/requirements.txt`.
+
+2. **Set Gemini API Key:**
+   Update the placeholder key in `functions/meetly_processor.py` and `functions/process_journal.py` with your actual Google Gemini API Key.
+
+3. **Deploy Functions:**
+   The functions are deployed automatically during the build process in the current environment. If deploying manually via Firebase CLI:
+   ```bash
+   firebase deploy --only functions
+   ```
+
+## 📂 Project Structure
+
+The core application logic resides in the `src/` directory:
+
+```
+src/
+├── components/          # Reusable UI components (e.g., TaskCard, TaskForm)
+│   ├── ui/              # Shadcn/ui components (untouched)
+│   └── layout/          # Main application layout and header
+├── contexts/            # Global state management using React Context (Auth, Tasks, Meetly, etc.)
+├── hooks/               # Custom React hooks (e.g., useSound, useOfflineSync)
+├── lib/                 # Core utilities and external service integrations (Firebase, Auth, Notifications)
+├── pages/               # Top-level route components (DashboardPage, TasksPage, MeetlyPage)
+├── types/               # TypeScript interface definitions
+└── utils/               # Small, general-purpose utility functions
 ```
 
-**Edit a file directly in GitHub**
+The backend code is located in the `functions/` directory:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/bfa15b0d-44b7-44ba-9ff9-a987cf19603d) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```
+functions/
+├── main.py              # Entry point for Firebase Cloud Functions
+├── meetly_processor.py  # Handles audio processing, transcription, and summarization
+├── process_journal.py   # Handles journal entry processing and PDF export
+└── sales_tools.py       # Secure proxy for Google Places API calls
