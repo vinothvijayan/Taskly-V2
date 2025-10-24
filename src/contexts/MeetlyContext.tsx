@@ -53,6 +53,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const mediaRef = React.useRef<any>(null);
+  const streamRef = React.useRef<MediaStream | null>(null); // To hold the stream for cleanup
 
   // Set up real-time listener for recordings
   useEffect(() => {
@@ -126,10 +127,12 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     }
 
     if (Capacitor.isNativePlatform()) {
-      // --- NATIVE PLATFORM LOGIC ---
+      // --- NATIVE PLATFORM LOGIC (Microphone only) ---
       try {
         const fileName = `meetly_${Date.now()}.wav`;
-        mediaRef.current = new Media(fileName, 
+        const filePath = Filesystem.getUri({ directory: Directory.Data, path: fileName }).uri;
+        
+        mediaRef.current = new Media(filePath, 
           () => console.log('Native recording success.'), 
           (err: any) => {
             console.error('Native recording error:', err);
@@ -140,21 +143,48 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         setIsRecording(true);
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
-        toast({ title: "Recording started 🎙️" });
+        toast({ 
+          title: "Recording started 🎙️",
+          description: "Only microphone audio is captured due to platform limitations."
+        });
       } catch (error) {
         console.error("Native recording failed to start:", error);
         toast({ title: "Recording Failed", description: "Could not start native recorder.", variant: "destructive" });
       }
     } else {
-      // --- WEB PLATFORM LOGIC ---
+      // --- WEB/DESKTOP PLATFORM LOGIC (Using getDisplayMedia for system audio) ---
+      let stream: MediaStream | null = null;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            sampleRate: 44100
-          }
+        // 1. Request screen/tab capture to get system audio
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: false, // We only need audio
+          audio: true,
         });
+        
+        // Check if the stream contains an audio track (user must select 'Share system audio' in the browser prompt)
+        if (stream.getAudioTracks().length === 0) {
+            // Fallback to microphone if system audio is not selected
+            stream.getTracks().forEach(track => track.stop()); // Stop the display stream
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100
+                }
+            });
+            toast({
+                title: "Microphone Only 🎤",
+                description: "System audio was not selected. Recording microphone input.",
+                variant: "warning"
+            });
+        } else {
+            toast({
+                title: "Recording Started 🎙️",
+                description: "Recording system audio from the selected tab/screen.",
+            });
+        }
+
+        streamRef.current = stream; // Save stream reference for cleanup
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
         const recorder = new MediaRecorder(stream, { mimeType });
@@ -170,7 +200,8 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         recorder.onstop = () => {
           const audioBlob = new Blob(chunks, { type: mimeType });
           setRecordedAudio(audioBlob);
-          stream.getTracks().forEach(track => track.stop());
+          streamRef.current?.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
         };
 
         recorder.start(1000);
@@ -179,18 +210,22 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
 
-        toast({
-          title: "Recording started 🎙️",
-          description: "Your meeting is being recorded."
-        });
-
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error starting recording:", error);
-        toast({
-          title: "Recording failed",
-          description: "Could not access microphone. Please check permissions.",
-          variant: "destructive"
-        });
+        if (error.name === "NotAllowedError" || error.name === "NotFoundError") {
+            toast({
+                title: "Recording Failed",
+                description: "Permission denied or no audio source found. Ensure you select 'Share system audio' in the browser prompt.",
+                variant: "destructive"
+            });
+        } else {
+            toast({
+                title: "Recording Failed",
+                description: "An unexpected error occurred. Check console for details.",
+                variant: "destructive"
+            });
+        }
+        if (stream) stream.getTracks().forEach(track => track.stop());
       }
     }
   };
@@ -207,15 +242,21 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         mediaRef.current = null;
 
         try {
+          const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
+          
           const result = await Filesystem.readFile({ 
-            path: filePath,
+            path: fileName,
             directory: Directory.Data
           });
+          
           const fetchRes = await fetch(`data:audio/wav;base64,${result.data}`);
           const blob = await fetchRes.blob();
           setRecordedAudio(blob);
+          
+          await Filesystem.deleteFile({ path: fileName, directory: Directory.Data });
+          
         } catch (e) {
-          console.error("Error reading recorded file", e);
+          console.error("Error reading recorded file or cleaning up", e);
           toast({ title: "Error saving recording", variant: "destructive" });
         }
       }
@@ -224,6 +265,10 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       if (mediaRecorder) {
         mediaRecorder.stop();
         setMediaRecorder(null);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     }
 
