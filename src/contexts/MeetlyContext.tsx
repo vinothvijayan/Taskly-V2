@@ -22,6 +22,7 @@ import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { showLoading, dismissToast } from "@/utils/toast";
 
 // Declare the global Media object from cordova-plugin-media
 declare var Media: any;
@@ -156,7 +157,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       let isSystemAudio = false;
 
       // 0. Inform user about the requirement
-      const systemAudioToastId = toast.loading("A browser prompt will appear. To record system audio, please select 'Share system audio' or 'Share tab audio' in the prompt.");
+      const systemAudioToastId = showLoading("A browser prompt will appear. To record system audio, please select 'Share system audio' or 'Share tab audio' in the prompt.");
 
       // 1. Attempt to capture system audio via getDisplayMedia
       if (navigator.mediaDevices.getDisplayMedia) {
@@ -173,10 +174,10 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           // Log the failure, but proceed to microphone fallback
           console.warn(`System audio capture failed: ${error.name}. Falling back to microphone.`);
         } finally {
-          toast.dismiss(systemAudioToastId);
+          dismissToast(systemAudioToastId);
         }
       } else {
-        toast.dismiss(systemAudioToastId);
+        dismissToast(systemAudioToastId);
       }
 
       // 2. Fallback to microphone if system audio failed or was not supported
