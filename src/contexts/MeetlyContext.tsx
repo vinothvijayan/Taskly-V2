@@ -152,40 +152,54 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         toast({ title: "Recording Failed", description: "Could not start native recorder.", variant: "destructive" });
       }
     } else {
-      // --- WEB/DESKTOP PLATFORM LOGIC (Using getDisplayMedia for system audio) ---
+      // --- WEB/DESKTOP PLATFORM LOGIC (System Audio with Microphone Fallback) ---
       let stream: MediaStream | null = null;
+      let isSystemAudio = false;
+
       try {
-        // 1. Request screen/tab capture to get system audio
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          video: false, // We only need audio
-          audio: true,
-        });
-        
-        // Check if the stream contains an audio track (user must select 'Share system audio' in the browser prompt)
-        if (stream.getAudioTracks().length === 0) {
-            // Fallback to microphone if system audio is not selected
-            stream.getTracks().forEach(track => track.stop()); // Stop the display stream
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    sampleRate: 44100
-                }
-            });
-            toast({
-                title: "Microphone Only 🎤",
-                description: "System audio was not selected. Recording microphone input.",
-                variant: "warning"
-            });
-        } else {
-            toast({
-                title: "Recording Started 🎙️",
-                description: "Recording system audio from the selected tab/screen.",
-            });
+        // 1. Attempt to capture system audio via getDisplayMedia
+        if (navigator.mediaDevices.getDisplayMedia) {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: false,
+            audio: true,
+          });
+          
+          if (stream.getAudioTracks().length > 0) {
+            isSystemAudio = true;
+          }
         }
+      } catch (error: any) {
+        console.warn("getDisplayMedia failed or denied:", error.name);
+        // If NotSupportedError or NotAllowedError, proceed to microphone fallback
+      }
 
-        streamRef.current = stream; // Save stream reference for cleanup
+      // 2. Fallback to microphone if system audio failed or was not supported
+      if (!stream || stream.getAudioTracks().length === 0) {
+        if (stream) stream.getTracks().forEach(track => track.stop()); // Clean up failed display stream
+        
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+              audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  sampleRate: 44100
+              }
+          });
+          isSystemAudio = false;
+        } catch (error: any) {
+          console.error("getUserMedia failed:", error);
+          toast({
+              title: "Recording Failed",
+              description: "Microphone access denied. Cannot start recording.",
+              variant: "destructive"
+          });
+          return;
+        }
+      }
 
+      // 3. Start recording with the acquired stream
+      try {
+        streamRef.current = stream;
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
         const recorder = new MediaRecorder(stream, { mimeType });
 
@@ -210,22 +224,21 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
 
-      } catch (error: any) {
-        console.error("Error starting recording:", error);
-        if (error.name === "NotAllowedError" || error.name === "NotFoundError") {
-            toast({
-                title: "Recording Failed",
-                description: "Permission denied or no audio source found. Ensure you select 'Share system audio' in the browser prompt.",
-                variant: "destructive"
-            });
-        } else {
-            toast({
-                title: "Recording Failed",
-                description: "An unexpected error occurred. Check console for details.",
-                variant: "destructive"
-            });
-        }
+        toast({
+          title: "Recording started 🎙️",
+          description: isSystemAudio 
+            ? "Recording system audio from the selected source."
+            : "Recording microphone input only."
+        });
+
+      } catch (error) {
+        console.error("Error starting MediaRecorder:", error);
         if (stream) stream.getTracks().forEach(track => track.stop());
+        toast({
+            title: "Recording Failed",
+            description: "An unexpected error occurred while starting the recorder.",
+            variant: "destructive"
+        });
       }
     }
   };
