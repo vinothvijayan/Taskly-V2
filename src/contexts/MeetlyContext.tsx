@@ -168,8 +168,8 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
             isSystemAudio = true;
           }
         } catch (error: any) {
-          console.warn("getDisplayMedia failed or denied:", error.name);
-          // If NotSupportedError or NotAllowedError, proceed to microphone fallback
+          // Log the failure, but proceed to microphone fallback
+          console.warn(`getDisplayMedia failed or denied: ${error.name}. Falling back to microphone.`);
         }
       }
 
