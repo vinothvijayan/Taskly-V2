@@ -74,10 +74,27 @@ The Sales Tracker module is split between the web app (for setup, analytics, and
 | **Live Call Status** | **RTDB** (`/liveCallStatus`) is updated by the Dialer App to show the web user which contact is currently being called. | `src/components/sales-tracker/LiveCallView.tsx` |
 | **Feedback Submission** | The Dialer App submits call logs directly to the RTDB (`/contacts/{phone}/callHistory`). | `vinoth/app/src/main/java/com/example/vinoth/MainActivity.java` |
 | **Analytics** | Processes call history data locally to generate daily reports and metrics. | `src/lib/sales-tracker-data.ts`, `src/components/sales-tracker/AnalyticsView.tsx` |
-| **Lead Generation** | Uses a Firebase Callable Function as a secure proxy to the Google Places API. | `functions/sales_tools.py`, `src/pages/SalesToolsPage.tsx` |
 | **Opportunities** | Kanban board for managing sales pipeline stages. Data stored in **Firestore**. | `src/contexts/SalesOpportunityContext.tsx`, `src/pages/SalesOpportunityPage.tsx` |
 
-### 3.6. Notifications & Offline Sync
+### 3.6. Google Calendar Integration
+
+| Feature | Implementation | Key Files |
+| :--- | :--- | :--- |
+| **API Client** | Uses Google's GAPI and Identity Services for OAuth and Calendar API calls. | `src/lib/googleCalendar.ts` |
+| **Authentication** | Handles OAuth flow to request `calendar.events` scope. | `src/lib/googleCalendar.ts`, `src/pages/CalendarPage.tsx` |
+| **Event Management** | Fetching events, creating focus blocks, and scheduling custom meetings. | `src/pages/CalendarPage.tsx` |
+| **Free Slot Finder** | Logic to calculate available time slots between existing events. | `src/lib/googleCalendar.ts` |
+
+### 3.7. Notes & OneNote Integration
+
+| Feature | Implementation | Key Files |
+| :--- | :--- | :--- |
+| **Local Storage** | Notes are primarily stored locally using `localStorage` for simplicity and speed. | `src/pages/NotesPage.tsx` |
+| **Microsoft Auth** | Uses MSAL (`@azure/msal-browser`) to handle OAuth 2.0 flow for Microsoft Graph API access. | `src/lib/microsoftauth.ts` |
+| **OneNote Import** | Fetches OneNote page content via Microsoft Graph API, including handling embedded images and HTML sanitization. | `src/pages/NotesPage.tsx` |
+| **Security** | Access token is used client-side to fetch content directly from Microsoft Graph. | `src/lib/microsoftauth.ts` |
+
+### 3.8. Notifications & Offline Sync
 
 | Feature | Implementation | Key Files |
 | :--- | :--- | :--- |
