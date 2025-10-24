@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import {
   BarChart3, CheckCircle, Clock, Target, TrendingUp, Filter, Calendar as CalendarIcon,
-  Plus, Search, Flame, Award, Activity, Users, UserPlus, X
+  Plus, Search, Flame, Award, Activity, Users, UserPlus, X, CheckSquare // <-- ADDED CheckSquare
 } from "lucide-react";
 
 import { useTasks } from "@/contexts/TasksContext";
