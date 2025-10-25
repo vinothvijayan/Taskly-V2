@@ -13,7 +13,7 @@ import { ref, update, push } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { arrayMove, CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
@@ -206,6 +206,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         let parsedTimestamp: string;
         try {
             const date = new Date(rawTimestamp);
+            // Check if the date object is valid before calling toISOString
             if (isNaN(date.getTime())) {
                 throw new Error("Invalid Date");
             }
