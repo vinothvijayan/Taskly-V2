@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Search, Phone, Users, PlayCircle, ArrowRight, Trash2, Loader2, Filter, Calendar as CalendarIcon, X, ChevronDown, Upload, Save } from "lucide-react";
+import { Search, Phone, Users, PlayCircle, ArrowRight, Trash2, Loader2, Filter, Calendar as CalendarIcon, X, ChevronDown, Upload, Save, Download, FileDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { rtdb } from "@/lib/firebase";
 import { ref, update } from "firebase/database";
@@ -18,12 +18,14 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import * as XLSX from 'xlsx';
+import { UserProfile } from '@/types'; // Import UserProfile
 
 const DIALER_ITEMS_PER_PAGE = 20;
 
 interface DialerSetupViewProps {
   contacts: Contact[];
   onSaveImportedContacts: (contacts: Contact[]) => Promise<void>;
+  userProfile: UserProfile | null; // <-- ADDED
 }
 
 const SortableContactItem = ({ id, contact, children, onRemove }: { id: string, contact: Contact, children: React.ReactNode, onRemove: (id: string) => void }) => {
@@ -56,7 +58,7 @@ const DraggableContactItem = ({ contact, isSelected, onToggle, onAdd }: { contac
   );
 };
 
-export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSaveImportedContacts }) => {
+export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSaveImportedContacts, userProfile }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,6 +69,8 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [visibleAvailableCount, setVisibleAvailableCount] = useState(DIALER_ITEMS_PER_PAGE);
+  
+  const isSuperAdmin = userProfile?.role === 'superadmin'; // <-- SUPERADMIN CHECK
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: {
@@ -173,8 +177,9 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
       const newContactsFromFile: Contact[] = [];
 
       json.forEach((row: any) => {
-        const phone = String(row.Phone || row.phone || row['Phone Number'] || '').trim();
-        const name = String(row.Name || row.name || 'Unknown').trim();
+        // Check for common column names for phone and name
+        const phone = String(row['Phone Number'] || row.Phone || row.phone || '').trim();
+        const name = String(row['Company Name'] || row.Name || row.name || 'Unknown').trim();
         
         if (!phone || !name) return;
 
@@ -247,20 +252,39 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
           <Card className="flex flex-col h-full border-0 shadow-none rounded-none">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Imported Contacts</CardTitle>
-              <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx, .xls, .csv" className="hidden" />
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
-                  <Upload className="h-4 w-4 mr-2" /> Import
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleSelectAllImported} 
-                  disabled={importedContacts.length === 0}
-                  className="flex-1"
-                >
-                  {allImportedSelected ? 'Deselect All' : 'Select All'}
-                </Button>
-              </div>
+              
+              {/* --- SUPERADMIN MASTER DATA IMPORT SECTION --- */}
+              {isSuperAdmin && (
+                <div className="space-y-3 p-3 border rounded-lg bg-background">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <FileDown className="h-4 w-4 text-primary" /> Master Data Import
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Upload a CSV/Excel file to update the master contact list.
+                  </p>
+                  <input type="file" ref={fileInputRef} onChange={handleFileImport} accept=".xlsx, .xls, .csv" className="hidden" />
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="flex-1">
+                      <Upload className="h-4 w-4 mr-2" /> Upload File
+                    </Button>
+                    <a href="/sample_call_import.csv" download>
+                      <Button variant="ghost" size="icon" title="Download Sample CSV">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </a>
+                  </div>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={isSaving || importedContacts.length === 0} 
+                    className="w-full"
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                    Save {importedContacts.length} New Contacts
+                  </Button>
+                </div>
+              )}
+              {/* --- END SUPERADMIN MASTER DATA IMPORT SECTION --- */}
+
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden p-0">
               <ScrollArea className="h-full">
@@ -272,14 +296,6 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
                 </div>
               </ScrollArea>
             </CardContent>
-            {importedContacts.length > 0 && (
-              <div className="p-4 border-t">
-                <Button onClick={handleSave} disabled={isSaving} className="w-full">
-                  {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save New Contacts
-                </Button>
-              </div>
-            )}
           </Card>
         </ResizablePanel>
         <ResizableHandle withHandle />

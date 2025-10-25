@@ -164,7 +164,7 @@ const ContactsListView: React.FC<ContactsListViewProps> = ({
 };
 
 export default function SalesTrackerPage() {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const { toast } = useToast();
   const { contacts, loading } = useContacts();
   const { addOpportunitiesFromContacts } = useSalesOpportunity();
@@ -548,7 +548,7 @@ export default function SalesTrackerPage() {
   };
 
   const handleSaveImportedContacts = async (importedContacts: Contact[]) => {
-    if (!user || importedContacts.length === 0) return;
+    if (!user) return;
 
     const existingPhones = new Set(contacts.map(c => c.phone));
     const updates: { [key: string]: any } = {};
@@ -730,7 +730,11 @@ export default function SalesTrackerPage() {
             {activeView === 'live-call' ? (
               <LiveCallView liveCallData={liveCallData} onUpdateCallLogMessage={handleUpdateCallLogMessage} onMarkAsSent={handleMarkAsSent} onFinishSession={handleFinishSession} />
             ) : activeView === 'dialer' ? (
-              <DialerSetupView contacts={contacts} onSaveImportedContacts={handleSaveImportedContacts} />
+              <DialerSetupView 
+                contacts={contacts} 
+                onSaveImportedContacts={handleSaveImportedContacts} 
+                userProfile={userProfile} // Pass userProfile
+              />
             ) : activeView === 'contacts' ? (
               isMobile ? (
                 <ContactsListView 

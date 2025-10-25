@@ -15,7 +15,7 @@ export interface UserProfile {
     language: string;
   };
   teamId?: string; // ID of the team this user belongs to
-  role?: 'admin' | 'user'; // Added for role-based access control
+  role?: 'superadmin' | 'admin' | 'user'; // Added for role-based access control
 }
 
 export interface Team {
