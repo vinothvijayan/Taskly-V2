@@ -512,21 +512,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void requestManageStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            try {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-                intent.addCategory("android.intent.category.DEFAULT");
-                intent.setData(Uri.parse(String.format("package:%s", getApplicationContext().getPackageName())));
-                manageStoragePermissionLauncher.launch(intent);
-            } catch (Exception e) {
-                Intent intent = new Intent();
-                intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                manageStoragePermissionLauncher.launch(intent);
-            }
-        }
-    }
-
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             CharSequence name = "Call Reminders";
@@ -1147,7 +1132,14 @@ public class MainActivity extends AppCompatActivity {
 
         String msg = messageEditText.getText().toString().trim();
         String spokenToName = spokenToNameEditText.getText().toString().trim();
-        long duration = callInProgress ? (SystemClock.elapsedRealtime() - callStartTime) / 1000 : 0;
+        
+        // FIX: Calculate duration based on callStartTime if it was set, regardless of callInProgress flag state.
+        long duration = 0;
+        if (callStartTime > 0) {
+            duration = (SystemClock.elapsedRealtime() - callStartTime) / 1000;
+        }
+        if (duration < 0) duration = 0; // Safety check
+
         String timestamp = (callStartTimestamp != null) ? callStartTimestamp :
                 new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
 
@@ -1164,6 +1156,7 @@ public class MainActivity extends AppCompatActivity {
 
         callInProgress = false;
         callStartTimestamp = null;
+        callStartTime = 0; // Reset call start time after use
 
         if (feedback.equalsIgnoreCase("Callback") && reminderCalendar != null) {
             scheduleNotification(masterContact, reminderCalendar.getTimeInMillis());
@@ -1788,7 +1781,7 @@ public class MainActivity extends AppCompatActivity {
         if (contact == null || contact.getCallHistory().isEmpty()) {
             return null;
         }
-        return Collections.max(contact.getCallHistory().values(), (o1, o2) -> o1.getTimestamp().compareTo(o2.getTimestamp()));
+        return Collections.max(contact.getCallHistory().values(), (o1, o2) -> o2.getTimestamp().compareTo(o1.getTimestamp()));
     }
 
     private void setupDialerSessionListener() {
