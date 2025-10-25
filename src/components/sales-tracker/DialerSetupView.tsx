@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Search, Phone, Users, PlayCircle, ArrowRight, Trash2, Loader2, Filter, Calendar as CalendarIcon, X, ChevronDown, Upload, Save, Download, FileDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { rtdb } from "@/lib/firebase";
-import { ref, update } from "firebase/database";
+import { ref, update, push } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -250,7 +250,8 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
           // 1. Contact exists: Add the new call log(s)
           importedContact.callHistory.forEach(newLog => {
             // Use Firebase push key generation locally for the new log entry
-            const newLogKey = ref(rtdb, 'contacts').push().key;
+            const callHistoryRef = ref(rtdb, `contacts/${phoneKey}/callHistory`);
+            const newLogKey = push(callHistoryRef).key; // <-- CORRECTED SYNTAX
             if (newLogKey) {
               updates[`contacts/${phoneKey}/callHistory/${newLogKey}`] = {
                 feedback: newLog.feedback,
@@ -279,7 +280,8 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
             callCount: importedContact.callHistory.length,
             callHistory: importedContact.callHistory.reduce((acc, log) => {
                 // Generate a unique key for the new log entry
-                const newLogKey = ref(rtdb, 'contacts').push().key;
+                const callHistoryRef = ref(rtdb, 'contacts'); // Use a generic ref for key generation
+                const newLogKey = push(callHistoryRef).key; // <-- CORRECTED SYNTAX
                 if (newLogKey) {
                     acc[newLogKey] = {
                         feedback: log.feedback,
@@ -301,7 +303,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         await update(ref(rtdb), updates);
         toast({
           title: "Import Successful!",
-          description: `Saved ${newContactsCount} new contacts and merged ${updatedLogsCount} call logs into existing contacts.`,
+          description: `Added ${newContactsCount} new contacts and merged ${updatedLogsCount} call logs into existing contacts.`,
         });
         setImportedContacts([]);
       } else {
