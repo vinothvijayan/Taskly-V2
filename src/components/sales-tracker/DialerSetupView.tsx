@@ -13,7 +13,7 @@ import { ref, update } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/utilities';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
@@ -189,14 +189,33 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         }
         
         phonesInThisFile.add(phone);
+
+        // --- NEW: Parse rich call log data ---
+        const feedback = String(row.Feedback || row['Last Status'] || '').trim();
+        const message = String(row.Message || row['Last Message'] || '').trim();
+        const duration = parseInt(String(row.Duration || row['Last Duration(s)'] || 0), 10);
+        const spokenToName = String(row['Spoken To'] || row['Last Spoken To'] || '').trim();
+        const timestamp = String(row.Timestamp || row['Last Contacted'] || new Date().toISOString()).trim();
+        
+        const newLog: CallLog = {
+            originalIndex: crypto.randomUUID(), // Temporary client-side ID
+            type: 'Follow-up', // Assume imported logs are follow-ups for simplicity
+            timestamp: new Date(timestamp).toISOString(),
+            duration: isNaN(duration) ? 0 : duration,
+            feedback: feedback as CallLog['feedback'],
+            message: message,
+            spokenToName: spokenToName,
+        };
+        // --- END NEW PARSING ---
+
         newContactsFromFile.push({
           id: phone,
           name,
           phone,
-          callHistory: [],
-          status: 'New',
-          lastContacted: new Date().toISOString(),
-          callCount: 0,
+          callHistory: [newLog], // Store the new log temporarily
+          status: feedback || 'New',
+          lastContacted: new Date(timestamp).toISOString(),
+          callCount: 1,
         });
       });
 
@@ -213,11 +232,85 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
 
   const handleSave = async () => {
     setIsSaving(true);
+    if (!user) {
+      setIsSaving(false);
+      return;
+    }
+
+    const updates: { [key: string]: any } = {};
+    let newContactsCount = 0;
+    let updatedLogsCount = 0;
+
     try {
-      await onSaveImportedContacts(importedContacts);
-      setImportedContacts([]);
+      importedContacts.forEach(importedContact => {
+        const existingContact = contacts.find(c => c.phone === importedContact.phone);
+        const phoneKey = importedContact.phone;
+
+        if (existingContact) {
+          // 1. Contact exists: Add the new call log(s)
+          importedContact.callHistory.forEach(newLog => {
+            // Use Firebase push key generation locally for the new log entry
+            const newLogKey = ref(rtdb, 'contacts').push().key;
+            if (newLogKey) {
+              updates[`contacts/${phoneKey}/callHistory/${newLogKey}`] = {
+                feedback: newLog.feedback,
+                message: newLog.message,
+                timestamp: newLog.timestamp,
+                duration: newLog.duration,
+                spokenToName: newLog.spokenToName,
+              };
+              updatedLogsCount++;
+            }
+          });
+          
+          // Update top-level fields and increment call count
+          updates[`contacts/${phoneKey}/name`] = importedContact.name;
+          updates[`contacts/${phoneKey}/phoneNumber`] = importedContact.phone;
+          updates[`contacts/${phoneKey}/callCount`] = (existingContact.callCount || 0) + importedContact.callHistory.length;
+
+        } else {
+          // 2. Contact is truly new: Create the full contact structure
+          const newContactData = {
+            name: importedContact.name,
+            phoneNumber: importedContact.phone,
+            callCount: importedContact.callHistory.length,
+            callHistory: importedContact.callHistory.reduce((acc, log) => {
+                // Generate a unique key for the new log entry
+                const newLogKey = ref(rtdb, 'contacts').push().key;
+                if (newLogKey) {
+                    acc[newLogKey] = {
+                        feedback: log.feedback,
+                        message: log.message,
+                        timestamp: log.timestamp,
+                        duration: log.duration,
+                        spokenToName: log.spokenToName,
+                    };
+                }
+                return acc;
+            }, {} as Record<string, any>),
+          };
+          updates[`contacts/${phoneKey}`] = newContactData;
+          newContactsCount++;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await update(ref(rtdb), updates);
+        toast({
+          title: "Import Successful!",
+          description: `Saved ${newContactsCount} new contacts and added ${updatedLogsCount} call logs.`,
+        });
+        setImportedContacts([]);
+      } else {
+        toast({ title: "No New Data", description: "No new contacts or call logs found to save." });
+      }
     } catch (error) {
-      console.error("Caught error from onSaveImportedContacts", error);
+      console.error("Error saving imported contacts:", error);
+      toast({
+        title: "Save Failed",
+        description: "Could not save the imported contacts to Firebase.",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -279,7 +372,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
                     className="w-full"
                   >
                     {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                    Save {importedContacts.length} New Contacts
+                    Save {importedContacts.length} New/Updated Contacts
                   </Button>
                 </div>
               )}
