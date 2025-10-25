@@ -13,8 +13,8 @@ import { ref, update } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/utilities';
-import { CSS } from '@dnd-kit/utilities';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { arrayMove, CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import * as XLSX from 'xlsx';
@@ -301,7 +301,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         await update(ref(rtdb), updates);
         toast({
           title: "Import Successful!",
-          description: `Added ${newContactsCount} new contacts and merged ${updatedLogsCount} call logs into existing contacts.`,
+          description: `Saved ${newContactsCount} new contacts and merged ${updatedLogsCount} call logs into existing contacts.`,
         });
         setImportedContacts([]);
       } else {
