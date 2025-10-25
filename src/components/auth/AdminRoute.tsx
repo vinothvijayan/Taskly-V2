@@ -14,6 +14,7 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     return <PageLoading />;
   }
 
+  // Grant access if the user role is 'admin' OR 'superadmin'
   if (!userProfile || (userProfile.role !== 'admin' && userProfile.role !== 'superadmin')) {
     // Redirect non-admin/superadmin users to the dashboard
     return <Navigate to="/" replace />;
