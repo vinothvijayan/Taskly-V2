@@ -63,8 +63,10 @@ export const SidebarNavContent = ({ onLinkClick, collapsed, isMobile }: { onLink
   const currentPath = location.pathname;
   const { userProfile } = useAuth();
 
+  const isAdminOrSuperadmin = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
+
   const visibleItems = navItems.filter(item => 
-    (!item.adminOnly || userProfile?.role === 'admin') &&
+    (!item.adminOnly || isAdminOrSuperadmin) &&
     (!isMobile || !item.mobileHidden) // Filter out mobileHidden items on mobile
   );
 
