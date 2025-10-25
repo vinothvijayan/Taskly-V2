@@ -147,7 +147,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
     const { active, over } = event;
     if (!over) return;
     const activeId = String(active.id);
-    const overId = String(over.id);
+    const overId = over.id as string;
     
     const allContacts = [...availableContacts, ...importedContacts];
     const contactToMove = allContacts.find(c => c.id === activeId);
@@ -190,13 +190,20 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         
         phonesInThisFile.add(phone);
 
-        // --- NEW: Parse rich call log data ---
-        const feedback = String(row.Feedback || row['Last Status'] || '').trim();
-        const message = String(row.Message || row['Last Message'] || '').trim();
-        const duration = parseInt(String(row.Duration || row['Last Duration(s)'] || 0), 10);
-        const spokenToName = String(row['Spoken To'] || row['Last Spoken To'] || '').trim();
-        const timestamp = String(row.Timestamp || row['Last Contacted'] || new Date().toISOString()).trim();
+        // --- FIX: Updated parsing logic to match user's column headers ---
+        const feedback = String(row['Last Status'] || row.Feedback || '').trim();
+        const message = String(row['Last Message'] || row.Message || '').trim();
         
+        // 1. Duration Fix: Prioritize 'Duration (s)'
+        const duration = parseInt(String(row['Duration (s)'] || row.Duration || row['Last Duration(s)'] || 0), 10);
+        
+        // 2. Spoken To Name Fix: Prioritize 'Spoken To Name'
+        const spokenToName = String(row['Spoken To Name'] || row['Spoken To'] || row['Last Spoken To'] || '').trim();
+        
+        // 3. Timestamp Fix: Prioritize 'Timestamp (YYYY-MM-DD HH:MM:SS)'
+        const timestamp = String(row['Timestamp (YYYY-MM-DD HH:MM:SS)'] || row.Timestamp || row['Last Contacted'] || new Date().toISOString()).trim();
+        // --- END FIX ---
+
         const newLog: CallLog = {
             originalIndex: crypto.randomUUID(), // Temporary client-side ID
             type: 'Follow-up', // Assume imported logs are follow-ups for simplicity
@@ -206,7 +213,6 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
             message: message,
             spokenToName: spokenToName,
         };
-        // --- END NEW PARSING ---
 
         newContactsFromFile.push({
           id: phone,
