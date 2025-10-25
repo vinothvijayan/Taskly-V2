@@ -266,7 +266,10 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
           // Update top-level fields and increment call count
           updates[`contacts/${phoneKey}/name`] = importedContact.name;
           updates[`contacts/${phoneKey}/phoneNumber`] = importedContact.phone;
-          updates[`contacts/${phoneKey}/callCount`] = (existingContact.callCount || 0) + importedContact.callHistory.length;
+          // CRITICAL FIX: Calculate the new total call count correctly
+          const existingCallCount = existingContact.callHistory.length;
+          const newCallCount = existingCallCount + importedContact.callHistory.length;
+          updates[`contacts/${phoneKey}/callCount`] = newCallCount;
 
         } else {
           // 2. Contact is truly new: Create the full contact structure
@@ -298,7 +301,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         await update(ref(rtdb), updates);
         toast({
           title: "Import Successful!",
-          description: `Saved ${newContactsCount} new contacts and added ${updatedLogsCount} call logs.`,
+          description: `Added ${newContactsCount} new contacts and merged ${updatedLogsCount} call logs into existing contacts.`,
         });
         setImportedContacts([]);
       } else {
