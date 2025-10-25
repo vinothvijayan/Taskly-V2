@@ -36,7 +36,12 @@ export function ContactsProvider({ children }: { children: ReactNode }) {
             // 1. Get all valid call history entries from Firebase.
             const validHistory: (CallLog & { originalIndex: string })[] = contactData.callHistory 
               ? Object.entries(contactData.callHistory as Record<string, any>)
-                  .map(([key, value]) => ({ ...(value as CallLog), originalIndex: key }))
+                  .map(([key, value]) => ({ 
+                      ...(value as CallLog), 
+                      originalIndex: key,
+                      // CRITICAL FIX: Ensure duration is explicitly parsed as a number, defaulting to 0
+                      duration: Number(value.duration) || 0 
+                  }))
                   .filter(log => log.timestamp && typeof log.timestamp === 'string' && !isNaN(new Date(log.timestamp).getTime()))
               : [];
 
