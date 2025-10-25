@@ -13,7 +13,7 @@ import { ref, update, push } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/core';
 import { arrayMove, CSS } from '@dnd-kit/utilities';
 import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
@@ -201,13 +201,25 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         const spokenToName = String(row['Spoken To Name'] || row['Spoken To'] || row['Last Spoken To'] || '').trim();
         
         // 3. Timestamp Fix: Prioritize 'Timestamp (YYYY-MM-DD HH:MM:SS)'
-        const timestamp = String(row['Timestamp (YYYY-MM-DD HH:MM:SS)'] || row.Timestamp || row['Last Contacted'] || new Date().toISOString()).trim();
+        const rawTimestamp = String(row['Timestamp (YYYY-MM-DD HH:MM:SS)'] || row.Timestamp || row['Last Contacted'] || new Date().toISOString()).trim();
+        
+        let parsedTimestamp: string;
+        try {
+            const date = new Date(rawTimestamp);
+            if (isNaN(date.getTime())) {
+                throw new Error("Invalid Date");
+            }
+            parsedTimestamp = date.toISOString();
+        } catch (e) {
+            console.warn(`Invalid date value found: ${rawTimestamp}. Defaulting to current time.`);
+            parsedTimestamp = new Date().toISOString();
+        }
         // --- END FIX ---
 
         const newLog: CallLog = {
             originalIndex: crypto.randomUUID(), // Temporary client-side ID
             type: 'Follow-up', // Assume imported logs are follow-ups for simplicity
-            timestamp: new Date(timestamp).toISOString(),
+            timestamp: parsedTimestamp,
             duration: isNaN(duration) ? 0 : duration,
             feedback: feedback as CallLog['feedback'],
             message: message,
@@ -220,7 +232,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
           phone,
           callHistory: [newLog], // Store the new log temporarily
           status: feedback || 'New',
-          lastContacted: new Date(timestamp).toISOString(),
+          lastContacted: parsedTimestamp,
           callCount: 1,
         });
       });
