@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { ResizablePanel, ResizablePanelGroup, ResizableHandle } from "@/components/ui/resizable";
 import * as XLSX from 'xlsx';
 import { UserProfile } from '@/types'; // Import UserProfile
+import { parse } from 'date-fns'; // <-- NEW IMPORT
 
 const DIALER_ITEMS_PER_PAGE = 20;
 
@@ -205,10 +206,18 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
         
         let parsedTimestamp: string;
         try {
-            const date = new Date(rawTimestamp);
-            // Check if the date object is valid before calling toISOString
+            let date: Date;
+            // Try parsing with seconds first (dd-MM-yyyy HH:mm:ss)
+            date = parse(rawTimestamp, 'dd-MM-yyyy HH:mm:ss', new Date());
+            
+            // If parsing with seconds fails, try without seconds (dd-MM-yyyy HH:mm)
             if (isNaN(date.getTime())) {
-                throw new Error("Invalid Date");
+                date = parse(rawTimestamp, 'dd-MM-yyyy HH:mm', new Date());
+            }
+            
+            // If still invalid, throw error to use fallback
+            if (isNaN(date.getTime())) {
+                throw new Error("Invalid Date Format");
             }
             parsedTimestamp = date.toISOString();
         } catch (e) {
