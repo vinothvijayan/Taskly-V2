@@ -183,6 +183,15 @@ export default function ProfilePage() {
     }
   };
 
+  const handleSetSuperadmin = async () => {
+    try {
+      await updateUserProfile({ role: 'superadmin' });
+      toast({ title: "Role Updated", description: "You are now a Superadmin! Access granted to restricted features." });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to set role.", variant: "destructive" });
+    }
+  };
+
   const profileForm = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -331,8 +340,8 @@ export default function ProfilePage() {
                      <span className="flex items-center gap-2 text-muted-foreground">
                         <Shield className="h-4 w-4" /> Account
                     </span>
-                    <span className="font-medium">
-                        Member
+                    <span className="font-medium capitalize">
+                        {userProfile.role || 'user'}
                     </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -344,6 +353,19 @@ export default function ProfilePage() {
                      </span>
                 </div>
             </div>
+            
+            {/* Temporary Superadmin Button */}
+            {userProfile.role !== 'superadmin' && (
+                <div className="w-full mt-6 pt-4 border-t border-dashed">
+                    <Button 
+                        onClick={handleSetSuperadmin} 
+                        variant="destructive" 
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                        Set Role to Superadmin (Test)
+                    </Button>
+                </div>
+            )}
           </CardContent>
         </Card>
 
