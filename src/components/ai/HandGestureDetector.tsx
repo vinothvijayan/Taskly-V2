@@ -20,7 +20,7 @@ const MODEL_ASSET_PATH = 'https://storage.googleapis.com/mediapipe-models/gestur
 // Define gesture mappings and thresholds
 const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
-  'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
+  'Open_Palm': { path: '/', icon: Hand, threshold: 0.6, title: 'Dashboard' },
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
   'Victory': { action: 'open-pip', icon: PictureInPicture, threshold: 0.7, title: 'Open PiP Widget' }, // <-- NEW GESTURE
 };
