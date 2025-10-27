@@ -23,7 +23,6 @@ export function HandGestureDetector() {
   const [cameraActive, setCameraActive] = useState(false);
   const [detectionActive, setDetectionActive] = useState(false);
   const [lastGestureTime, setLastGestureTime] = useState(0);
-  const [debugGesture, setDebugGesture] = useState<{ name: string, score: number } | null>(null); // <-- DEBUG STATE
   const COOLDOWN_MS = 5000; // 5 seconds cooldown
 
   // 1. Load Model and Setup Camera
@@ -107,13 +106,18 @@ export function HandGestureDetector() {
 
         if (result.gestures.length > 0) {
           const topGesture = result.gestures[0][0];
-          setDebugGesture({ name: topGesture.categoryName, score: topGesture.score }); // <-- DEBUG UPDATE
+          
+          // --- CONSOLE LOGGING FOR DEBUGGING ---
+          console.log(
+            `[GESTURE DEBUG] Detected: ${topGesture.categoryName} (Score: ${topGesture.score.toFixed(2)})`
+          );
+          // --- END CONSOLE LOGGING ---
           
           // Check for 'Thumbs Up' gesture
           if (topGesture.categoryName === 'Thumb_Up' && topGesture.score > 0.8) {
             const currentTime = Date.now();
             if (currentTime - lastGestureTime > COOLDOWN_MS) {
-              console.log('GESTURE DETECTED: Thumbs Up!');
+              console.log('GESTURE TRIGGERED: Thumbs Up! Navigating to /tasks');
               setLastGestureTime(currentTime);
               
               // Trigger navigation and notification
@@ -125,8 +129,6 @@ export function HandGestureDetector() {
               navigate('/tasks');
             }
           }
-        } else {
-            setDebugGesture(null); // <-- DEBUG UPDATE
         }
       }
 
@@ -179,14 +181,6 @@ export function HandGestureDetector() {
             <div className="flex items-center gap-2">
                 <ThumbsUp className="h-4 w-4 text-primary" />
                 <span className="text-primary">Detection: {detectionActive ? 'Running' : 'Paused'}</span>
-            </div>
-        )}
-
-        {/* DEBUG INFO */}
-        {debugGesture && (
-            <div className="text-xs text-muted-foreground mt-1 border-t pt-1">
-                <p>Gesture: {debugGesture.name}</p>
-                <p>Score: {debugGesture.score.toFixed(2)}</p>
             </div>
         )}
       </div>
