@@ -24,6 +24,9 @@ export function HandGestureDetector() {
   const [detectionActive, setDetectionActive] = useState(false);
   const [lastGestureTime, setLastGestureTime] = useState(0);
   const COOLDOWN_MS = 5000; // 5 seconds cooldown
+  
+  // --- UPDATED THRESHOLD ---
+  const THUMBS_UP_THRESHOLD = 0.6;
 
   // 1. Load Model and Setup Camera
   useEffect(() => {
@@ -113,8 +116,8 @@ export function HandGestureDetector() {
           );
           // --- END CONSOLE LOGGING ---
           
-          // Check for 'Thumbs Up' gesture
-          if (topGesture.categoryName === 'Thumb_Up' && topGesture.score > 0.8) {
+          // Check for 'Thumbs Up' gesture with the new threshold
+          if (topGesture.categoryName === 'Thumb_Up' && topGesture.score > THUMBS_UP_THRESHOLD) {
             const currentTime = Date.now();
             if (currentTime - lastGestureTime > COOLDOWN_MS) {
               console.log('GESTURE TRIGGERED: Thumbs Up! Navigating to /tasks');
@@ -140,7 +143,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, THUMBS_UP_THRESHOLD]);
 
   // 4. Render UI (Hidden video feed and status indicator)
   return (
