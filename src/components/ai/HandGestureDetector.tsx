@@ -4,6 +4,8 @@ import { useToast } from '@/hooks/use-toast';
 import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand, PictureInPicture } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePipWidgetManager } from '@/hooks/usePipWidgetManager'; // <-- NEW IMPORT
+import { motion, AnimatePresence } from 'framer-motion'; // <-- ADDED IMPORTS
+import { Button } from '@/components/ui/button'; // <-- ADDED IMPORT
 
 // Import MediaPipe dependencies
 import {
@@ -34,6 +36,7 @@ export function HandGestureDetector() {
   const [detectionActive, setDetectionActive] = useState(false);
   const [lastGestureTime, setLastGestureTime] = useState(0);
   const [currentGesture, setCurrentGesture] = useState<string | null>(null);
+  const [showPipPrompt, setShowPipPrompt] = useState(false); // <-- NEW STATE
   const COOLDOWN_MS = 3000; // 3 seconds cooldown
 
   // 1. Load Model and Setup Camera
@@ -95,6 +98,16 @@ export function HandGestureDetector() {
       }
     };
   }, [loading, gestureRecognizer]);
+  
+  // NEW: Prompt timeout
+  useEffect(() => {
+    if (showPipPrompt) {
+      const timer = setTimeout(() => {
+        setShowPipPrompt(false);
+      }, 8000); // 8 seconds to click the prompt
+      return () => clearTimeout(timer);
+    }
+  }, [showPipPrompt]);
 
   // 3. Detection Loop
   useEffect(() => {
@@ -134,12 +147,12 @@ export function HandGestureDetector() {
               
               if (gestureConfig.action === 'open-pip') {
                 if (isPipSupported && !isPipOpen) {
-                    console.log('GESTURE TRIGGERED: Victory! Opening PiP Widget.');
-                    openPip();
-                    toast({ title: 'PiP Widget Opened! 🖼️', description: 'Use the floating window for time tracking.' });
+                    console.log('GESTURE DETECTED: Victory! Showing PiP prompt.');
+                    setShowPipPrompt(true); // Show prompt instead of opening directly
+                    toast({ title: 'Gesture Detected! Click to Open PiP 🖼️', duration: 3000 });
                 } else if (isPipOpen) {
                     toast({ title: 'PiP is already open.', description: 'Close the floating window first.' });
-                } else {
+                } else if (!isPipSupported) {
                     toast({ title: 'PiP Not Supported', description: 'Your browser does not support Picture-in-Picture API.', variant: 'destructive' });
                 }
               } else if (gestureConfig.path) {
@@ -166,9 +179,17 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt]);
 
-  // 4. Render UI (Hidden video feed and status indicator)
+  const handleOpenPipFromPrompt = () => {
+    if (isPipSupported && !isPipOpen) {
+      openPip();
+      setShowPipPrompt(false);
+      toast({ title: 'PiP Widget Opened! 🖼️', description: 'Time tracking moved to a floating window.' });
+    }
+  };
+
+  // 4. Render UI (Hidden video feed and status indicator + NEW Prompt)
   return (
     <>
       {/* Hidden Video Element for Processing */}
@@ -181,6 +202,28 @@ export function HandGestureDetector() {
         muted
       />
       
+      {/* PiP Prompt (Requires user click for activation) */}
+      <AnimatePresence>
+        {showPipPrompt && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 20 }}
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50"
+          >
+            <Button
+              onClick={handleOpenPipFromPrompt}
+              variant="focus"
+              className="shadow-lg shadow-primary/30 hover-scale"
+            >
+              <PictureInPicture className="h-4 w-4 mr-2" />
+              Click to Open PiP Widget (Gesture Confirmed)
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Status Indicator (Moved to fixed position for global visibility) */}
       <div className="fixed bottom-4 right-4 z-50 p-2 bg-card border rounded-lg shadow-lg flex flex-col gap-1 text-sm">
         {loading && (
