@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { ThumbsUp, Loader2, VideoOff, Camera } from 'lucide-react';
+import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Import MediaPipe dependencies
@@ -14,6 +14,13 @@ import {
 // Define the path to the MediaPipe model file
 const MODEL_ASSET_PATH = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
 
+// Define gesture mappings and thresholds
+const GESTURE_MAP = {
+  'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
+  'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
+  'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
+};
+
 export function HandGestureDetector() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
@@ -23,10 +30,8 @@ export function HandGestureDetector() {
   const [cameraActive, setCameraActive] = useState(false);
   const [detectionActive, setDetectionActive] = useState(false);
   const [lastGestureTime, setLastGestureTime] = useState(0);
-  const COOLDOWN_MS = 5000; // 5 seconds cooldown
-  
-  // --- UPDATED THRESHOLD ---
-  const THUMBS_UP_THRESHOLD = 0.6;
+  const [currentGesture, setCurrentGesture] = useState<string | null>(null);
+  const COOLDOWN_MS = 3000; // 3 seconds cooldown
 
   // 1. Load Model and Setup Camera
   useEffect(() => {
@@ -39,7 +44,7 @@ export function HandGestureDetector() {
         const recognizer = await GestureRecognizer.createFromOptions(filesetResolver, {
           baseOptions: {
             modelAssetPath: MODEL_ASSET_PATH,
-            delegate: 'GPU', // Use GPU for better performance
+            delegate: 'GPU',
           },
           runningMode: 'VIDEO',
           numHands: 1,
@@ -109,6 +114,7 @@ export function HandGestureDetector() {
 
         if (result.gestures.length > 0) {
           const topGesture = result.gestures[0][0];
+          setCurrentGesture(topGesture.categoryName);
           
           // --- CONSOLE LOGGING FOR DEBUGGING ---
           console.log(
@@ -116,22 +122,25 @@ export function HandGestureDetector() {
           );
           // --- END CONSOLE LOGGING ---
           
-          // Check for 'Thumbs Up' gesture with the new threshold
-          if (topGesture.categoryName === 'Thumb_Up' && topGesture.score > THUMBS_UP_THRESHOLD) {
+          const gestureConfig = GESTURE_MAP[topGesture.categoryName as keyof typeof GESTURE_MAP];
+
+          if (gestureConfig && topGesture.score > gestureConfig.threshold) {
             const currentTime = Date.now();
             if (currentTime - lastGestureTime > COOLDOWN_MS) {
-              console.log('GESTURE TRIGGERED: Thumbs Up! Navigating to /tasks');
+              console.log(`GESTURE TRIGGERED: ${topGesture.categoryName}! Navigating to ${gestureConfig.path}`);
               setLastGestureTime(currentTime);
               
               // Trigger navigation and notification
               toast({
-                title: 'Gesture Recognized! 👍',
-                description: 'Navigating to Tasks page...',
+                title: `Gesture Recognized! ${gestureConfig.title}`,
+                description: `Navigating to ${gestureConfig.title} page...`,
                 duration: 3000,
               });
-              navigate('/tasks');
+              navigate(gestureConfig.path);
             }
           }
+        } else {
+          setCurrentGesture(null);
         }
       }
 
@@ -143,7 +152,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, THUMBS_UP_THRESHOLD]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime]);
 
   // 4. Render UI (Hidden video feed and status indicator)
   return (
@@ -158,7 +167,7 @@ export function HandGestureDetector() {
         muted
       />
       
-      {/* Status Indicator */}
+      {/* Status Indicator (Moved to fixed position for global visibility) */}
       <div className="fixed bottom-4 right-4 z-50 p-2 bg-card border rounded-lg shadow-lg flex flex-col gap-1 text-sm">
         {loading && (
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -168,23 +177,24 @@ export function HandGestureDetector() {
         )}
 
         {!loading && (
-            <div className="flex items-center gap-2">
-                {cameraActive ? (
-                    <Camera className="h-4 w-4 text-success" />
-                ) : (
-                    <VideoOff className="h-4 w-4 text-warning" />
-                )}
-                <span className={cn(cameraActive ? 'text-success' : 'text-warning')}>
-                    Camera Status: {cameraActive ? 'Active' : 'Denied/Off'}
-                </span>
-            </div>
-        )}
-
-        {!loading && cameraActive && (
-            <div className="flex items-center gap-2">
-                <ThumbsUp className="h-4 w-4 text-primary" />
-                <span className="text-primary">Detection: {detectionActive ? 'Running' : 'Paused'}</span>
-            </div>
+            <>
+                <div className="flex items-center gap-2">
+                    {cameraActive ? (
+                        <Camera className="h-4 w-4 text-success" />
+                    ) : (
+                        <VideoOff className="h-4 w-4 text-warning" />
+                    )}
+                    <span className={cn(cameraActive ? 'text-success' : 'text-warning')}>
+                        Camera: {cameraActive ? 'Active' : 'Denied/Off'}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Hand className="h-4 w-4 text-primary" />
+                    <span className="text-primary">
+                        Gesture: {currentGesture || 'None'}
+                    </span>
+                </div>
+            </>
         )}
       </div>
     </>
