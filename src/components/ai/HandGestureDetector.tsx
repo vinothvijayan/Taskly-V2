@@ -1,8 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand } from 'lucide-react';
+import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand, PictureInPicture } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { usePipWidgetManager } from '@/hooks/usePipWidgetManager'; // <-- NEW IMPORT
 
 // Import MediaPipe dependencies
 import {
@@ -19,12 +20,14 @@ const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
   'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
+  'Victory': { action: 'open-pip', icon: PictureInPicture, threshold: 0.7, title: 'Open PiP Widget' }, // <-- NEW GESTURE
 };
 
 export function HandGestureDetector() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { openPip, isPipSupported, isPipOpen } = usePipWidgetManager(); // <-- USE PiP HOOK
   const [gestureRecognizer, setGestureRecognizer] = useState<GestureRecognizer | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraActive, setCameraActive] = useState(false);
@@ -127,16 +130,27 @@ export function HandGestureDetector() {
           if (gestureConfig && topGesture.score > gestureConfig.threshold) {
             const currentTime = Date.now();
             if (currentTime - lastGestureTime > COOLDOWN_MS) {
-              console.log(`GESTURE TRIGGERED: ${topGesture.categoryName}! Navigating to ${gestureConfig.path}`);
               setLastGestureTime(currentTime);
               
-              // Trigger navigation and notification
-              toast({
-                title: `Gesture Recognized! ${gestureConfig.title}`,
-                description: `Navigating to ${gestureConfig.title} page...`,
-                duration: 3000,
-              });
-              navigate(gestureConfig.path);
+              if (gestureConfig.action === 'open-pip') {
+                if (isPipSupported && !isPipOpen) {
+                    console.log('GESTURE TRIGGERED: Victory! Opening PiP Widget.');
+                    openPip();
+                    toast({ title: 'PiP Widget Opened! 🖼️', description: 'Use the floating window for time tracking.' });
+                } else if (isPipOpen) {
+                    toast({ title: 'PiP is already open.', description: 'Close the floating window first.' });
+                } else {
+                    toast({ title: 'PiP Not Supported', description: 'Your browser does not support Picture-in-Picture API.', variant: 'destructive' });
+                }
+              } else if (gestureConfig.path) {
+                console.log(`GESTURE TRIGGERED: ${topGesture.categoryName}! Navigating to ${gestureConfig.path}`);
+                toast({
+                  title: `Gesture Recognized! ${gestureConfig.title}`,
+                  description: `Navigating to ${gestureConfig.title} page...`,
+                  duration: 3000,
+                });
+                navigate(gestureConfig.path);
+              }
             }
           }
         } else {
@@ -152,7 +166,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen]);
 
   // 4. Render UI (Hidden video feed and status indicator)
   return (
