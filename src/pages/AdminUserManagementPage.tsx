@@ -14,17 +14,25 @@ import { UserProfile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminUserManagementPage() {
-  const { user, userProfile, impersonateUser, stopImpersonating, loading: authLoading } = useAuth();
+  const { user, userProfile, impersonateUser, stopImpersonating, loading: authLoading, isImpersonating } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const isImpersonating = !!impersonatingId;
+  // Use isImpersonating from AuthContext directly
+  // const isImpersonating = !!impersonatingId; 
   const currentImpersonatedUser = allUsers.find(u => u.uid === user?.uid);
 
   useEffect(() => {
+    // We need to check if we are currently impersonating based on localStorage/AuthContext state
+    if (isImpersonating && userProfile) {
+        setImpersonatingId(userProfile.uid);
+    } else {
+        setImpersonatingId(null);
+    }
+
     if (userProfile?.role === 'superadmin') {
       fetchAllUsers();
     } else if (userProfile) {
@@ -32,7 +40,7 @@ export default function AdminUserManagementPage() {
       setAllUsers([userProfile]);
       setLoadingUsers(false);
     }
-  }, [userProfile]);
+  }, [userProfile, isImpersonating]); // Depend on isImpersonating from context
 
   const fetchAllUsers = async () => {
     setLoadingUsers(true);
