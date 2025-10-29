@@ -226,7 +226,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (!user || !userProfile) return;
 
     const tempId = `temp-${Date.now()}`;
-    const isTeamTask = !!(userProfile.teamId && taskData.assignedTo && taskData.assignedTo.length > 0);
+    const isTeamTask = !!userProfile.teamId;
     
     const newTask: Task = {
       ...taskData,
