@@ -174,24 +174,35 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         // 2. Attempt to capture system audio via getDisplayMedia
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
-            video: false,
+            video: true, // Request video as well, as it increases compatibility
             audio: true,
           });
           
           if (stream.getAudioTracks().length > 0) {
             isSystemAudio = true;
+          } else {
+            // If we got a stream but no audio, it's a failure. Stop video tracks and fallback.
+            stream.getVideoTracks().forEach(track => track.stop());
+            stream = null;
           }
         } catch (error: any) {
           // Log the failure, but proceed to microphone fallback
           console.warn(`System audio capture failed: ${error.name}. Falling back to microphone.`);
-          // The user cancelled the prompt, which is not an error we need to notify about.
-          if (error.name !== 'NotAllowedError') {
+          
+          if (error.name === 'NotSupportedError') {
+            toast({
+                title: "System Audio Not Supported",
+                description: "Your browser or environment may not support tab audio capture. Falling back to microphone.",
+                variant: "destructive"
+            });
+          } else if (error.name !== 'NotAllowedError') { // User cancelling is not an error
              toast({
                 title: "System Audio Capture Failed",
                 description: "Could not capture tab audio. Falling back to microphone.",
                 variant: "destructive"
              });
           }
+          stream = null; // Ensure stream is null for fallback
         } finally {
           dismissToast(systemAudioToastId);
         }
