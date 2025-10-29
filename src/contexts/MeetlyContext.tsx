@@ -161,8 +161,17 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       // 0. Inform user about the requirement
       const systemAudioToastId = showLoading("A browser prompt will appear. To record system audio, please select 'Share system audio' or 'Share tab audio' in the prompt.");
 
-      // 1. Attempt to capture system audio via getDisplayMedia
-      if (navigator.mediaDevices.getDisplayMedia) {
+      // 1. Check for support and secure context
+      if (!navigator.mediaDevices.getDisplayMedia || !window.isSecureContext) {
+        dismissToast(systemAudioToastId);
+        toast({
+          title: "System Audio Not Available",
+          description: "Recording from other tabs is not supported in this environment (requires a secure HTTPS connection). Falling back to microphone.",
+          variant: "destructive"
+        });
+        stream = null; // Ensure stream is null to trigger fallback
+      } else {
+        // 2. Attempt to capture system audio via getDisplayMedia
         try {
           stream = await navigator.mediaDevices.getDisplayMedia({
             video: false,
@@ -175,11 +184,17 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         } catch (error: any) {
           // Log the failure, but proceed to microphone fallback
           console.warn(`System audio capture failed: ${error.name}. Falling back to microphone.`);
+          // The user cancelled the prompt, which is not an error we need to notify about.
+          if (error.name !== 'NotAllowedError') {
+             toast({
+                title: "System Audio Capture Failed",
+                description: "Could not capture tab audio. Falling back to microphone.",
+                variant: "destructive"
+             });
+          }
         } finally {
           dismissToast(systemAudioToastId);
         }
-      } else {
-        dismissToast(systemAudioToastId);
       }
 
       // 2. Fallback to microphone if system audio failed or was not supported
