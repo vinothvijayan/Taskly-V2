@@ -31,7 +31,7 @@ export function ChatMessageToast({
       initial={{ opacity: 0, y: 50, scale: 0.3 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
-      className="flex items-start gap-4 p-4 bg-background/80 backdrop-blur-lg border border-border/50 rounded-xl shadow-elegant w-full max-w-md"
+      className="flex items-center gap-4 p-4 bg-background/80 backdrop-blur-lg border border-border/50 rounded-xl shadow-elegant w-full max-w-lg"
     >
       <div className="relative">
         <Avatar className="h-10 w-10 border-2 border-background">
@@ -42,19 +42,19 @@ export function ChatMessageToast({
           <MessageSquare className="h-3 w-3 text-primary-foreground" />
         </div>
       </div>
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="font-semibold text-sm text-foreground">{senderName}</p>
-        <p className="text-sm text-muted-foreground line-clamp-2">{messagePreview}</p>
-        <div className="pt-2">
-          <Button size="sm" variant="ghost" className="h-8 px-3 text-xs" onClick={onDismiss}>
-            View Chat
-            <ArrowRight className="h-3 w-3 ml-1.5" />
-          </Button>
-        </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold text-sm text-foreground truncate">{senderName}</p>
+        <p className="text-sm text-muted-foreground truncate">{messagePreview}</p>
       </div>
-      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onDismiss}>
-        <X className="h-4 w-4" />
-      </Button>
+      <div className="flex items-center gap-2 shrink-0">
+        <Button size="sm" variant="secondary" className="h-8 px-3 text-xs" onClick={onDismiss}>
+          View
+          <ArrowRight className="h-3 w-3 ml-1.5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onDismiss}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
     </motion.div>
   );
 }
