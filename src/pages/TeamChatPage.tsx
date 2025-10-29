@@ -165,7 +165,7 @@ export default function TeamChatPage() {
     try {
       const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
       const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
-      const messageData: Omit<ChatMessage, 'id'> = { senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown', senderEmail: user.email || '', senderAvatar: userProfile.photoURL, message: messageContent, timestamp: Date.now(), type: 'text' };
+      const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = { senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown', senderEmail: user.email || '', senderAvatar: userProfile.photoURL, message: messageContent, timestamp: serverTimestamp(), type: 'text' };
       await push(messagesRef, messageData);
       const chatRoomInfoRef = ref(rtdb, `chatRooms/${chatRoomId}`);
       push(chatRoomInfoRef, { participants: [user.uid, selectedUser.uid], lastActivity: serverTimestamp(), lastMessage: messageData }).catch(e => console.warn(e));

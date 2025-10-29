@@ -21,6 +21,7 @@ export function ChatMessageNotifier() {
   const { incrementUnreadCount } = useTeamChat();
   const rtdbUnsubscribers = useRef<Map<string, () => void>>(new Map());
   const firestoreUnsubscribeRef = useRef<Unsubscribe | null>(null);
+  const listenerAttachedTime = useRef(Date.now()); // Store the time the component mounts
 
   useEffect(() => {
     if (!user) {
@@ -40,7 +41,6 @@ export function ChatMessageNotifier() {
         currentChatRoomIds.add(doc.id);
       });
 
-      // Clean up listeners for rooms the user is no longer part of
       rtdbUnsubscribers.current.forEach((unsub, chatRoomId) => {
         if (!currentChatRoomIds.has(chatRoomId)) {
           unsub();
@@ -48,13 +48,12 @@ export function ChatMessageNotifier() {
         }
       });
 
-      // Set up listeners for new rooms
       currentChatRoomIds.forEach(chatRoomId => {
         if (!rtdbUnsubscribers.current.has(chatRoomId)) {
           const messagesQuery = rtdbQuery(
             ref(rtdb, `chats/${chatRoomId}/messages`),
             orderByChild('timestamp'),
-            startAt(Date.now())
+            startAt(listenerAttachedTime.current) // Use the mount time to query
           );
           
           const messageUnsubscribe = onChildAdded(messagesQuery, (messagesSnapshot) => {
@@ -63,21 +62,25 @@ export function ChatMessageNotifier() {
 
             if (!messageId || !messageData) return;
 
+            // This is the crucial check. We ignore messages that were already in the DB
+            // when the listener was attached, even if they match the `startAt` query.
+            // We only care about messages that are genuinely new.
+            if (messageData.timestamp < listenerAttachedTime.current) {
+                return;
+            }
+
             const message = { id: messageId, ...messageData } as ChatMessage;
             
             const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
 
-            // Ignore messages sent by the user, unless it's a self-chat for testing
+            // For testing, we want to see our own messages in self-chat
             if (message.senderId === user.uid && !isSelfChat) {
               return;
             }
 
             // --- This is a new message from someone else OR a self-chat message ---
-
-            // 1. Increment unread count for the badge
             incrementUnreadCount(chatRoomId);
 
-            // 2. Show the custom toast notification
             toast.custom((t) => (
               <ChatMessageToast
                 senderName={message.senderName}
