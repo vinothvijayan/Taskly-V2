@@ -6,6 +6,7 @@ import { useTeamChat } from "@/contexts/TeamChatContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -73,7 +74,7 @@ export default function TeamChatPage() {
   const chatRoomRef = useRef<any>(null);
   const messageStatusRef = useRef<any>(null);
   const isMountedRef = useRef(true);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -85,6 +86,23 @@ export default function TeamChatPage() {
         }
     }
   }, [setOpen]);
+
+  // Auto-growing textarea effect
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+      // Set a max height to prevent it from growing indefinitely
+      const maxHeight = 120; // e.g., 120px
+      const scrollHeight = inputRef.current.scrollHeight;
+      inputRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
+      // If scrollHeight exceeds max height, enable scrolling
+      if (scrollHeight > maxHeight) {
+        inputRef.current.style.overflowY = 'auto';
+      } else {
+        inputRef.current.style.overflowY = 'hidden';
+      }
+    }
+  }, [newMessage]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -247,7 +265,12 @@ export default function TeamChatPage() {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isMobile && e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
   const getMessageTickIcon = (message: ChatMessage) => {
     if (message.senderId !== user?.uid) return null;
     return readByOther[message.id] ? <CheckCheck className="h-3 w-3 text-sky-500" /> : <Check className="h-3 w-3 text-muted-foreground/70" />;
@@ -401,7 +424,7 @@ export default function TeamChatPage() {
                       </div>
                     </ScrollArea>
                   </div>
-                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10"><div className="flex gap-2"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus className="flex-1 rounded-full border-0 bg-muted/30" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div></div>
+                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10"><div className="flex gap-2"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus rows={1} className="flex-1 rounded-full border-0 bg-muted/30 resize-none overflow-hidden py-2 px-4 leading-tight" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div></div>
                 </div>
               )
             )}
@@ -476,7 +499,7 @@ export default function TeamChatPage() {
                     </ScrollArea>
                   </div>
                   <div className="bg-background border-t px-6 py-4 shadow-lg z-10">
-                    <div className="flex gap-3"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus className="flex-1 rounded-full border-0 bg-muted/50" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div>
+                    <div className="flex gap-3"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus rows={1} className="flex-1 rounded-full border-0 bg-muted/50 resize-none overflow-hidden py-2 px-4 leading-tight" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div>
                   </div>
                 </>
               ) : (
