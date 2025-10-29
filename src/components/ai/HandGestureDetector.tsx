@@ -20,7 +20,7 @@ const MODEL_ASSET_PATH = 'https://storage.googleapis.com/mediapipe-models/gestur
 // Define gesture mappings and thresholds
 const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
-  'Open_Palm': { path: '/', icon: Hand, threshold: 0.6, title: 'Dashboard' },
+  'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' }, // <-- UPDATED TO 0.7
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
   'Victory': { action: 'open-pip', icon: PictureInPicture, threshold: 0.7, title: 'Open PiP Widget' }, // <-- NEW GESTURE
 };
@@ -36,7 +36,16 @@ export function HandGestureDetector() {
   const [detectionActive, setDetectionActive] = useState(false);
   const [lastGestureTime, setLastGestureTime] = useState(0);
   const [currentGesture, setCurrentGesture] = useState<string | null>(null);
-  const [showPipPrompt, setShowPipPrompt] = useState(false); // <-- NEW STATE
+  const [showPipPrompt, setShowPipPrompt] = useState(false);
+  const [showCamera, setShowCamera] = useState(false); // <-- NEW STATE
+  
+  // --- NEW SCROLLING STATE ---
+  const [lastHandY, setLastHandY] = useState<number | null>(null);
+  const [scrollVelocity, setScrollVelocity] = useState(0);
+  const SCROLL_THRESHOLD = 0.005; // Minimum normalized vertical movement (0 to 1)
+  const SCROLL_SENSITIVITY = 1000; // Multiplier for scroll speed
+  // --- END SCROLLING STATE ---
+  
   const COOLDOWN_MS = 3000; // 3 seconds cooldown
 
   // 1. Load Model and Setup Camera
@@ -128,6 +137,33 @@ export function HandGestureDetector() {
         const result: GestureRecognizerResult = gestureRecognizer.recognizeForVideo(video, now);
         lastVideoTime = video.currentTime;
 
+        // --- SCROLLING LOGIC ---
+        if (result.landmarks.length > 0) {
+          const handLandmarks = result.landmarks[0];
+          // Use the wrist landmark (index 0) for tracking vertical position (normalized 0 to 1)
+          const wristY = handLandmarks[0].y; 
+          
+          if (lastHandY !== null) {
+            const deltaY = wristY - lastHandY;
+            
+            if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
+              const scrollAmount = deltaY * SCROLL_SENSITIVITY;
+              
+              // Simulate scroll on the main document body
+              window.scrollBy({ top: -scrollAmount, behavior: 'instant' });
+              
+              setScrollVelocity(scrollAmount);
+            } else {
+              setScrollVelocity(0);
+            }
+          }
+          setLastHandY(wristY);
+        } else {
+          setLastHandY(null);
+          setScrollVelocity(0);
+        }
+        // --- END SCROLLING LOGIC ---
+
         if (result.gestures.length > 0) {
           const topGesture = result.gestures[0][0];
           setCurrentGesture(topGesture.categoryName);
@@ -179,7 +215,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt, lastHandY, scrollVelocity]);
 
   const handleOpenPipFromPrompt = () => {
     if (isPipSupported && !isPipOpen) {
@@ -195,7 +231,16 @@ export function HandGestureDetector() {
       {/* Hidden Video Element for Processing */}
       <video
         ref={videoRef}
-        style={{ display: 'none' }}
+        style={{ 
+          display: showCamera ? 'block' : 'none',
+          position: 'fixed',
+          top: '100px',
+          right: '100px',
+          zIndex: 100,
+          transform: 'scaleX(-1)', // Mirror the video
+          border: '2px solid var(--primary)',
+          borderRadius: '8px'
+        }}
         width="320"
         height="240"
         playsInline
@@ -251,6 +296,27 @@ export function HandGestureDetector() {
                         Gesture: {currentGesture || 'None'}
                     </span>
                 </div>
+                
+                {/* NEW: Air Mouse/Scroll Status */}
+                {cameraActive && (
+                    <div className="flex items-center gap-2">
+                        <Hand className="h-4 w-4 text-info" />
+                        <span className="text-info">
+                            Scroll: {scrollVelocity > 5 ? 'DOWN' : scrollVelocity < -5 ? 'UP' : 'Idle'}
+                        </span>
+                    </div>
+                )}
+                
+                {/* Toggle Button */}
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowCamera(prev => !prev)}
+                    className="mt-2"
+                >
+                    <Camera className="h-4 w-4 mr-2" />
+                    {showCamera ? 'Hide Camera' : 'Show Camera'}
+                </Button>
             </>
         )}
       </div>
