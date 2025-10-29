@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TasksContext";
@@ -39,6 +39,9 @@ import {
   Copy,
   Reply
 } from "lucide-react";
+
+// Add a custom type to distinguish the self-chat entry
+type ChatListItem = UserProfile & { isSelf?: boolean };
 
 export default function TeamChatPage() {
   const navigate = useNavigate();
@@ -166,7 +169,11 @@ export default function TeamChatPage() {
       await push(messagesRef, messageData);
       const chatRoomInfoRef = ref(rtdb, `chatRooms/${chatRoomId}`);
       push(chatRoomInfoRef, { participants: [user.uid, selectedUser.uid], lastActivity: serverTimestamp(), lastMessage: messageData }).catch(e => console.warn(e));
-      notificationService.addInAppNotification(selectedUser.uid, `New message from ${messageData.senderName}`, messageData.message.substring(0, 50), 'chat', { chatRoomId, senderId: user.uid, senderName: messageData.senderName }).catch(e => console.warn(e));
+      
+      // Only send in-app notification if not a self-chat
+      if (user.uid !== selectedUser.uid) {
+        notificationService.addInAppNotification(selectedUser.uid, `New message from ${messageData.senderName}`, messageData.message.substring(0, 50), 'chat', { chatRoomId, senderId: user.uid, senderName: messageData.senderName }).catch(e => console.warn(e));
+      }
     } catch (error) {
       console.error("Error sending message:", error);
       setNewMessage(messageContent);
@@ -212,8 +219,18 @@ export default function TeamChatPage() {
     });
     return groups;
   };
-  const filteredMembers = teamMembers.filter(m => m.uid !== user?.uid && (m.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || m.email.toLowerCase().includes(searchTerm.toLowerCase())));
-  const handleSelectUser = (member: UserProfile) => { 
+
+  const displayedMembers = useMemo(() => {
+    const selfProfileForChat: ChatListItem | null = userProfile ? { ...userProfile, isSelf: true } : null;
+    const otherMembers = teamMembers.filter(m => m.uid !== user?.uid && (m.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || m.email.toLowerCase().includes(searchTerm.toLowerCase())));
+    
+    if (selfProfileForChat && !searchTerm) {
+      return [selfProfileForChat, ...otherMembers];
+    }
+    return otherMembers;
+  }, [teamMembers, user, userProfile, searchTerm]);
+
+  const handleSelectUser = (member: ChatListItem) => { 
     setSelectedUser(member); 
     setShowChat(true); 
     setChatOpenMobile(true);
@@ -255,15 +272,15 @@ export default function TeamChatPage() {
               </div>
               <ScrollArea className="flex-1">
                 <div className="divide-y divide-border/50">
-                  {filteredMembers.length === 0 ? (
+                  {displayedMembers.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground"><Users className="h-12 w-12 mx-auto mb-4 opacity-30" /><p className="text-sm">No team members</p></div>
                   ) : (
-                    filteredMembers.map((member) => {
+                    displayedMembers.map((member) => {
                       const chatRoomId = user ? generateChatRoomId(user.uid, member.uid) : '';
                       const unreadCount = unreadCounts[chatRoomId] || 0;
                       return (
                         <div key={member.uid} className="px-4 py-4 hover:bg-muted/30 cursor-pointer transition-colors active:bg-muted/50" onClick={() => handleSelectUser(member)}>
-                          <div className="flex items-center gap-3"><Avatar className="h-14 w-14 ring-2 ring-background shadow-sm"><AvatarImage src={member.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(member.displayName, member.email)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center justify-between mb-1"><p className="font-semibold truncate text-foreground">{member.displayName || "Team Member"}</p></div><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground truncate">{isUserOnline(member.uid) ? <span className="text-green-600 font-medium">Online</span> : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p>{unreadCount > 0 && <Badge className="bg-[#25D366] text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">{unreadCount}</Badge>}</div></div></div>
+                          <div className="flex items-center gap-3"><Avatar className="h-14 w-14 ring-2 ring-background shadow-sm"><AvatarImage src={member.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(member.displayName, member.email)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center justify-between mb-1"><p className="font-semibold truncate text-foreground">{member.isSelf ? "Message yourself" : member.displayName || "Team Member"}</p></div><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground truncate">{member.isSelf ? "Personal notes & reminders" : isUserOnline(member.uid) ? <span className="text-green-600 font-medium">Online</span> : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p>{unreadCount > 0 && <Badge className="bg-[#25D366] text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">{unreadCount}</Badge>}</div></div></div>
                         </div>
                       );
                     })
@@ -274,7 +291,7 @@ export default function TeamChatPage() {
           ) : (
             selectedUser && (
               <div className="flex-1 flex flex-col w-full min-h-0 overflow-hidden">
-                <div className="bg-[#008069] text-white px-4 py-4 flex items-center gap-3 shadow-lg z-20"><Button variant="ghost" size="icon" onClick={handleBackToList} className="text-white hover:bg-white/10 -ml-2"><ArrowLeft className="h-5 w-5" /></Button><Avatar className="h-11 w-11 ring-2 ring-white/20"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-white/20 text-white font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.displayName || "Team Member"}</p><p className="text-sm text-white/80">{isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
+                <div className="bg-[#008069] text-white px-4 py-4 flex items-center gap-3 shadow-lg z-20"><Button variant="ghost" size="icon" onClick={handleBackToList} className="text-white hover:bg-white/10 -ml-2"><ArrowLeft className="h-5 w-5" /></Button><Avatar className="h-11 w-11 ring-2 ring-white/20"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-white/20 text-white font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-white/80">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
                 <div className="flex-1 whatsapp-wallpaper overflow-hidden">
                   <ScrollArea className="h-full">
                     <div className="p-4 space-y-1 pb-16">
@@ -309,15 +326,15 @@ export default function TeamChatPage() {
             </div>
             <ScrollArea className="flex-1">
               <div className="divide-y divide-border/50">
-                {filteredMembers.length === 0 ? (
+                {displayedMembers.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground"><Users className="h-12 w-12 mx-auto mb-4 opacity-30" /><p className="text-sm">No team members</p></div>
                 ) : (
-                  filteredMembers.map((member) => {
+                  displayedMembers.map((member) => {
                     const chatRoomId = user ? generateChatRoomId(user.uid, member.uid) : '';
                     const unreadCount = unreadCounts[chatRoomId] || 0;
                     return (
                       <div key={member.uid} className={cn("px-4 py-4 cursor-pointer transition-colors", selectedUser?.uid === member.uid ? "bg-muted/70" : "hover:bg-muted/30")} onClick={() => handleSelectUser(member)}>
-                        <div className="flex items-center gap-3"><Avatar className="h-14 w-14 ring-2 ring-background shadow-sm"><AvatarImage src={member.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(member.displayName, member.email)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center justify-between mb-1"><p className="font-semibold truncate text-foreground">{member.displayName || "Team Member"}</p></div><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground truncate">{isUserOnline(member.uid) ? <span className="text-green-600 font-medium">Online</span> : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p>{unreadCount > 0 && <Badge className="bg-[#25D366] text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">{unreadCount}</Badge>}</div></div></div>
+                        <div className="flex items-center gap-3"><Avatar className="h-14 w-14 ring-2 ring-background shadow-sm"><AvatarImage src={member.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(member.displayName, member.email)}</AvatarFallback></Avatar><div className="flex-1 min-w-0"><div className="flex items-center justify-between mb-1"><p className="font-semibold truncate text-foreground">{member.isSelf ? "Message yourself" : member.displayName || "Team Member"}</p></div><div className="flex items-center justify-between"><p className="text-sm text-muted-foreground truncate">{member.isSelf ? "Personal notes & reminders" : isUserOnline(member.uid) ? <span className="text-green-600 font-medium">Online</span> : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p>{unreadCount > 0 && <Badge className="bg-[#25D366] text-white text-xs px-2 py-1 rounded-full min-w-[20px] h-5 flex items-center justify-center">{unreadCount}</Badge>}</div></div></div>
                         </div>
                       );
                     })
@@ -328,7 +345,7 @@ export default function TeamChatPage() {
           <div className="flex-1 flex flex-col min-h-0">
             {selectedUser ? (
               <>
-                <div className="bg-[#008069] text-white px-4 py-4 flex items-center gap-3 shadow-lg z-20 sticky top-0"><Avatar className="h-11 w-11 ring-2 ring-white/20"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-white/20 text-white font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.displayName || "Team Member"}</p><p className="text-sm text-white/80">{isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
+                <div className="bg-[#008069] text-white px-4 py-4 flex items-center gap-3 shadow-lg z-20 sticky top-0"><Avatar className="h-11 w-11 ring-2 ring-white/20"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-white/20 text-white font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-white/80">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
                 <div className="flex-1 whatsapp-wallpaper overflow-hidden">
                   <ScrollArea className="h-full">
                     <div className="p-6 space-y-1">

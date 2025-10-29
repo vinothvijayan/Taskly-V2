@@ -54,7 +54,7 @@ export function ChatMessageNotifier() {
           const messagesQuery = rtdbQuery(
             ref(rtdb, `chats/${chatRoomId}/messages`),
             orderByChild('timestamp'),
-            startAt(Date.now()) // <-- This is the key fix: only listen for messages from now on
+            startAt(Date.now())
           );
           
           const messageUnsubscribe = onChildAdded(messagesQuery, (messagesSnapshot) => {
@@ -65,12 +65,14 @@ export function ChatMessageNotifier() {
 
             const message = { id: messageId, ...messageData } as ChatMessage;
             
-            // Ignore own messages
-            if (message.senderId === user.uid) {
+            const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
+
+            // Ignore messages sent by the user, unless it's a self-chat for testing
+            if (message.senderId === user.uid && !isSelfChat) {
               return;
             }
 
-            // --- This is a new message from someone else ---
+            // --- This is a new message from someone else OR a self-chat message ---
 
             // 1. Increment unread count for the badge
             incrementUnreadCount(chatRoomId);
