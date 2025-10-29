@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { 
   collection, 
   addDoc, 
@@ -59,19 +59,6 @@ interface TasksContextType {
 
 const TasksContext = createContext<TasksContextType | undefined>(undefined);
 
-// Helper for deep comparison (simple version)
-const deepEqual = (a: any, b: any): boolean => {
-  if (a === b) return true;
-  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return false;
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  if (keysA.length !== keysB.length) return false;
-  for (const key of keysA) {
-    if (!keysB.includes(key) || !deepEqual(a[key], b[key])) return false;
-  }
-  return true;
-};
-
 export function TasksContextProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
@@ -82,13 +69,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { playSound, preloadCommonSounds } = useSound();
   const { showConfetti } = useConfetti();
-  
-  // Use refs to hold the latest fetched lists to compare against
-  const personalTasksRef = useRef<Task[]>([]);
-  const teamTasksRef = useRef<Task[]>([]);
 
-  // Helper for consistent task sorting (PURE FUNCTION)
-  const sortTasks = useCallback((tasksArray: Task[]): Task[] => {
+  // Helper for consistent task sorting
+  const sortTasks = (tasksArray: Task[]): Task[] => {
     const getDueDateCategory = (task: Task): number => {
       if (!task.dueDate) {
         return 4; // No due date, lowest priority
@@ -105,8 +88,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       return 3; // Due in the future
     };
 
-    // Create a shallow copy before sorting to ensure purity
-    const sortedArray = [...tasksArray].sort((a, b) => {
+    return tasksArray.sort((a, b) => {
       // 1. Sort by Due Date Category (Overdue > Today > Future > No Date)
       const aDueDateCategory = getDueDateCategory(a);
       const bDueDateCategory = getDueDateCategory(b);
@@ -139,9 +121,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       // 4. Sort by creation date (newest first)
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-    
-    return sortedArray;
-  }, []);
+  };
 
   // CRITICAL FIX: Correctly handle listener cleanup to prevent memory leaks
   useEffect(() => {
@@ -178,16 +158,11 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     const personalTasksUnsubscribe = onSnapshot(personalTasksQuery, (snapshot) => {
       const personalTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
       
-      // Check if the content of personal tasks has changed before updating the ref
-      if (!deepEqual(personalTasksRef.current, personalTasks)) {
-        personalTasksRef.current = personalTasks;
-        
-        setTasks(prevTasks => {
-          const teamTasks = prevTasks.filter(task => task.teamId);
-          const allTasks = [...personalTasksRef.current, ...teamTasks];
-          return sortTasks(allTasks); // Use new sort function
-        });
-      }
+      setTasks(prevTasks => {
+        const teamTasks = prevTasks.filter(task => task.teamId);
+        const allTasks = [...personalTasks, ...teamTasks];
+        return sortTasks(allTasks); // Use new sort function
+      });
       setLoading(false);
     }, (error) => {
       console.error("Error in personal tasks listener:", error);
@@ -206,16 +181,11 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const teamTasksUnsubscribe = onSnapshot(teamTasksQuery, (snapshot) => {
         const teamTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
         
-        // Check if the content of team tasks has changed before updating the ref
-        if (!deepEqual(teamTasksRef.current, teamTasks)) {
-          teamTasksRef.current = teamTasks;
-          
-          setTasks(prevTasks => {
-            const personalTasks = prevTasks.filter(task => !task.teamId);
-            const allTasks = [...personalTasks, ...teamTasksRef.current];
-            return sortTasks(allTasks); // Use new sort function
-          });
-        }
+        setTasks(prevTasks => {
+          const personalTasks = prevTasks.filter(task => !task.teamId);
+          const allTasks = [...personalTasks, ...teamTasks];
+          return sortTasks(allTasks); // Use new sort function
+        });
       }, (error) => {
         console.error("Error in team tasks listener:", error);
         toast({ title: "Team connection error", description: "Lost connection to team tasks.", variant: "destructive" });
@@ -251,7 +221,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     return () => {
       unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
     };
-  }, [user, userProfile, toast, sortTasks]);
+  }, [user, userProfile, toast]);
 
   const addTask = useCallback(async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user || !userProfile) return;
@@ -302,7 +272,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error adding task:", error);
       toast({ title: "Failed to create task", variant: "destructive" });
     }
-  }, [user, userProfile, toast, sortTasks]);
+  }, [user, userProfile, toast]);
 
   const updateTask = useCallback(async (taskId: string, taskData: Partial<Task>) => {
     if (!user || !userProfile) {
@@ -331,7 +301,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
     try {
       const originalAssignedTo = originalTask.assignedTo || [];
-      const newAssignedTo = taskData.assignedTo || [];
+      const newAssignedTo = updatedTaskForState.assignedTo || [];
       const newlyAssignedUsers = newAssignedTo.filter(userId => !originalAssignedTo.includes(userId));
 
       if (newlyAssignedUsers.length > 0) {
@@ -392,7 +362,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error updating task:", error);
       toast({ title: "Failed to update task", variant: "destructive" });
     }
-  }, [user, userProfile, toast, sortTasks]);
+  }, [user, userProfile, toast]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     if (!user) return;
@@ -418,7 +388,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error deleting task:", error);
       toast({ title: "Failed to delete task", variant: "destructive" });
     }
-  }, [user, toast, sortTasks]);
+  }, [user, toast]);
 
   const toggleTaskStatus = useCallback(async (taskId: string, options?: { playSound?: boolean }) => {
     if (!user) return;
@@ -464,7 +434,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling task status:", error);
       toast({ title: "Failed to update task", variant: "destructive" });
     }
-  }, [user, playSound, showConfetti, addNotification, toast, sortTasks]);
+  }, [user, playSound, showConfetti, addNotification, toast]);
 
   const toggleTaskPriority = useCallback(async (taskId: string) => {
     if (!user) return;
@@ -487,7 +457,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling task priority:", error);
       toast({ title: "Failed to update priority", variant: "destructive" });
     }
-  }, [user, toast, sortTasks]);
+  }, [user, toast]);
 
   const updateTaskTimeSpent = useCallback(async (taskId: string, timeToAdd: number) => {
     if (!user) return;
@@ -510,7 +480,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error updating task time:", error);
       throw error;
     }
-  }, [user, sortTasks]);
+  }, [user]);
 
   const addSubtask = useCallback(async (taskId: string, title: string) => {
     const newSubtask: Subtask = { id: `sub-${Date.now()}`, title, isCompleted: false, createdAt: new Date().toISOString() };
