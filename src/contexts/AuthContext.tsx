@@ -89,7 +89,7 @@ interface AuthContextType {
   signInWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
   signOutUser: () => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  updateUserProfile: (data: Partial<UserProfile>, targetUid?: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   setupPhoneAuth: (containerId: string) => RecaptchaVerifier;
@@ -285,17 +285,27 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   };
 
-  const updateUserProfile = async (data: Partial<UserProfile>) => {
+  const updateUserProfile = async (data: Partial<UserProfile>, targetUid?: string) => {
     if (!user || !userProfile) return;
     
-    // Determine which UID to update (admin's or impersonated user's)
-    const targetUid = isImpersonating ? userProfile.uid : user.uid;
+    // Determine which UID to update:
+    // 1. If targetUid is provided (Admin action)
+    // 2. If impersonating, use the impersonated user's UID
+    // 3. Otherwise, use the current user's UID
+    const finalUid = targetUid 
+      ? targetUid 
+      : isImpersonating 
+        ? userProfile.uid 
+        : user.uid;
     
-    const userDocRef = doc(db, "users", targetUid);
+    const userDocRef = doc(db, "users", finalUid);
     await firestoreUpdateDoc(userDocRef, data);
     
-    // Update local state
-    setUserProfile({ ...userProfile, ...data });
+    // Only update local state if we are updating the currently active profile (either self or impersonated)
+    if (finalUid === userProfile.uid) {
+      setUserProfile({ ...userProfile, ...data });
+    }
+    
     toast({ title: "Profile Updated! ✨" });
   };
 

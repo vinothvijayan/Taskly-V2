@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserCog, Loader2, LogIn, LogOut, AlertTriangle, CheckCircle } from "lucide-react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -14,19 +15,16 @@ import { UserProfile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminUserManagementPage() {
-  const { user, userProfile, impersonateUser, stopImpersonating, loading: authLoading, isImpersonating } = useAuth();
+  const { user, userProfile, impersonateUser, stopImpersonating, loading: authLoading, isImpersonating, updateUserProfile } = useAuth();
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Use isImpersonating from AuthContext directly
-  // const isImpersonating = !!impersonatingId; 
   const currentImpersonatedUser = allUsers.find(u => u.uid === user?.uid);
 
   useEffect(() => {
-    // We need to check if we are currently impersonating based on localStorage/AuthContext state
     if (isImpersonating && userProfile) {
         setImpersonatingId(userProfile.uid);
     } else {
@@ -36,16 +34,14 @@ export default function AdminUserManagementPage() {
     if (userProfile?.role === 'superadmin') {
       fetchAllUsers();
     } else if (userProfile) {
-      // If not superadmin, only show self
       setAllUsers([userProfile]);
       setLoadingUsers(false);
     }
-  }, [userProfile, isImpersonating]); // Depend on isImpersonating from context
+  }, [userProfile, isImpersonating]);
 
   const fetchAllUsers = async () => {
     setLoadingUsers(true);
     try {
-      // In a real app, you might limit this query or use Cloud Functions for security
       const usersCollectionRef = collection(db, 'users');
       const q = query(usersCollectionRef);
       const snapshot = await getDocs(q);
@@ -87,6 +83,30 @@ export default function AdminUserManagementPage() {
     } catch (error) {
       console.error("Revert failed:", error);
       toast({ title: "Revert Failed", description: "Could not revert to admin account.", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateRole = async (targetUid: string, newRole: UserProfile['role']) => {
+    if (!userProfile || userProfile.role !== 'superadmin') {
+      toast({ title: "Permission Denied", description: "Only Superadmins can change roles.", variant: "destructive" });
+      return;
+    }
+    
+    if (targetUid === user?.uid && !isImpersonating) {
+        toast({ title: "Action Blocked", description: "Cannot change your own role while logged in as yourself.", variant: "warning" });
+        return;
+    }
+
+    try {
+      await updateUserProfile({ role: newRole }, targetUid);
+      
+      // Manually update the local state list to reflect the change immediately
+      setAllUsers(prev => prev.map(u => u.uid === targetUid ? { ...u, role: newRole } : u));
+      
+      toast({ title: "Role Updated", description: `${targetUid} is now a ${newRole}.`, duration: 3000 });
+    } catch (error) {
+      console.error("Role update failed:", error);
+      toast({ title: "Update Failed", description: "Could not update user role.", variant: "destructive" });
     }
   };
 
@@ -175,9 +195,20 @@ export default function AdminUserManagementPage() {
                       <p className="text-sm text-muted-foreground">{targetUser.email}</p>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="capitalize">
-                        {targetUser.role || 'user'}
-                      </Badge>
+                      <Select
+                        value={targetUser.role || 'user'}
+                        onValueChange={(newRole) => handleUpdateRole(targetUser.uid, newRole as UserProfile['role'])}
+                        disabled={!userProfile || userProfile.role !== 'superadmin' || targetUser.uid === user?.uid}
+                      >
+                        <SelectTrigger className="w-[120px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="superadmin">Superadmin</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="user">User</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <p className="text-sm text-muted-foreground truncate max-w-[150px]">
