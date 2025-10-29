@@ -3,8 +3,13 @@ import { createRoot, Root } from 'react-dom/client';
 import { PipWidget } from '@/components/pip/PipWidget';
 import { useTasks } from '@/contexts/TasksContext';
 import { useTaskTimeTracker } from '@/contexts/TaskTimeTrackerContext';
+import { useTeamChat } from '@/contexts/TeamChatContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { rtdb, db } from '@/lib/firebase';
+import { ref, push, serverTimestamp } from 'firebase/database';
+import { doc, setDoc, serverTimestamp as firestoreServerTimestamp } from 'firebase/firestore';
+import { ChatMessage } from '@/types';
 
-// Define the custom window type to include our React root
 interface PipWindow extends Window {
   reactRoot?: Root;
 }
@@ -16,6 +21,8 @@ export function usePipWidgetManager() {
   
   const tasksContext = useTasks();
   const timeTrackerContext = useTaskTimeTracker();
+  const chatContext = useTeamChat();
+  const authContext = useAuth();
 
   useEffect(() => {
     setIsPipSupported('documentPictureInPicture' in window);
@@ -30,6 +37,32 @@ export function usePipWidgetManager() {
     }
   }, [pipWindow]);
 
+  const sendMessageInPip = useCallback(async (receiverId: string, content: string) => {
+    const { user, userProfile } = authContext;
+    if (!user || !userProfile) return;
+
+    const chatRoomId = [user.uid, receiverId].sort().join('_');
+    const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
+    const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
+      senderId: user.uid,
+      senderName: userProfile.displayName || user.email || 'Unknown',
+      senderEmail: user.email || '',
+      senderAvatar: userProfile.photoURL,
+      message: content,
+      timestamp: serverTimestamp(),
+      type: 'text',
+    };
+    await push(messagesRef, messageData);
+
+    const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+    await setDoc(chatRoomInfoRef, { 
+      participants: [user.uid, receiverId], 
+      lastActivity: firestoreServerTimestamp(),
+      lastMessage: messageData 
+    }, { merge: true });
+
+  }, [authContext]);
+
   const openPip = useCallback(async () => {
     if (!isPipSupported || isPipOpen) return;
 
@@ -39,26 +72,18 @@ export function usePipWidgetManager() {
         height: 480,
       });
 
-      // --- THE CORRECT FIX ---
-      // 1. Copy all <link> and <style> elements from the main document's head.
       const styleElements = document.head.querySelectorAll('style, link[rel="stylesheet"]');
       styleElements.forEach(el => {
         newPipWindow.document.head.appendChild(el.cloneNode(true));
       });
 
-      // 2. Copy the theme class (e.g., "dark") from the main <html> element.
       if (document.documentElement.classList.contains('dark')) {
         newPipWindow.document.documentElement.classList.add('dark');
       }
       
-      // 3. Add a basic body style.
       const bodyStyle = newPipWindow.document.createElement('style');
-      bodyStyle.textContent = `
-        body { margin: 0; overflow: hidden; }
-        #root { height: 100vh; width: 100vw; }
-      `;
+      bodyStyle.textContent = `body { margin: 0; overflow: hidden; } #root { height: 100vh; width: 100vw; }`;
       newPipWindow.document.head.appendChild(bodyStyle);
-      // --- END OF FIX ---
 
       const mountPoint = newPipWindow.document.createElement('div');
       mountPoint.id = 'root';
@@ -75,16 +100,15 @@ export function usePipWidgetManager() {
           trackingTask={timeTrackerContext.trackingTask}
           isTracking={timeTrackerContext.isTracking}
           currentSessionElapsedSeconds={timeTrackerContext.currentSessionElapsedSeconds}
-          onPlayPause={() => {
-            if (timeTrackerContext.isTracking) {
-              timeTrackerContext.pauseTracking();
-            } else {
-              timeTrackerContext.resumeTracking();
-            }
-          }}
+          onPlayPause={() => timeTrackerContext.isTracking ? timeTrackerContext.pauseTracking() : timeTrackerContext.resumeTracking()}
           onStop={timeTrackerContext.stopTracking}
           getFormattedTime={timeTrackerContext.getFormattedTime}
           onStartTracking={timeTrackerContext.startTracking}
+          teamMembers={tasksContext.teamMembers}
+          onlineStatus={chatContext.onlineStatus}
+          unreadCounts={chatContext.unreadCounts}
+          userProfile={authContext.userProfile}
+          onSendMessage={sendMessageInPip}
         />
       );
 
@@ -95,16 +119,14 @@ export function usePipWidgetManager() {
       setIsPipOpen(true);
 
       newPipWindow.addEventListener('pagehide', () => {
-        if (newPipWindow.reactRoot) {
-          newPipWindow.reactRoot.unmount();
-        }
+        if (newPipWindow.reactRoot) newPipWindow.reactRoot.unmount();
         setPipWindow(null);
         setIsPipOpen(false);
       });
     } catch (error) {
       console.error("Error opening Picture-in-Picture window:", error);
     }
-  }, [isPipSupported, isPipOpen, tasksContext, timeTrackerContext, closePip]);
+  }, [isPipSupported, isPipOpen, tasksContext, timeTrackerContext, chatContext, authContext, closePip, sendMessageInPip]);
 
   useEffect(() => {
     if (isPipOpen && pipWindow?.reactRoot) {
@@ -117,21 +139,20 @@ export function usePipWidgetManager() {
           trackingTask={timeTrackerContext.trackingTask}
           isTracking={timeTrackerContext.isTracking}
           currentSessionElapsedSeconds={timeTrackerContext.currentSessionElapsedSeconds}
-          onPlayPause={() => {
-            if (timeTrackerContext.isTracking) {
-              timeTrackerContext.pauseTracking();
-            } else {
-              timeTrackerContext.resumeTracking();
-            }
-          }}
+          onPlayPause={() => timeTrackerContext.isTracking ? timeTrackerContext.pauseTracking() : timeTrackerContext.resumeTracking()}
           onStop={timeTrackerContext.stopTracking}
           getFormattedTime={timeTrackerContext.getFormattedTime}
           onStartTracking={timeTrackerContext.startTracking}
+          teamMembers={tasksContext.teamMembers}
+          onlineStatus={chatContext.onlineStatus}
+          unreadCounts={chatContext.unreadCounts}
+          userProfile={authContext.userProfile}
+          onSendMessage={sendMessageInPip}
         />
       );
       pipWindow.reactRoot.render(pipContent);
     }
-  }, [isPipOpen, pipWindow, tasksContext, timeTrackerContext, closePip]);
+  }, [isPipOpen, pipWindow, tasksContext, timeTrackerContext, chatContext, authContext, closePip, sendMessageInPip]);
 
   return { isPipSupported, isPipOpen, openPip, closePip };
 }
