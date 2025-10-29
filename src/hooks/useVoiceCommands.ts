@@ -29,10 +29,19 @@ export function useVoiceCommands() {
   const [isWakeWordDetected, setIsWakeWordDetected] = useState(false);
   const recognitionRef = useRef<any>(null);
   const lastCommandTimeRef = useRef(0);
+  const wakeWordTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
+      // Attempt to find a deep/robotic voice (OS dependent)
+      const voices = window.speechSynthesis.getVoices();
+      const jarvisVoice = voices.find(v => v.name.toLowerCase().includes('google us english') || v.name.toLowerCase().includes('male'));
+      
+      if (jarvisVoice) {
+        utterance.voice = jarvisVoice;
+      }
+      
       utterance.rate = 1.1;
       window.speechSynthesis.speak(utterance);
     }
@@ -50,54 +59,54 @@ export function useVoiceCommands() {
     console.log('Processing command:', lowerTranscript);
 
     if (lowerTranscript.includes('open tasks') || lowerTranscript.includes('go to tasks')) {
-      speak('Opening tasks.');
+      speak('Affirmative. Navigating to Task Manager.');
       navigate('/tasks');
     } else if (lowerTranscript.includes('open dashboard') || lowerTranscript.includes('go home')) {
-      speak('Opening dashboard.');
+      speak('Acknowledged. Displaying primary dashboard.');
       navigate('/');
     } else if (lowerTranscript.includes('open chat') || lowerTranscript.includes('open assistant')) {
-      speak('Opening AI assistant.');
+      speak('Accessing AI Wellness Coach.');
       navigate('/chat');
     } else if (lowerTranscript.includes('open timer') || lowerTranscript.includes('start focus')) {
-      speak('Opening focus timer.');
+      speak('Initiating focus timer interface.');
       navigate('/timer');
     } else if (lowerTranscript.includes('how many tasks') || lowerTranscript.includes('pending tasks')) {
       const activeCount = getActiveTasksCount();
-      speak(`You have ${activeCount} active tasks.`);
+      speak(`Current active task count is ${activeCount}.`);
     } else if (lowerTranscript.includes('create task') || lowerTranscript.includes('add task')) {
       const taskMatch = lowerTranscript.match(/(create task|add task) (.+)/);
       if (taskMatch && taskMatch[2]) {
         const title = taskMatch[2].trim();
         if (user) {
           addTask({ title, priority: 'medium', status: 'todo', createdBy: user.uid, createdAt: new Date().toISOString() } as Omit<Task, 'id' | 'createdAt'>);
-          speak(`Task created: ${title}`);
+          speak(`Task ${title} successfully logged.`);
         } else {
-          speak('Please sign in to create tasks.');
+          speak('Authentication required to log new tasks.');
         }
       } else {
-        speak('What should the task be called?');
+        speak('Please specify the task title.');
       }
     } else if (lowerTranscript.includes('start tracking')) {
       if (isTracking && trackingTask) {
-        speak(`Already tracking ${trackingTask.title}. Stopping current task.`);
+        speak(`Tracking already active for ${trackingTask.title}. Terminating current session.`);
         stopTracking();
       }
       const firstTodo = tasks.find(t => t.status === 'todo');
       if (firstTodo) {
         startTracking(firstTodo);
-        speak(`Starting time tracking for ${firstTodo.title}`);
+        speak(`Commencing time tracking for ${firstTodo.title}.`);
       } else {
-        speak('No active tasks to track.');
+        speak('No pending tasks available for tracking.');
       }
     } else if (lowerTranscript.includes('stop tracking')) {
       if (isTracking) {
         stopTracking();
-        speak('Time tracking stopped.');
+        speak('Time tracking session terminated.');
       } else {
-        speak('No task is currently being tracked.');
+        speak('No active tracking session detected.');
       }
     } else {
-      speak('Sorry, I did not understand that command.');
+      speak('Command not recognized. Please try again.');
     }
   }, [navigate, speak, getActiveTasksCount, addTask, user, tasks, isTracking, trackingTask, startTracking, stopTracking]);
 
@@ -121,19 +130,27 @@ export function useVoiceCommands() {
     recognitionRef.current.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       const lowerTranscript = transcript.toLowerCase().trim();
-      console.log('Raw Transcript:', lowerTranscript);
+      
+      // Clear the wake word timeout if we receive any result
+      if (wakeWordTimeoutRef.current) {
+        clearTimeout(wakeWordTimeoutRef.current);
+        wakeWordTimeoutRef.current = null;
+      }
 
       if (isWakeWordDetected) {
+        // If wake word was detected, process the command immediately
         setIsWakeWordDetected(false);
         processCommand(lowerTranscript);
       } else if (lowerTranscript.includes(WAKE_WORD)) {
+        // Wake word detected, set flag and start timeout for command
         setIsWakeWordDetected(true);
         speak('Yes?');
-        // Restart recognition briefly to listen for the command immediately after the wake word
-        recognitionRef.current.stop();
-        setTimeout(() => {
-            if (recognitionRef.current) recognitionRef.current.start();
-        }, 500);
+        
+        // Set a timeout to reset the wake word state if no command follows quickly
+        wakeWordTimeoutRef.current = setTimeout(() => {
+            setIsWakeWordDetected(false);
+            speak('Request timed out. Listening for wake word.');
+        }, 4000); // 4 seconds to issue a command
       }
     };
 
@@ -167,16 +184,15 @@ export function useVoiceCommands() {
       recognitionRef.current = null;
       setIsListening(false);
       setIsWakeWordDetected(false);
+      if (wakeWordTimeoutRef.current) {
+        clearTimeout(wakeWordTimeoutRef.current);
+        wakeWordTimeoutRef.current = null;
+      }
     }
   }, []);
 
-  // Auto-start recognition on mount (requires user interaction to enable mic)
+  // Cleanup on unmount
   useEffect(() => {
-    // We rely on the HandGestureDetector component to handle the initial user activation
-    // for the microphone, so we only start listening if the browser supports it.
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-        // We won't auto-start here; we'll expose a manual start function.
-    }
     return stopRecognition;
   }, [stopRecognition]);
 
