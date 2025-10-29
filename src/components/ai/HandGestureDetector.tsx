@@ -76,12 +76,12 @@ export function HandGestureDetector() {
   // Smoothing references
   const pointerXRef = useRef(0);
   const pointerYRef = useRef(0);
-  const SMOOTHING_FACTOR = 0.25; // Increased smoothing for stability
+  const SMOOTHING_FACTOR = 0.5; // <-- INCREASED SMOOTHING FACTOR
 
-  const SCROLL_THRESHOLD = 0.003; // Slightly increased threshold
+  const SCROLL_THRESHOLD = 0.003; 
   const SCROLL_SENSITIVITY = 1500; 
   const CLICK_DURATION_MS = 300; 
-  const SCROLL_FRICTION = 0.85; // Increased friction for faster stop
+  const SCROLL_FRICTION = 0.85; 
   const scrollVelocityRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   // --- END SCROLLING & PINCHING STATE ---
