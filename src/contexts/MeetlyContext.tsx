@@ -164,7 +164,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (recordedAudio) setRecordedAudio(null);
-
+    
     if (Capacitor.isNativePlatform()) {
       // --- NATIVE PLATFORM LOGIC (Microphone only) ---
       try {
