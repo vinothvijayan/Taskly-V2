@@ -51,7 +51,8 @@ import {
   Check,
   X,
   Activity,
-  UserMinus
+  UserMinus,
+  UserCog // <-- ADDED MISSING ICON
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "@/components/ui/use-toast";
