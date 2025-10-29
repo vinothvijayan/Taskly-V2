@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onChildAdded, off, query as rtdbQuery, orderByChild, startAt } from 'firebase/database'; 
+import { ref, onChildAdded, off, query as rtdbQuery, orderByChild, startAt, onValue, limitToLast } from 'firebase/database'; 
 import { collection, where, onSnapshot, Unsubscribe, Query, DocumentData, CollectionReference, query } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { getSafeNotificationId } from '@/lib/notificationId';
@@ -21,7 +21,6 @@ export function ChatMessageNotifier() {
   const { incrementUnreadCount } = useTeamChat();
   const rtdbUnsubscribers = useRef<Map<string, () => void>>(new Map());
   const firestoreUnsubscribeRef = useRef<Unsubscribe | null>(null);
-  const listenerAttachedTime = useRef(Date.now()); // Store the time the component mounts
 
   useEffect(() => {
     if (!user) {
@@ -41,6 +40,7 @@ export function ChatMessageNotifier() {
         currentChatRoomIds.add(doc.id);
       });
 
+      // Cleanup listeners for removed chat rooms
       rtdbUnsubscribers.current.forEach((unsub, chatRoomId) => {
         if (!currentChatRoomIds.has(chatRoomId)) {
           unsub();
@@ -48,91 +48,90 @@ export function ChatMessageNotifier() {
         }
       });
 
+      // Add listeners for new chat rooms
       currentChatRoomIds.forEach(chatRoomId => {
         if (!rtdbUnsubscribers.current.has(chatRoomId)) {
-          const messagesQuery = rtdbQuery(
-            ref(rtdb, `chats/${chatRoomId}/messages`),
-            orderByChild('timestamp'),
-            startAt(listenerAttachedTime.current) // Use the mount time to query
-          );
           
-          const messageUnsubscribe = onChildAdded(messagesQuery, (messagesSnapshot) => {
-            const messageData = messagesSnapshot.val();
-            const messageId = messagesSnapshot.key;
-
-            if (!messageId || !messageData) return;
-
-            // This is the crucial check. We ignore messages that were already in the DB
-            // when the listener was attached, even if they match the `startAt` query.
-            // We only care about messages that are genuinely new.
-            if (messageData.timestamp < listenerAttachedTime.current) {
-                return;
+          // --- NEW, MORE ROBUST LOGIC ---
+          const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
+          
+          // 1. Get the timestamp of the last known message to avoid notifying for old messages.
+          const lastMessageQuery = rtdbQuery(messagesRef, orderByChild('timestamp'), limitToLast(1));
+          
+          onValue(lastMessageQuery, (lastMessageSnapshot) => {
+            let lastTimestamp = Date.now() - 1000; // Default to 1 second ago to be safe
+            if (lastMessageSnapshot.exists()) {
+              const lastMessageData = lastMessageSnapshot.val();
+              const lastMessageKey = Object.keys(lastMessageData)[0];
+              lastTimestamp = lastMessageData[lastMessageKey].timestamp;
             }
 
-            const message = { id: messageId, ...messageData } as ChatMessage;
+            // 2. Now, listen ONLY for messages added AFTER that timestamp.
+            const newMessagesQuery = rtdbQuery(messagesRef, orderByChild('timestamp'), startAt(lastTimestamp + 1));
             
-            const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
+            const messageUnsubscribe = onChildAdded(newMessagesQuery, (messageSnapshot) => {
+              const messageData = messageSnapshot.val();
+              const messageId = messageSnapshot.key;
 
-            // For testing, we want to see our own messages in self-chat
-            if (message.senderId === user.uid && !isSelfChat) {
-              return;
-            }
+              if (!messageId || !messageData) return;
 
-            // --- This is a new message from someone else OR a self-chat message ---
-            incrementUnreadCount(chatRoomId);
-
-            toast.custom((t) => (
-              <ChatMessageToast
-                senderName={message.senderName}
-                senderAvatarUrl={message.senderAvatar}
-                messagePreview={message.message}
-                onDismiss={() => toast.dismiss(t)}
-              />
-            ));
-
-            // 3. Schedule native/PWA notification for when the app is in the background
-            const notificationTitle = `New message from ${message.senderName}`;
-            const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
-            const notificationId = getSafeNotificationId(message.timestamp);
-
-            if (Capacitor.isNativePlatform()) {
-              import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
-                LocalNotifications.schedule({
-                  notifications: [{
-                    id: notificationId,
-                    title: notificationTitle,
-                    body: notificationBody,
-                    schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
-                    channelId: 'app_main_channel',
-                    extra: {
-                      type: 'chat_message',
-                      senderId: message.senderId,
-                      chatRoomId: chatRoomId,
-                    }
-                  }]
-                }).catch(error => {
-                  console.error('Failed to schedule native chat notification:', error);
-                });
-              });
-            } else {
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification(notificationTitle, {
-                  body: notificationBody,
-                  icon: '/icon-192x192.png',
-                  badge: '/icon-192x192.png',
-                  tag: `chat-message-${message.id}`,
-                  data: {
-                    type: 'chat_message',
-                    senderId: message.senderId,
-                    chatRoomId: chatRoomId,
-                  },
-                  requireInteraction: false,
-                  vibrate: [100, 50, 100]
-                } as any);
+              const message = { id: messageId, ...messageData } as ChatMessage;
+              
+              // Don't notify for your own messages unless it's a self-chat
+              const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
+              if (message.senderId === user.uid && !isSelfChat) {
+                return;
               }
-            }
-          });
-          rtdbUnsubscribers.current.set(chatRoomId, () => off(messagesQuery, 'child_added', messageUnsubscribe));
+
+              // This is a genuinely new message. Trigger notifications.
+              incrementUnreadCount(chatRoomId);
+
+              toast.custom((t) => (
+                <ChatMessageToast
+                  senderName={message.senderName}
+                  senderAvatarUrl={message.senderAvatar}
+                  messagePreview={message.message}
+                  onDismiss={() => toast.dismiss(t)}
+                />
+              ));
+
+              // Schedule native/PWA notification for when the app is in the background
+              // (This part is unchanged and correct)
+              const notificationTitle = `New message from ${message.senderName}`;
+              const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
+              const notificationId = getSafeNotificationId(message.timestamp);
+
+              if (Capacitor.isNativePlatform()) {
+                import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+                  LocalNotifications.schedule({
+                    notifications: [{
+                      id: notificationId,
+                      title: notificationTitle,
+                      body: notificationBody,
+                      schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
+                      channelId: 'app_main_channel',
+                      extra: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId }
+                    }]
+                  }).catch(error => console.error('Failed to schedule native chat notification:', error));
+                });
+              } else {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                  new Notification(notificationTitle, {
+                    body: notificationBody,
+                    icon: '/icon-192x192.png',
+                    badge: '/icon-192x192.png',
+                    tag: `chat-message-${message.id}`,
+                    data: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId },
+                    requireInteraction: false,
+                    vibrate: [100, 50, 100]
+                  } as any);
+                }
+              }
+            });
+
+            rtdbUnsubscribers.current.set(chatRoomId, () => off(newMessagesQuery, 'child_added', messageUnsubscribe));
+
+          }, { onlyOnce: true }); // This onValue runs only once to get the starting point.
         }
       });
     });
