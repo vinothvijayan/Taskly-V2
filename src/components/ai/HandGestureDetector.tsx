@@ -213,8 +213,8 @@ export function HandGestureDetector() {
             indexFingerTipY = handLandmarks[8].y;
 
             // Map normalized coordinates to screen pixels
-            // We mirror the X axis (1 - x) because the camera is mirrored
-            const screenX = (1 - indexFingerTipX) * window.innerWidth; 
+            // FIX: Removed the (1 - x) inversion. The video mirroring should handle the visual flip.
+            const screenX = indexFingerTipX * window.innerWidth; 
             const screenY = indexFingerTipY * window.innerHeight;
             
             setPointerX(screenX);
