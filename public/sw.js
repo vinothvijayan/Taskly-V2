@@ -35,21 +35,30 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
   event.waitUntil(
-    Promise.all([
-      caches.keys().then(cacheNames => {
-        return Promise.all(
-          cacheNames.map(cacheName => {
-            if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-              console.log('Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      self.clients.claim()
-    ])
+    (async () => {
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+      await self.clients.claim();
+      
+      // Check for and restart any active timers
+      const [session, subtaskSession] = await Promise.all([
+        manageSession(TIMER_SESSION_KEY, 'get'),
+        manageSession(SUBTASK_TIMER_SESSION_KEY, 'get')
+      ]);
+      if ((session && !session.isPaused) || (subtaskSession && !subtaskSession.isPaused)) {
+        runTimer();
+      }
+    })()
   );
 });
+
 
 // Firebase Cloud Messaging (FCM) support
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
@@ -91,6 +100,146 @@ if (typeof firebase !== 'undefined') {
   });
 }
 
+// --- NEW: BACKGROUND TIME TRACKING LOGIC ---
+
+let timerInterval = null;
+const TIMER_SESSION_KEY = 'currentSession';
+const SUBTASK_TIMER_SESSION_KEY = 'currentSubtaskSession';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('TasklyOfflineDB', 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    // No onupgradeneeded here, it's handled by the main app
+  });
+}
+
+async function manageSession(key, action, data = null) {
+  const db = await openDB();
+  const transaction = db.transaction(['activeTimerSession'], 'readwrite');
+  const store = transaction.objectStore('activeTimerSession');
+  
+  return new Promise((resolve, reject) => {
+    let request;
+    if (action === 'get') {
+      request = store.get(key);
+    } else if (action === 'set') {
+      request = store.put({ id: key, ...data });
+    } else if (action === 'delete') {
+      request = store.delete(key);
+    } else {
+      return reject('Invalid action');
+    }
+    
+    transaction.oncomplete = () => {
+      resolve(request.result || null);
+    };
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+function runTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+
+  timerInterval = setInterval(async () => {
+    const [session, subtaskSession] = await Promise.all([
+      manageSession(TIMER_SESSION_KEY, 'get'),
+      manageSession(SUBTASK_TIMER_SESSION_KEY, 'get')
+    ]);
+
+    const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+
+    if (session && !session.isPaused) {
+      const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
+      const totalElapsed = session.accumulatedSeconds + elapsed;
+      
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'TIME_TRACKING_UPDATE',
+          payload: {
+            type: 'task',
+            isTracking: true,
+            currentSessionElapsedSeconds: totalElapsed,
+            taskId: session.taskId
+          }
+        });
+      });
+    }
+    
+    if (subtaskSession && !subtaskSession.isPaused) {
+      const elapsed = Math.floor((Date.now() - subtaskSession.startTime) / 1000);
+      const totalElapsed = subtaskSession.accumulatedSeconds + elapsed;
+      
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'TIME_TRACKING_UPDATE',
+          payload: {
+            type: 'subtask',
+            isTrackingSubtask: true,
+            currentSubtaskElapsedSeconds: totalElapsed,
+            taskId: subtaskSession.taskId,
+            subtaskId: subtaskSession.subtaskId
+          }
+        });
+      });
+    }
+
+    if ((!session || session.isPaused) && (!subtaskSession || subtaskSession.isPaused)) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }, 1000);
+}
+
+async function handleTimeTrackingMessage(data) {
+  const { type, session } = data;
+  const key = session.subtaskId ? SUBTASK_TIMER_SESSION_KEY : TIMER_SESSION_KEY;
+
+  switch (type) {
+    case 'START_TIME_TRACKING':
+    case 'START_SUBTASK_TIME_TRACKING':
+      await manageSession(key, 'set', session);
+      if (!timerInterval) runTimer();
+      break;
+    
+    case 'PAUSE_TIME_TRACKING':
+    case 'PAUSE_SUBTASK_TIME_TRACKING': {
+      const existingSession = await manageSession(key, 'get');
+      if (existingSession && !existingSession.isPaused) {
+        const elapsed = Math.floor((Date.now() - existingSession.startTime) / 1000);
+        await manageSession(key, 'set', {
+          ...existingSession,
+          isPaused: true,
+          pausedAt: Date.now(),
+          accumulatedSeconds: existingSession.accumulatedSeconds + elapsed
+        });
+      }
+      break;
+    }
+      
+    case 'RESUME_TIME_TRACKING':
+    case 'RESUME_SUBTASK_TIME_TRACKING': {
+      const existingSession = await manageSession(key, 'get');
+      if (existingSession && existingSession.isPaused) {
+        await manageSession(key, 'set', {
+          ...existingSession,
+          isPaused: false,
+          startTime: Date.now(),
+          pausedAt: null
+        });
+        if (!timerInterval) runTimer();
+      }
+      break;
+    }
+      
+    case 'STOP_TIME_TRACKING':
+    case 'STOP_SUBTASK_TIME_TRACKING':
+      await manageSession(key, 'delete');
+      break;
+  }
+}
+
 // =========================================================================
 // === UPDATED MESSAGE LISTENER FOR APP UPDATES AND NOTIFICATIONS ===
 // =========================================================================
@@ -100,6 +249,12 @@ self.addEventListener('message', (event) => {
     console.log('Service Worker received SKIP_WAITING message. Activating new version.');
     self.skipWaiting();
     return; // Stop further execution for this message type
+  }
+
+  // Handle background time tracking messages
+  if (event.data && event.data.type && event.data.type.startsWith('TIME_TRACKING_')) {
+    handleTimeTrackingMessage(event.data);
+    return;
   }
 
   // Handle the 'SHOW_NOTIFICATION' message from the main application

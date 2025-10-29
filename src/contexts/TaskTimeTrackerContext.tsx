@@ -3,8 +3,6 @@ import { Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { doc, setDoc, getDoc, deleteDoc, onSnapshot, Unsubscribe, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 
 interface TaskTimeTrackerContextType {
   trackingTask: Task | null;
@@ -24,483 +22,162 @@ interface TaskTimeTrackerContextType {
   stopSubtaskTracking: () => void;
 }
 
-interface ActiveTrackingSession {
-  taskId: string;
-  taskTitle: string;
-  startTime: number;
-  pausedAt: number | null;
-  isPaused: boolean;
-  accumulatedSeconds: number;
-}
-
-interface ActiveSubtaskTrackingSession {
-  taskId: string;
-  subtaskId: string;
-  subtaskTitle: string;
-  startTime: number;
-  pausedAt: number | null;
-  isPaused: boolean;
-  accumulatedSeconds: number;
-}
-
 const TaskTimeTrackerContext = createContext<TaskTimeTrackerContextType | undefined>(undefined);
 
 export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const [trackingTask, setTrackingTask] = useState<Task | null>(null);
   const [currentSessionElapsedSeconds, setCurrentSessionElapsedSeconds] = useState(0);
   const [isTracking, setIsTracking] = useState(false);
-  const [startTime, setStartTime] = useState<number | null>(null);
 
   const [trackingSubtask, setTrackingSubtask] = useState<{ taskId: string; subtaskId: string; subtaskTitle: string } | null>(null);
   const [currentSubtaskElapsedSeconds, setCurrentSubtaskElapsedSeconds] = useState(0);
   const [isTrackingSubtask, setIsTrackingSubtask] = useState(false);
-  const [subtaskStartTime, setSubtaskStartTime] = useState<number | null>(null);
 
   const { user } = useAuth();
-  const { updateTaskTimeSpent, updateSubtaskTimeSpent } = useTasks();
+  const { updateTaskTimeSpent, updateSubtaskTimeSpent, getTaskById } = useTasks();
   const { toast } = useToast();
 
-  // Restore tracking session from Firestore on mount
   useEffect(() => {
-    if (!user) return;
-
-    const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-
-    const unsubscribe = onSnapshot(sessionRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const session = snapshot.data() as ActiveTrackingSession;
-
-        if (!trackingTask || trackingTask.id !== session.taskId) {
-          setTrackingTask({
-            id: session.taskId,
-            title: session.taskTitle,
-          } as Task);
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'TIME_TRACKING_UPDATE') {
+        const { payload } = event.data;
+        if (payload.type === 'task') {
+          setIsTracking(payload.isTracking);
+          setCurrentSessionElapsedSeconds(payload.currentSessionElapsedSeconds);
+          if (!trackingTask || trackingTask.id !== payload.taskId) {
+            const task = getTaskById(payload.taskId);
+            setTrackingTask(task || { id: payload.taskId, title: 'Loading...' } as Task);
+          }
+        } else if (payload.type === 'subtask') {
+          setIsTrackingSubtask(payload.isTrackingSubtask);
+          setCurrentSubtaskElapsedSeconds(payload.currentSubtaskElapsedSeconds);
+          if (!trackingSubtask || trackingSubtask.subtaskId !== payload.subtaskId) {
+            setTrackingSubtask({ taskId: payload.taskId, subtaskId: payload.subtaskId, subtaskTitle: 'Loading...' });
+          }
         }
-
-        setIsTracking(!session.isPaused);
-
-        if (session.isPaused && session.pausedAt) {
-          setCurrentSessionElapsedSeconds(session.accumulatedSeconds);
-          setStartTime(null);
-        } else {
-          setStartTime(session.startTime);
-          const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
-          setCurrentSessionElapsedSeconds(session.accumulatedSeconds + elapsed);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // Restore subtask tracking session from Firestore on mount
-  useEffect(() => {
-    if (!user) return;
-
-    const subtaskSessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-
-    const unsubscribe = onSnapshot(subtaskSessionRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const session = snapshot.data() as ActiveSubtaskTrackingSession;
-
-        if (!trackingSubtask || trackingSubtask.subtaskId !== session.subtaskId) {
-          setTrackingSubtask({
-            taskId: session.taskId,
-            subtaskId: session.subtaskId,
-            subtaskTitle: session.subtaskTitle,
-          });
-        }
-
-        setIsTrackingSubtask(!session.isPaused);
-
-        if (session.isPaused && session.pausedAt) {
-          setCurrentSubtaskElapsedSeconds(session.accumulatedSeconds);
-          setSubtaskStartTime(null);
-        } else {
-          setSubtaskStartTime(session.startTime);
-          const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
-          setCurrentSubtaskElapsedSeconds(session.accumulatedSeconds + elapsed);
-        }
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  // Timer effect - increments elapsed seconds when tracking
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (isTracking && trackingTask) {
-      interval = setInterval(() => {
-        setCurrentSessionElapsedSeconds(prev => prev + 1);
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) {
-        clearInterval(interval);
       }
     };
-  }, [isTracking, trackingTask]);
 
-  // Timer effect for subtasks - increments elapsed seconds when tracking
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-
-    if (isTrackingSubtask && trackingSubtask) {
-      interval = setInterval(() => {
-        setCurrentSubtaskElapsedSeconds(prev => prev + 1);
-      }, 1000);
-    }
-
+    navigator.serviceWorker?.addEventListener('message', handleMessage);
     return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
+      navigator.serviceWorker?.removeEventListener('message', handleMessage);
     };
-  }, [isTrackingSubtask, trackingSubtask]);
+  }, [getTaskById, trackingTask, trackingSubtask]);
+
+  const postToServiceWorker = (type: string, session: any) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type, session });
+    } else {
+      console.warn('Service worker not available to handle time tracking.');
+      toast({ title: "Offline Timer Unavailable", description: "Could not connect to background service.", variant: "destructive" });
+    }
+  };
 
   const startTracking = async (task: Task) => {
-    if (!user) return;
+    if (trackingTask) await stopTracking();
+    if (trackingSubtask) await stopSubtaskTracking();
 
-    // If already tracking a different task, stop it first
-    if (trackingTask && trackingTask.id !== task.id) {
-      await stopTracking();
-    }
-
-    const now = Date.now();
-    const session: ActiveTrackingSession = {
+    const session = {
       taskId: task.id,
       taskTitle: task.title,
-      startTime: now,
-      pausedAt: null,
+      startTime: Date.now(),
       isPaused: false,
       accumulatedSeconds: 0,
     };
-
-    try {
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      await setDoc(sessionRef, session);
-
-      setTrackingTask(task);
-      setCurrentSessionElapsedSeconds(0);
-      setIsTracking(true);
-      setStartTime(now);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'START_TIME_TRACKING',
-          session
-        });
-      }
-
-      toast({
-        title: "Time tracking started",
-        description: `Now tracking time for "${task.title}"`,
-      });
-    } catch (error) {
-      console.error("Error starting tracking:", error);
-      toast({
-        title: "Failed to start tracking",
-        variant: "destructive",
-      });
-    }
+    postToServiceWorker('START_TIME_TRACKING', session);
+    
+    setTrackingTask(task);
+    setCurrentSessionElapsedSeconds(0);
+    setIsTracking(true);
+    toast({ title: "Time tracking started", description: `Now tracking time for "${task.title}"` });
   };
 
-  const pauseTracking = async () => {
-    if (!trackingTask || !user || !isTracking) return;
-
-    try {
-      const now = Date.now();
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      
-      await updateDoc(sessionRef, {
-        pausedAt: now,
-        isPaused: true,
-        accumulatedSeconds: currentSessionElapsedSeconds,
-      });
-
-      setIsTracking(false);
-      setStartTime(null);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'PAUSE_TIME_TRACKING'
-        });
-      }
-
-      toast({
-        title: "Time tracking paused",
-        description: `Paused tracking for "${trackingTask.title}"`,
-      });
-    } catch (error) {
-      console.error("Error pausing tracking:", error);
-      toast({
-        title: "Failed to pause tracking",
-        variant: "destructive",
-      });
-    }
+  const pauseTracking = () => {
+    if (!trackingTask) return;
+    postToServiceWorker('PAUSE_TIME_TRACKING', { taskId: trackingTask.id });
+    setIsTracking(false);
+    toast({ title: "Time tracking paused" });
   };
 
-  const resumeTracking = async () => {
-    if (!trackingTask || !user || isTracking) return;
-
-    try {
-      const now = Date.now();
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      
-      await updateDoc(sessionRef, {
-        startTime: now,
-        pausedAt: null,
-        isPaused: false,
-      });
-
-      setIsTracking(true);
-      setStartTime(now);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'RESUME_TIME_TRACKING'
-        });
-      }
-
-      toast({
-        title: "Time tracking resumed",
-        description: `Resumed tracking for "${trackingTask.title}"`,
-      });
-    } catch (error) {
-      console.error("Error resuming tracking:", error);
-      toast({
-        title: "Failed to resume tracking",
-        variant: "destructive",
-      });
-    }
+  const resumeTracking = () => {
+    if (!trackingTask) return;
+    postToServiceWorker('RESUME_TIME_TRACKING', { taskId: trackingTask.id });
+    setIsTracking(true);
+    toast({ title: "Time tracking resumed" });
   };
 
   const stopTracking = async () => {
-    if (!trackingTask || !user) {
-      setTrackingTask(null);
-      setCurrentSessionElapsedSeconds(0);
-      setIsTracking(false);
-      setStartTime(null);
-      return;
+    if (!trackingTask) return;
+    
+    const finalSeconds = currentSessionElapsedSeconds;
+    postToServiceWorker('STOP_TIME_TRACKING', { taskId: trackingTask.id });
+
+    if (finalSeconds > 0) {
+      await updateTaskTimeSpent(trackingTask.id, finalSeconds);
+      toast({ title: "Time saved!", description: `Saved ${getFormattedTime(finalSeconds)} for "${trackingTask.title}"` });
     }
 
-    try {
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
-      const finalSeconds = currentSessionElapsedSeconds;
-
-      if (finalSeconds > 0) {
-        await updateTaskTimeSpent(trackingTask.id, finalSeconds);
-        const formattedTime = getFormattedTime(finalSeconds);
-
-        toast({
-          title: "Time tracking stopped",
-          description: `Saved ${formattedTime} for "${trackingTask.title}"`,
-        });
-      }
-
-      await deleteDoc(sessionRef);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'STOP_TIME_TRACKING'
-        });
-      }
-    } catch (error) {
-      console.error("Error stopping tracking:", error);
-      toast({
-        title: "Failed to save time",
-        description: "Could not save the tracked time. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setTrackingTask(null);
-      setCurrentSessionElapsedSeconds(0);
-      setIsTracking(false);
-      setStartTime(null);
-    }
-  };
-
-  const getFormattedTime = (seconds: number): string => {
-    if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
-      return '0s';
-    }
-
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-    }
-    if (minutes > 0) {
-      return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
-    }
-    return `${remainingSeconds}s`;
+    setTrackingTask(null);
+    setCurrentSessionElapsedSeconds(0);
+    setIsTracking(false);
   };
 
   const startSubtaskTracking = async (taskId: string, subtaskId: string, subtaskTitle: string) => {
-    if (!user) return;
+    if (trackingTask) await stopTracking();
+    if (trackingSubtask) await stopSubtaskTracking();
 
-    if (trackingSubtask && (trackingSubtask.taskId !== taskId || trackingSubtask.subtaskId !== subtaskId)) {
-      await stopSubtaskTracking();
-    }
-
-    const now = Date.now();
-    const session: ActiveSubtaskTrackingSession = {
+    const session = {
       taskId,
       subtaskId,
       subtaskTitle,
-      startTime: now,
-      pausedAt: null,
+      startTime: Date.now(),
       isPaused: false,
       accumulatedSeconds: 0,
     };
+    postToServiceWorker('START_SUBTASK_TIME_TRACKING', session);
 
-    try {
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      await setDoc(sessionRef, session);
-
-      setTrackingSubtask({ taskId, subtaskId, subtaskTitle });
-      setCurrentSubtaskElapsedSeconds(0);
-      setIsTrackingSubtask(true);
-      setSubtaskStartTime(now);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'START_SUBTASK_TIME_TRACKING',
-          session
-        });
-      }
-
-      toast({
-        title: "Time tracking started",
-        description: `Now tracking time for subtask "${subtaskTitle}"`,
-      });
-    } catch (error) {
-      console.error("Error starting subtask tracking:", error);
-      toast({
-        title: "Failed to start tracking",
-        variant: "destructive",
-      });
-    }
+    setTrackingSubtask({ taskId, subtaskId, subtaskTitle });
+    setCurrentSubtaskElapsedSeconds(0);
+    setIsTrackingSubtask(true);
+    toast({ title: "Subtask tracking started", description: `Now tracking "${subtaskTitle}"` });
   };
 
-  const pauseSubtaskTracking = async () => {
-    if (!trackingSubtask || !user || !isTrackingSubtask) return;
-
-    try {
-      const now = Date.now();
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      
-      await updateDoc(sessionRef, {
-        pausedAt: now,
-        isPaused: true,
-        accumulatedSeconds: currentSubtaskElapsedSeconds,
-      });
-
-      setIsTrackingSubtask(false);
-      setSubtaskStartTime(null);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'PAUSE_SUBTASK_TIME_TRACKING'
-        });
-      }
-
-      toast({
-        title: "Time tracking paused",
-        description: `Paused tracking for "${trackingSubtask.subtaskTitle}"`,
-      });
-    } catch (error) {
-      console.error("Error pausing subtask tracking:", error);
-      toast({
-        title: "Failed to pause tracking",
-        variant: "destructive",
-      });
-    }
+  const pauseSubtaskTracking = () => {
+    if (!trackingSubtask) return;
+    postToServiceWorker('PAUSE_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+    setIsTrackingSubtask(false);
   };
 
-  const resumeSubtaskTracking = async () => {
-    if (!trackingSubtask || !user || isTrackingSubtask) return;
-
-    try {
-      const now = Date.now();
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      
-      await updateDoc(sessionRef, {
-        startTime: now,
-        pausedAt: null,
-        isPaused: false,
-      });
-
-      setIsTrackingSubtask(true);
-      setSubtaskStartTime(now);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'RESUME_SUBTASK_TIME_TRACKING'
-        });
-      }
-
-      toast({
-        title: "Time tracking resumed",
-        description: `Resumed tracking for "${trackingSubtask.subtaskTitle}"`,
-      });
-    } catch (error) {
-      console.error("Error resuming subtask tracking:", error);
-      toast({
-        title: "Failed to resume tracking",
-        variant: "destructive",
-      });
-    }
+  const resumeSubtaskTracking = () => {
+    if (!trackingSubtask) return;
+    postToServiceWorker('RESUME_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+    setIsTrackingSubtask(true);
   };
 
   const stopSubtaskTracking = async () => {
-    if (!trackingSubtask || !user) {
-      setTrackingSubtask(null);
-      setCurrentSubtaskElapsedSeconds(0);
-      setIsTrackingSubtask(false);
-      setSubtaskStartTime(null);
-      return;
+    if (!trackingSubtask) return;
+
+    const finalSeconds = currentSubtaskElapsedSeconds;
+    postToServiceWorker('STOP_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+
+    if (finalSeconds > 0) {
+      await updateSubtaskTimeSpent(trackingSubtask.taskId, trackingSubtask.subtaskId, finalSeconds);
+      toast({ title: "Time saved!", description: `Saved ${getFormattedTime(finalSeconds)} for subtask` });
     }
 
-    try {
-      const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSubtaskSession');
-      const finalSeconds = currentSubtaskElapsedSeconds;
+    setTrackingSubtask(null);
+    setCurrentSubtaskElapsedSeconds(0);
+    setIsTrackingSubtask(false);
+  };
 
-      if (finalSeconds > 0) {
-        await updateSubtaskTimeSpent(trackingSubtask.taskId, trackingSubtask.subtaskId, finalSeconds);
-        const formattedTime = getFormattedTime(finalSeconds);
-
-        toast({
-          title: "Time tracking stopped",
-          description: `Saved ${formattedTime} for subtask "${trackingSubtask.subtaskTitle}"`,
-        });
-      }
-
-      await deleteDoc(sessionRef);
-
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'STOP_SUBTASK_TIME_TRACKING'
-        });
-      }
-    } catch (error) {
-      console.error("Error stopping subtask tracking:", error);
-      toast({
-        title: "Failed to save time",
-        description: "Could not save the tracked time. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setTrackingSubtask(null);
-      setCurrentSubtaskElapsedSeconds(0);
-      setIsTrackingSubtask(false);
-      setSubtaskStartTime(null);
-    }
+  const getFormattedTime = (seconds: number): string => {
+    if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) return '0s';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    if (minutes > 0) return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+    return `${remainingSeconds}s`;
   };
 
   const value = {

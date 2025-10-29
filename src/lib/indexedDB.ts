@@ -102,6 +102,11 @@ class IndexedDBManager {
           notificationStore.createIndex('scheduledTime', 'scheduledTime', { unique: false });
           notificationStore.createIndex('createdAt', 'createdAt', { unique: false });
         }
+
+        // Active timer session store
+        if (!db.objectStoreNames.contains('activeTimerSession')) {
+          db.createObjectStore('activeTimerSession', { keyPath: 'id' });
+        }
       };
     });
   }
