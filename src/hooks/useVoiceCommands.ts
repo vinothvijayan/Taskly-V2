@@ -74,17 +74,20 @@ export function useVoiceCommands() {
       const activeCount = getActiveTasksCount();
       speak(`Current active task count is ${activeCount}.`);
     } else if (lowerTranscript.includes('create task') || lowerTranscript.includes('add task')) {
-      const taskMatch = lowerTranscript.match(/(create task|add task) (.+)/);
+      // Extract command after 'create task' or 'add task'
+      const commandRegex = /(create task|add task)\s+(.+)/;
+      const taskMatch = lowerTranscript.match(commandRegex);
+      
       if (taskMatch && taskMatch[2]) {
         const title = taskMatch[2].trim();
         if (user) {
           addTask({ title, priority: 'medium', status: 'todo', createdBy: user.uid, createdAt: new Date().toISOString() } as Omit<Task, 'id' | 'createdAt'>);
           speak(`Task created: ${title}`);
         } else {
-          speak('Please sign in to create tasks.');
+          speak('Authentication required to log new tasks.');
         }
       } else {
-        speak('What should the task be called?');
+        speak('Please specify the task title.');
       }
     } else if (lowerTranscript.includes('start tracking')) {
       if (isTracking && trackingTask) {
@@ -129,7 +132,7 @@ export function useVoiceCommands() {
 
     recognitionRef.current.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
-      const lowerTranscript = transcript.toLowerCase().trim();
+      let lowerTranscript = transcript.toLowerCase().trim();
       console.log('Raw Transcript:', lowerTranscript);
 
       // Clear the wake word timeout if we receive any result
@@ -138,20 +141,33 @@ export function useVoiceCommands() {
         wakeWordTimeoutRef.current = null;
       }
 
-      if (isWakeWordDetected) {
-        // If wake word was detected, process the command immediately
+      // 1. Check if the wake word is present in the transcript
+      if (lowerTranscript.includes(WAKE_WORD)) {
+        // Remove the wake word and any leading/trailing spaces/punctuation for processing
+        const command = lowerTranscript.replace(WAKE_WORD, '').trim();
+        
+        // If a command exists immediately after the wake word, process it now
+        if (command.length > 0) {
+            setIsWakeWordDetected(false);
+            processCommand(command);
+            return; // Command processed, exit handler
+        }
+        
+        // 2. If only the wake word was detected, enter AWAITING COMMAND state
+        if (!isWakeWordDetected) {
+            setIsWakeWordDetected(true);
+            speak('Yes?');
+            
+            // Set a timeout to reset the state if no command follows quickly
+            wakeWordTimeoutRef.current = setTimeout(() => {
+                setIsWakeWordDetected(false);
+                speak('Request timed out. Listening for wake word.');
+            }, 4000); // 4 seconds to issue a command
+        }
+      } else if (isWakeWordDetected) {
+        // 3. If we are already in AWAITING COMMAND state, process the transcript as the command
         setIsWakeWordDetected(false);
         processCommand(lowerTranscript);
-      } else if (lowerTranscript.includes(WAKE_WORD)) {
-        // Wake word detected, set flag and start timeout for command
-        setIsWakeWordDetected(true);
-        speak('Yes?');
-        
-        // Set a timeout to reset the wake word state if no command follows quickly
-        wakeWordTimeoutRef.current = setTimeout(() => {
-            setIsWakeWordDetected(false);
-            speak('Request timed out. Listening for wake word.');
-        }, 4000); // 4 seconds to issue a command
       }
     };
 
