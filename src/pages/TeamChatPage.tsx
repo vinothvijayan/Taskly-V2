@@ -404,7 +404,7 @@ export default function TeamChatPage() {
                                 {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
-                                    <p className="break-words leading-relaxed">
+                                    <p className="break-words leading-relaxed whitespace-pre-wrap">
                                       {message.message}
                                     </p>
                                   )}
@@ -427,7 +427,7 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-full p-1">
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
                           <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
@@ -507,7 +507,7 @@ export default function TeamChatPage() {
                                 {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
-                                    <p className="break-words leading-relaxed">
+                                    <p className="break-words leading-relaxed whitespace-pre-wrap">
                                       {message.message}
                                     </p>
                                   )}
