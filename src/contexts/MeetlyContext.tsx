@@ -144,6 +144,11 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           title: "Recording Started 🎙️",
           description: "Recording system audio from the selected tab/screen.",
         });
+      } else {
+        toast({
+          title: "Recording Started 🎙️",
+          description: "Recording audio from your microphone.",
+        });
       }
     } catch (error) {
       console.error("Error starting MediaRecorder:", error);
@@ -224,18 +229,16 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           });
           
           if (systemError.name === 'NotAllowedError') {
-            toast({
-              title: "Microphone Only 🎤",
-              description: "Screen share was cancelled. Recording microphone input instead.",
-            });
+            // User cancelled the screen share prompt, no extra toast needed, just start mic.
           } else {
+            // System audio failed for another reason (like NotSupportedError)
             toast({
-              title: "Microphone Only 🎤",
-              description: systemError.message,
+              title: "System Audio Failed",
+              description: "Falling back to microphone. For best results, share a single browser tab with audio enabled.",
             });
           }
 
-          await startRecorderWithStream(micStream, false); // Record with microphone
+          await startRecorderWithStream(micStream, false); // This will now show its own success toast
 
         } catch (micError: any) {
           console.error("Microphone fallback also failed:", micError);
