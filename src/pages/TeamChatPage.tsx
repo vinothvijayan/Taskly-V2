@@ -424,7 +424,33 @@ export default function TeamChatPage() {
                       </div>
                     </ScrollArea>
                   </div>
-                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10"><div className="flex gap-2"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus rows={1} className="flex-1 rounded-full border-0 bg-muted/30 resize-none overflow-hidden py-2 px-4 leading-tight" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div></div>
+                  <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
+                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                        </Button>
+                        <Textarea 
+                          value={newMessage} 
+                          onChange={(e) => setNewMessage(e.target.value)} 
+                          onKeyDown={handleKeyDown} 
+                          ref={inputRef} 
+                          placeholder="Type a message" 
+                          autoFocus 
+                          rows={1} 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
+                        />
+                      </div>
+                      <Button 
+                        onClick={sendMessage} 
+                        disabled={!newMessage.trim() || sending} 
+                        size="icon" 
+                        className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md h-10 w-10 flex-shrink-0"
+                      >
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )
             )}
@@ -498,8 +524,32 @@ export default function TeamChatPage() {
                       </div>
                     </ScrollArea>
                   </div>
-                  <div className="bg-background border-t px-6 py-4 shadow-lg z-10">
-                    <div className="flex gap-3"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus rows={1} className="flex-1 rounded-full border-0 bg-muted/50 resize-none overflow-hidden py-2 px-4 leading-tight" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div>
+                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
+                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                        </Button>
+                        <Textarea 
+                          value={newMessage} 
+                          onChange={(e) => setNewMessage(e.target.value)} 
+                          onKeyDown={handleKeyDown} 
+                          ref={inputRef} 
+                          placeholder="Type a message" 
+                          autoFocus 
+                          rows={1} 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
+                        />
+                      </div>
+                      <Button 
+                        onClick={sendMessage} 
+                        disabled={!newMessage.trim() || sending} 
+                        size="icon" 
+                        className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-10 w-10 flex-shrink-0"
+                      >
+                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                 </>
               ) : (
