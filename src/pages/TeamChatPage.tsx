@@ -89,7 +89,6 @@ export default function TeamChatPage() {
   // Set up real-time listener for messages when a user is selected
   useEffect(() => {
     if (selectedUser && user) {
-      console.time('Chat Load Time');
       setupChatListener(selectedUser.uid);
     }
     
@@ -121,13 +120,11 @@ export default function TeamChatPage() {
         const messagesList: ChatMessage[] = Object.entries(data).map(([key, value]: any) => ({ id: key, ...value }));
         messagesList.sort((a, b) => a.timestamp - b.timestamp);
         setMessages(messagesList);
-        console.timeEnd('Chat Load Time');
         setupMessageStatusListener(otherUserId);
         const messageIds = messagesList.map(msg => msg.id);
         markMessagesAsReadBatch(chatRoomId, messageIds).catch(e => console.warn(e));
       } else {
         setMessages([]);
-        console.timeEnd('Chat Load Time');
         setupMessageStatusListener(otherUserId);
       }
       setLoading(false);
