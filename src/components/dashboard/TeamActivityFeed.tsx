@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckSquare, MessageSquare, PlusSquare, ThumbsUp, Users } from 'lucide-react';
+import { CheckSquare, MessageSquare, PlusSquare, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -17,11 +17,13 @@ import { ReactionToast } from '@/components/ui/ReactionToast';
 import { useTasks } from '@/contexts/TasksContext';
 import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
 
+const EMOJIS = ['👍', '🔥', '❤️'];
+
 const useActivities = (
   teamId: string | undefined,
   currentUserId: string | undefined,
   teamMembers: UserProfile[],
-  onNewReaction: (reactor: UserProfile, taskTitle: string) => void
+  onNewReaction: (reactor: UserProfile, taskTitle: string, emoji: string) => void
 ) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,33 +53,34 @@ const useActivities = (
         newActivities.forEach(newActivity => {
           const oldActivity = prevActivitiesRef.current.find(a => a.id === newActivity.id);
           if (oldActivity) {
-            const oldReactors = new Set(oldActivity.reactions?.['👍'] || []);
-            const newReactors = newActivity.reactions?.['👍'] || [];
-            
-            newReactors.forEach(reactorId => {
-              if (!oldReactors.has(reactorId)) { // This is a new reaction
-                const reactor = teamMembers.find(m => m.uid === reactorId);
-                const activityAuthorId = newActivity.actor.uid;
+            EMOJIS.forEach(emoji => {
+              const oldReactors = new Set(oldActivity.reactions?.[emoji] || []);
+              const newReactors = newActivity.reactions?.[emoji] || [];
+              
+              newReactors.forEach(reactorId => {
+                if (!oldReactors.has(reactorId)) { // This is a new reaction
+                  const reactor = teamMembers.find(m => m.uid === reactorId);
+                  const activityAuthorId = newActivity.actor.uid;
 
-                if (reactor && newActivity.task?.title) {
-                  // 1. Show the toast for everyone (including the reactor)
-                  onNewReaction(reactor, newActivity.task.title);
+                  if (reactor && newActivity.task?.title) {
+                    // 1. Show the toast for everyone
+                    onNewReaction(reactor, newActivity.task.title, emoji);
 
-                  // 2. Send a system notification ONLY to the author of the activity,
-                  //    and only if the reactor is not the author.
-                  if (currentUserId === activityAuthorId && reactorId !== currentUserId) {
-                    unifiedNotificationService.sendNotification({
-                      title: '👍 New Reaction',
-                      body: `${reactor.displayName || 'Someone'} reacted to your activity on "${newActivity.task.title}"`,
-                      type: 'general',
-                      data: {
-                        taskId: newActivity.task.id,
-                        type: 'reaction'
-                      }
-                    });
+                    // 2. Send a system notification ONLY to the author
+                    if (currentUserId === activityAuthorId && reactorId !== currentUserId) {
+                      unifiedNotificationService.sendNotification({
+                        title: `${emoji} New Reaction`,
+                        body: `${reactor.displayName || 'Someone'} reacted to your activity on "${newActivity.task.title}"`,
+                        type: 'general',
+                        data: {
+                          taskId: newActivity.task.id,
+                          type: 'reaction'
+                        }
+                      });
+                    }
                   }
                 }
-              }
+              });
             });
           }
         });
@@ -143,9 +146,6 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
     }
   };
 
-  const reactions = activity.reactions?.['👍'] || [];
-  const hasReacted = user ? reactions.includes(user.uid) : false;
-
   return (
     <motion.div
       layout
@@ -167,17 +167,27 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant={hasReacted ? "secondary" : "ghost"}
-            size="sm"
-            className="h-7 px-2 gap-1"
-            onClick={() => toggleReaction('👍')}
-          >
-            <ThumbsUp className={cn("h-4 w-4", hasReacted && "text-primary")} />
-            <span className={cn("text-xs", hasReacted ? "text-primary font-semibold" : "text-muted-foreground")}>
-              {reactions.length > 0 ? reactions.length : ''}
-            </span>
-          </Button>
+          {EMOJIS.map(emoji => {
+            const reactions = activity.reactions?.[emoji] || [];
+            const hasReacted = user ? reactions.includes(user.uid) : false;
+            
+            return (
+              <Button
+                key={emoji}
+                variant={hasReacted ? "secondary" : "ghost"}
+                size="sm"
+                className="h-7 px-2 gap-1"
+                onClick={() => toggleReaction(emoji)}
+              >
+                <span className={cn("text-base transition-transform", hasReacted && "scale-110")}>{emoji}</span>
+                {reactions.length > 0 && (
+                  <span className={cn("text-xs", hasReacted ? "text-primary font-semibold" : "text-muted-foreground")}>
+                    {reactions.length}
+                  </span>
+                )}
+              </Button>
+            );
+          })}
         </div>
       </div>
     </motion.div>
@@ -188,12 +198,13 @@ export function TeamActivityFeed() {
   const { user, userProfile } = useAuth();
   const { teamMembers } = useTasks();
 
-  const handleNewReaction = useCallback((reactor: UserProfile, taskTitle: string) => {
+  const handleNewReaction = useCallback((reactor: UserProfile, taskTitle: string, emoji: string) => {
     toast.custom((t) => (
       <ReactionToast
         reactorName={reactor.displayName || 'A team member'}
         reactorAvatarUrl={reactor.photoURL}
         taskTitle={taskTitle}
+        emoji={emoji}
       />
     ), {
       duration: 4000,

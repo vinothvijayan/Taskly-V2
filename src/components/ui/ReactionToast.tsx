@@ -1,16 +1,16 @@
 import { motion } from 'framer-motion';
-import { ThumbsUp } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ReactionToastProps {
   reactorName: string;
   reactorAvatarUrl?: string;
   taskTitle: string;
+  emoji: string;
 }
 
 const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
-export const ReactionToast = ({ reactorName, reactorAvatarUrl, taskTitle }: ReactionToastProps) => {
+export const ReactionToast = ({ reactorName, reactorAvatarUrl, taskTitle, emoji }: ReactionToastProps) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -24,8 +24,8 @@ export const ReactionToast = ({ reactorName, reactorAvatarUrl, taskTitle }: Reac
           <AvatarImage src={reactorAvatarUrl} />
           <AvatarFallback>{getInitials(reactorName)}</AvatarFallback>
         </Avatar>
-        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-          <ThumbsUp className="h-4 w-4 text-primary fill-primary" />
+        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 text-lg leading-none">
+          {emoji}
         </div>
       </div>
       <div className="flex-1 min-w-0">
