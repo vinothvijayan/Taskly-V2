@@ -18,13 +18,20 @@ import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters."),
   contact: z.string().min(2, "Contact name is required."),
   value: z.coerce.number().min(0, "Value must be a positive number."),
   closeDate: z.date({ required_error: "A close date is required." }),
-  stage: z.enum(['Interested Lead', 'Meeting', 'Follow-ups', 'Closed Won', 'Closed Lost']).default('Interested Lead'),
+  stage: z.enum(['Interested Lead', 'Meeting', 'Follow-ups', 'Deal Making Concept', 'Closed Won', 'Closed Lost']).default('Interested Lead'),
 });
 
 type OpportunityFormData = z.infer<typeof formSchema>;
@@ -134,6 +141,31 @@ export function OpportunityForm({ opportunity, onSubmit, onCancel }: Opportunity
                   />
                 </PopoverContent>
               </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="stage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Stage</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a stage" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Interested Lead">Interested Lead</SelectItem>
+                  <SelectItem value="Meeting">Meeting</SelectItem>
+                  <SelectItem value="Follow-ups">Follow-ups</SelectItem>
+                  <SelectItem value="Deal Making Concept">Deal Making Concept</SelectItem>
+                  <SelectItem value="Closed Won">Closed Won</SelectItem>
+                  <SelectItem value="Closed Lost">Closed Lost</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
