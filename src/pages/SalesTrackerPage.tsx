@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall, Plus, RefreshCw } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { startOfDay, endOfDay, format } from "date-fns";
@@ -319,42 +319,47 @@ export default function SalesTrackerPage() {
     }
 
     const filtered = contacts.filter(contact => {
-        const hasCallHistory = contact.callHistory && contact.callHistory.length > 0;
+      const hasCallHistory = contact.callHistory && contact.callHistory.length > 0;
 
-        if (includesNewContacts && !hasCallHistory) {
-            if (dateRange?.from) return false;
-            return true;
-        }
+      // A contact can be included if it's a "New Contact" OR if it matches other criteria.
+      const isNewContactMatch = includesNewContacts && !hasCallHistory;
 
-        if (!hasCallHistory) {
-            return false;
-        }
+      let isHistoricalMatch = false;
+      const otherFeedbackFiltersActive = otherInitialFeedbacks.length > 0 || followUpCallFeedback.length > 0;
 
-        if (includesNewContacts && otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0 && !dateRange?.from) {
-            return false;
-        }
-
-        const matchesOtherCriteria = contact.callHistory.some(log => {
-            let dateMatch = true;
+      // Only check historical contacts if a relevant filter is active
+      if (hasCallHistory && (otherFeedbackFiltersActive || dateRange?.from)) {
+        // This is the key: if the only feedback filter is "New Contact", don't match historical contacts based on date alone.
+        if (includesNewContacts && !otherFeedbackFiltersActive) {
+          isHistoricalMatch = false;
+        } else {
+          isHistoricalMatch = contact.callHistory.some(log => {
+            // Check 1: Date Range
             if (dateRange?.from) {
-                const from = startOfDay(dateRange.from);
-                const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-                const logDate = new Date(log.timestamp);
-                dateMatch = logDate >= from && logDate <= to;
-            }
-            if (!dateMatch) return false;
-
-            const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
-            const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
-
-            if (otherInitialFeedbacks.length === 0 && followUpCallFeedback.length === 0) {
-                return true;
+              const from = startOfDay(dateRange.from);
+              const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+              const logDate = new Date(log.timestamp);
+              if (!(logDate >= from && logDate <= to)) {
+                return false; // This log is out of range, try next log
+              }
             }
 
-            return initialMatch || followupMatch;
-        });
+            // Check 2: Feedback Status
+            if (otherFeedbackFiltersActive) {
+              const initialMatch = log.type === 'New Call' && otherInitialFeedbacks.includes(log.feedback);
+              const followupMatch = log.type === 'Follow-up' && followUpCallFeedback.includes(log.feedback);
+              if (!initialMatch && !followupMatch) {
+                return false; // This log's feedback doesn't match, try next log
+              }
+            }
+            
+            // If we reach here, this log satisfies all active historical filters.
+            return true;
+          });
+        }
+      }
 
-        return matchesOtherCriteria;
+      return isNewContactMatch || isHistoricalMatch;
     });
 
     if (filtered.length === 0) {
