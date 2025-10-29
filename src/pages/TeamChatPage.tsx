@@ -69,7 +69,7 @@ export default function TeamChatPage() {
   const [showChat, setShowChat] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [readByOther, setReadByOther] = useState<Record<string, boolean>>({});
-  const [fileToPreview, setFileToPreview] = useState<File | null>(null);
+  const [filesToPreview, setFilesToPreview] = useState<File[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatRoomRef = useRef<any>(null);
@@ -208,11 +208,15 @@ export default function TeamChatPage() {
     }
   };
 
-  const handleSendAttachment = async (file: File, caption: string) => {
-    if (!user || !selectedUser || !userProfile) return;
+  const handleSendAttachment = async (files: File[], caption: string) => {
+    if (!user || !selectedUser || !userProfile || files.length === 0) return;
     setSending(true);
     try {
-        const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
+      const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isLastFile = i === files.length - 1;
         const timestamp = Date.now();
         const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
         const fileRef = storageRef(storage, filePath);
@@ -226,7 +230,7 @@ export default function TeamChatPage() {
             senderName: userProfile.displayName || user.email || 'Unknown',
             senderEmail: user.email || '',
             senderAvatar: userProfile.photoURL,
-            message: caption,
+            message: isLastFile ? caption : '', // Only add caption to the last image
             timestamp: serverTimestamp(),
             type: 'image',
             imageUrl: imageUrl,
@@ -234,25 +238,32 @@ export default function TeamChatPage() {
 
         await push(messagesRef, messageData);
 
-        const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
-        await setDoc(chatRoomInfoRef, { 
-            participants: [user.uid, selectedUser.uid], 
-            lastActivity: firestoreServerTimestamp(),
-            lastMessage: { ...messageData, message: caption || '📷 Image' }
-        }, { merge: true });
-
-        if (user.uid !== selectedUser.uid) {
-            notificationService.addInAppNotification(
-                selectedUser.uid,
-                `New message from ${messageData.senderName}`,
-                caption || 'Sent an image',
-                'chat',
-                { chatRoomId, senderId: user.uid, senderName: messageData.senderName }
-            ).catch(e => console.warn(e));
+        // Update last message info for the chat room
+        if (isLastFile) {
+          const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+          await setDoc(chatRoomInfoRef, { 
+              participants: [user.uid, selectedUser.uid], 
+              lastActivity: firestoreServerTimestamp(),
+              lastMessage: { ...messageData, message: caption || '📷 Image' }
+          }, { merge: true });
         }
+      }
+
+      // Send a single notification for the batch
+      if (user.uid !== selectedUser.uid) {
+        const notificationBody = caption ? `Sent ${files.length} image(s): ${caption}` : `Sent ${files.length} image(s)`;
+        notificationService.addInAppNotification(
+            selectedUser.uid,
+            `New message from ${userProfile.displayName || user.email || 'Unknown'}`,
+            notificationBody,
+            'chat',
+            { chatRoomId, senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown' }
+        ).catch(e => console.warn(e));
+      }
+
     } catch (error) {
         console.error("Error sending attachment:", error);
-        toast({ title: "Failed to send image", variant: "destructive" });
+        toast({ title: "Failed to send image(s)", variant: "destructive" });
     } finally {
         setSending(false);
     }
@@ -260,9 +271,9 @@ export default function TeamChatPage() {
 
   const handleAttachmentClick = () => fileInputRef.current?.click();
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFileToPreview(file);
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length > 0) {
+      setFilesToPreview(files);
     }
   };
 
@@ -345,11 +356,11 @@ export default function TeamChatPage() {
 
   return (
     <>
-      <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
+      <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" multiple className="hidden" />
       <AttachmentPreviewModal
-        open={!!fileToPreview}
-        onOpenChange={(isOpen) => { if (!isOpen) setFileToPreview(null); }}
-        file={fileToPreview}
+        open={filesToPreview.length > 0}
+        onOpenChange={(isOpen) => { if (!isOpen) setFilesToPreview([]); }}
+        files={filesToPreview}
         onSend={handleSendAttachment}
       />
       <div className="h-full w-full bg-background flex overflow-hidden min-h-0">
@@ -427,7 +438,7 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-full p-1">
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
                           <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
@@ -512,10 +523,8 @@ export default function TeamChatPage() {
                                     </p>
                                   )}
                                   <div className={cn(
-                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap",
-                                    hasImage && !hasCaption
-                                      ? "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
-                                      : "mt-1 w-full justify-end"
+                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end",
+                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
                                   )}>
                                     <span>{formatMessageTime(message.timestamp)}</span>
                                     {isMyMessage && getMessageTickIcon(message)}
