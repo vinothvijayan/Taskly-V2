@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const stages = ['Interested Lead', 'Meeting', 'Follow-ups', 'Deal Making Concept', 'Closed Won', 'Closed Lost'];
+const stages = ['Interested Lead', 'Meeting', 'Follow-ups', 'Deals', 'Closed Won', 'Closed Lost'];
 
 const OpportunityCard = ({ opportunity, onEdit, onDelete, isExpanded, onExpand }: { opportunity: Opportunity, onEdit: (opp: Opportunity) => void, onDelete: (opp: Opportunity) => void, isExpanded: boolean, onExpand: () => void }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: opportunity.id });
