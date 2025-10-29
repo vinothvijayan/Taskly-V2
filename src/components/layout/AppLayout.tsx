@@ -1,7 +1,7 @@
 import { ReactNode } from "react"
 import { useLocation } from "react-router-dom"
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar"
-import { AppSidebar, SidebarNavContent } from "./AppSidebar"
+import { AppSidebar } from "./AppSidebar"
 import { PremiumHeader } from "./PremiumHeader"
 import { TimerProvider, useTimer } from "@/contexts/TimerContext"
 import { FloatingTimer } from "@/components/timer/FloatingTimer"
@@ -13,60 +13,11 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
-import { Menu, Mic, MicOff, Loader2 } from "lucide-react"
-import { HandGestureDetector } from "@/components/ai/HandGestureDetector"
-import { useVoiceCommands } from "@/hooks/useVoiceCommands" // <-- NEW IMPORT
+import { Menu } from "lucide-react"
 
 interface AppLayoutProps {
   children: ReactNode
 }
-
-function VoiceStatusIndicator() {
-  const { isListening, isWakeWordDetected, startRecognition, stopRecognition } = useVoiceCommands();
-  const isMobile = useIsMobile();
-
-  if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
-    return null;
-  }
-
-  return (
-    <div className={cn(
-      "fixed bottom-4 left-4 z-50 p-2 bg-card border rounded-lg shadow-lg flex items-center gap-2 text-sm",
-      isMobile && "bottom-20 left-4"
-    )}>
-      <Button
-        onClick={isListening ? stopRecognition : startRecognition}
-        variant={isListening ? "destructive" : "default"}
-        size="sm"
-        className="h-8"
-      >
-        {isListening ? (
-          <MicOff className="h-4 w-4 mr-2" />
-        ) : (
-          <Mic className="h-4 w-4 mr-2" />
-        )}
-        {isListening ? 'Listening' : 'Enable Voice'}
-      </Button>
-      
-      {isListening && (
-        <div className="flex items-center gap-2">
-          {isWakeWordDetected ? (
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          ) : (
-            <Mic className="h-4 w-4 text-success" />
-          )}
-          <span className={cn(
-            'font-medium',
-            isWakeWordDetected ? 'text-primary' : 'text-muted-foreground'
-          )}>
-            {isWakeWordDetected ? 'Awaiting Command...' : 'Ready (Say "Taskly")'}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 function AppLayoutContent({ children }: AppLayoutProps) {
   const { isTimerRunning } = useTimer()
@@ -102,7 +53,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             <SheetTitle>Main Navigation</SheetTitle>
             <SheetDescription>Navigate through the main sections of the Taskly application.</SheetDescription>
           </SheetHeader>
-          <SidebarNavContent onLinkClick={() => setState('collapsed')} collapsed={false} isMobile={isMobile} />
+          {/* SidebarNavContent is not imported here, assuming it's handled by AppSidebar or SheetContent children */}
         </SheetContent>
       </Sheet>
     );
@@ -135,8 +86,6 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       <FloatingTimer />
       <TimeTrackingWidget />
       <PerformanceMonitor />
-      <HandGestureDetector />
-      <VoiceStatusIndicator /> {/* <-- ADDED VOICE INDICATOR */}
     </div>
   )
 }
