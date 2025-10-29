@@ -32,30 +32,40 @@ export function useVoiceCommands() {
   const wakeWordTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const speak = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      // 1. Cancel any ongoing speech to prevent double-speaking
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      // 2. Simplify voice selection for consistency
+    if (!('speechSynthesis' in window)) return;
+
+    // 1. Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // 2. Wait for voices to load (necessary for some browsers)
+    const setVoice = () => {
       const voices = window.speechSynthesis.getVoices();
+      
+      // Prioritize a male, English, or Google voice
       const preferredVoice = voices.find(v => 
-        v.name.toLowerCase().includes('male') || 
+        (v.name.toLowerCase().includes('male') && v.lang.startsWith('en')) || 
         v.name.toLowerCase().includes('google us english')
       );
       
       if (preferredVoice) {
         utterance.voice = preferredVoice;
       } else if (voices.length > 0) {
-        // Fallback to the first available voice
-        utterance.voice = voices[0];
+        // Fallback to the first available voice (which might be female, but we can't control that)
+        // The key is that we only set ONE voice.
+        utterance.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
       }
       
       utterance.rate = 1.1;
-      
-      // 3. Speak the utterance
       window.speechSynthesis.speak(utterance);
+    };
+
+    // If voices are already loaded, set immediately. Otherwise, wait for the event.
+    if (window.speechSynthesis.getVoices().length > 0) {
+      setVoice();
+    } else {
+      window.speechSynthesis.onvoiceschanged = setVoice;
     }
   }, []);
 
