@@ -156,7 +156,7 @@ export function TeamActivityFeed() {
   }
 
   return (
-    <Card className="shadow-elegant h-full flex flex-col">
+    <Card className="shadow-elegant h-[600px] flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Team Activity</CardTitle>
       </CardHeader>
