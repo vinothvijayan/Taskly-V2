@@ -12,8 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
-import { rtdb } from "@/lib/firebase";
+import { rtdb, db } from "@/lib/firebase"; // Import db (Firestore)
 import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast } from "firebase/database";
+import { doc, setDoc, serverTimestamp as firestoreServerTimestamp } from "firebase/firestore"; // Import Firestore functions
 import { notificationService } from "@/lib/notifications";
 import { ChatMessage, ChatRoom, UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
@@ -164,8 +165,14 @@ export default function TeamChatPage() {
       const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
       const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = { senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown', senderEmail: user.email || '', senderAvatar: userProfile.photoURL, message: messageContent, timestamp: serverTimestamp(), type: 'text' };
       await push(messagesRef, messageData);
-      const chatRoomInfoRef = ref(rtdb, `chatRooms/${chatRoomId}`);
-      push(chatRoomInfoRef, { participants: [user.uid, selectedUser.uid], lastActivity: serverTimestamp(), lastMessage: messageData }).catch(e => console.warn(e));
+      
+      // --- FIX: Write to Firestore instead of RTDB ---
+      const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+      await setDoc(chatRoomInfoRef, { 
+        participants: [user.uid, selectedUser.uid], 
+        lastActivity: firestoreServerTimestamp(),
+        lastMessage: messageData 
+      }, { merge: true });
       
       // Only send in-app notification if not a self-chat
       if (user.uid !== selectedUser.uid) {
