@@ -65,6 +65,7 @@ const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const AdminUserManagementPage = lazy(() => import("./pages/AdminUserManagementPage")); // NEW IMPORT
 
 // Create QueryClient instance outside component
 const queryClient = new QueryClient({
@@ -377,6 +378,11 @@ function AppContent() {
                     <Route path="/sales-tools" element={
                       <AdminRoute>
                         <SalesToolsPage />
+                      </AdminRoute>
+                    } />
+                    <Route path="/admin/users" element={ // NEW ROUTE
+                      <AdminRoute>
+                        <AdminUserManagementPage />
                       </AdminRoute>
                     } />
                     <Route path="/timer" element={<TimerPage />} />

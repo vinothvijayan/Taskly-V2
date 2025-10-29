@@ -14,7 +14,8 @@ import {
   DollarSign,
   Zap,
   ChevronRight,
-  Wrench
+  Wrench,
+  UserCog // NEW ICON
 } from "lucide-react"
 import {
   Sidebar,
@@ -48,6 +49,7 @@ const navItems = [
       { title: "Call Tracker", url: "/sales-tracker", icon: Phone },
       { title: "Opportunities", url: "/sales-opportunity", icon: Zap },
       { title: "Sales Tools", url: "/sales-tools", icon: Wrench },
+      { title: "User Management", url: "/admin/users", icon: UserCog }, // NEW SUBITEM
     ],
   },
   { title: "Focus Timer", url: "/timer", icon: Timer },
