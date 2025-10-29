@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
 import { rtdb } from "@/lib/firebase";
 import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast } from "firebase/database";
@@ -48,7 +48,6 @@ export default function TeamChatPage() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   
-  // CHANGE #1: Import `setOpen` for sidebar control
   const { setChatOpenMobile, setOpen } = useSidebar();
   
   const { impact } = useHapticFeedback();
@@ -69,7 +68,6 @@ export default function TeamChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
 
-  // CHANGE #2: Add useEffect to collapse the sidebar on page load
   useEffect(() => {
     if (setOpen) {
       if (window.innerWidth >= 768) {
@@ -164,7 +162,7 @@ export default function TeamChatPage() {
     try {
       const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
       const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
-      const messageData: Omit<ChatMessage, 'id'> = { senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown', senderEmail: user.email || '', message: messageContent, timestamp: Date.now(), type: 'text' };
+      const messageData: Omit<ChatMessage, 'id'> = { senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown', senderEmail: user.email || '', senderAvatar: userProfile.photoURL, message: messageContent, timestamp: Date.now(), type: 'text' };
       await push(messagesRef, messageData);
       const chatRoomInfoRef = ref(rtdb, `chatRooms/${chatRoomId}`);
       push(chatRoomInfoRef, { participants: [user.uid, selectedUser.uid], lastActivity: serverTimestamp(), lastMessage: messageData }).catch(e => console.warn(e));
@@ -215,7 +213,15 @@ export default function TeamChatPage() {
     return groups;
   };
   const filteredMembers = teamMembers.filter(m => m.uid !== user?.uid && (m.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || m.email.toLowerCase().includes(searchTerm.toLowerCase())));
-  const handleSelectUser = (member: UserProfile) => { setSelectedUser(member); setShowChat(true); setChatOpenMobile(true); };
+  const handleSelectUser = (member: UserProfile) => { 
+    setSelectedUser(member); 
+    setShowChat(true); 
+    setChatOpenMobile(true);
+    if (user) {
+      const chatRoomId = generateChatRoomId(user.uid, member.uid);
+      markChatAsRead(chatRoomId);
+    }
+  };
   const handleBackToList = () => { setShowChat(false); setSelectedUser(null); setChatOpenMobile(false); };
   const createTaskFromMessage = async (message: ChatMessage) => {
     try {

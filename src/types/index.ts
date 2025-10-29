@@ -76,6 +76,7 @@ export interface ChatMessage {
   senderId: string;
   senderName: string;
   senderEmail: string;
+  senderAvatar?: string;
   message: string;
   timestamp: number;
   type: 'text' | 'system';

@@ -3,48 +3,34 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { rtdb, db } from '@/lib/firebase';
-// Change 1: Aliased the RTDB query function to `rtdbQuery`
 import { ref, onChildAdded, off, query as rtdbQuery, orderByChild, limitToLast } from 'firebase/database'; 
-import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
-// Change 2: Imported the `query` function from Firestore
 import { collection, where, onSnapshot, Unsubscribe, Query, DocumentData, CollectionReference, query } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
-import { getSafeNotificationId } from '@/lib/notificationId'; // Import the new helper
-
-interface ChatMessage {
-  id: string;
-  content: string;
-  senderId: string;
-  senderName: string;
-  timestamp: number;
-  chatId?: string; // Optional, as it might be derived from chatRoomId
-}
+import { getSafeNotificationId } from '@/lib/notificationId';
+import { useTeamChat } from '@/contexts/TeamChatContext';
+import { toast } from 'sonner';
+import { ChatMessageToast } from '@/components/ui/ChatMessageToast';
+import { ChatMessage } from '@/types';
 
 /**
  * A headless component that monitors for new team chat messages and sends 
- * local notifications to the user when they receive messages from other team members.
+ * local notifications, updates unread counts, and shows toasts.
  */
 export function ChatMessageNotifier() {
   const { user } = useAuth();
-  // Use a Map to store the last seen timestamp for each chat room
+  const { incrementUnreadCount } = useTeamChat();
   const lastSeenPerRoom = useRef<Map<string, number>>(new Map());
   const rtdbUnsubscribers = useRef<Map<string, () => void>>(new Map());
   const firestoreUnsubscribeRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (!user) {
-      // Clear all listeners and state if user logs out
       cleanupListeners();
       lastSeenPerRoom.current.clear();
       return;
     }
 
-    // Initialize unified notification service (ensures Capacitor/Web APIs are ready)
-    unifiedNotificationService.init();
-
-    // Firestore listener for chat rooms the user is a participant in
     const chatRoomsCollectionRef: CollectionReference<DocumentData> = collection(db, 'chatRooms');
-    // This line is now correct because `query` resolves to the firestore import
     const chatRoomsQuery: Query<DocumentData> = query(
       chatRoomsCollectionRef,
       where('participants', 'array-contains', user.uid)
@@ -56,29 +42,22 @@ export function ChatMessageNotifier() {
         currentChatRoomIds.add(doc.id);
       });
 
-      // Unsubscribe from RTDB listeners for chat rooms the user is no longer in
       rtdbUnsubscribers.current.forEach((unsub, chatRoomId) => {
         if (!currentChatRoomIds.has(chatRoomId)) {
           unsub();
           rtdbUnsubscribers.current.delete(chatRoomId);
-          lastSeenPerRoom.current.delete(chatRoomId); // Also clear last seen for removed rooms
+          lastSeenPerRoom.current.delete(chatRoomId);
         }
       });
 
-      // Set up new RTDB listeners for new chat rooms
       currentChatRoomIds.forEach(chatRoomId => {
         if (!rtdbUnsubscribers.current.has(chatRoomId)) {
-          // Query for messages ordered by timestamp, limiting to the last few
-          // This helps catch recent messages if the app was briefly offline
-          
-          // Change 3: Used the `rtdbQuery` alias for the Realtime Database query
           const messagesQuery = rtdbQuery(
             ref(rtdb, `chats/${chatRoomId}/messages`),
             orderByChild('timestamp'),
-            limitToLast(10) // Adjust as needed to catch recent messages
+            limitToLast(10)
           );
           
-          // Use onChildAdded to listen for new messages
           const messageUnsubscribe = onChildAdded(messagesQuery, (messagesSnapshot) => {
             const messageData = messagesSnapshot.val();
             const messageId = messagesSnapshot.key;
@@ -87,41 +66,47 @@ export function ChatMessageNotifier() {
 
             const message = { id: messageId, ...messageData } as ChatMessage;
             
-            // Only process messages from other users
             if (message.senderId === user.uid) {
-              // Update last seen for own messages too, to avoid notifying on them later
               lastSeenPerRoom.current.set(chatRoomId, message.timestamp);
               return;
             }
 
-            // Check if this message is newer than the last one we processed for this room
             const lastSeenTimestamp = lastSeenPerRoom.current.get(chatRoomId) || 0;
             if (message.timestamp <= lastSeenTimestamp) {
-              // This message was already seen or is older than the last processed message
               return;
             }
 
-            // Update last seen timestamp for this room
             lastSeenPerRoom.current.set(chatRoomId, message.timestamp);
 
-            // Schedule notification for both platforms
+            // Increment unread count and show toast
+            incrementUnreadCount(chatRoomId);
+            toast.custom((t) => (
+              <ChatMessageToast
+                senderName={message.senderName}
+                senderAvatarUrl={message.senderAvatar}
+                messagePreview={message.message}
+                onDismiss={() => toast.dismiss(t)}
+              />
+            ));
+
+            // Schedule native/PWA notification
             const notificationTitle = `New message from ${message.senderName}`;
-            const notificationBody = message.content.length > 100 ? `${message.content.substring(0, 100)}...` : message.content;
-            const notificationId = getSafeNotificationId(message.timestamp); // Use message timestamp as seed
+            const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
+            const notificationId = getSafeNotificationId(message.timestamp);
 
             if (Capacitor.isNativePlatform()) {
               import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
                 LocalNotifications.schedule({
                   notifications: [{
-                    id: notificationId, // Use the safe ID
+                    id: notificationId,
                     title: notificationTitle,
                     body: notificationBody,
-                    schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true }, // Show almost immediately
-                    channelId: 'app_main_channel', // Use the main channel created in App.tsx
+                    schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
+                    channelId: 'app_main_channel',
                     extra: {
                       type: 'chat_message',
                       senderId: message.senderId,
-                      chatRoomId: chatRoomId, // Pass the chat room ID for navigation
+                      chatRoomId: chatRoomId,
                     }
                   }]
                 }).catch(error => {
@@ -129,13 +114,12 @@ export function ChatMessageNotifier() {
                 });
               });
             } else {
-              // Web notification (browser Notification API)
               if ('Notification' in window && Notification.permission === 'granted') {
                 new Notification(notificationTitle, {
                   body: notificationBody,
                   icon: '/icon-192x192.png',
                   badge: '/icon-192x192.png',
-                  tag: `chat-message-${message.id}`, // Use message ID as tag for web
+                  tag: `chat-message-${message.id}`,
                   data: {
                     type: 'chat_message',
                     senderId: message.senderId,
@@ -152,13 +136,11 @@ export function ChatMessageNotifier() {
       });
     });
 
-    // Cleanup function for the main Firestore listener
     return () => {
       cleanupListeners();
     };
-  }, [user]);
+  }, [user, incrementUnreadCount]);
 
-  // Helper to clean up all listeners
   const cleanupListeners = () => {
     if (firestoreUnsubscribeRef.current) {
       firestoreUnsubscribeRef.current();
@@ -168,6 +150,5 @@ export function ChatMessageNotifier() {
     rtdbUnsubscribers.current.clear();
   };
 
-  // This is a utility component, so it renders nothing.
   return null;
 }

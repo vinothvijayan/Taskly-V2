@@ -33,6 +33,8 @@ interface TeamChatContextType {
   markChatAsRead: (chatRoomId: string) => Promise<void>;
   markMessagesAsReadBatch: (chatRoomId: string, messageIds: string[]) => Promise<void>;
   updateOnlineStatus: (online: boolean) => Promise<void>;
+  incrementUnreadCount: (chatRoomId: string) => void;
+  clearUnreadCount: (chatRoomId: string) => void;
 }
 
 const TeamChatContext = createContext<TeamChatContextType | undefined>(undefined);
@@ -43,6 +45,20 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
   const [onlineStatus, setOnlineStatus] = useState<OnlineStatus>({});
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({});
   const [messageStatus, setMessageStatus] = useState<MessageStatus>({});
+
+  const incrementUnreadCount = (chatRoomId: string) => {
+    setUnreadCounts(prev => ({
+      ...prev,
+      [chatRoomId]: (prev[chatRoomId] || 0) + 1,
+    }));
+  };
+
+  const clearUnreadCount = (chatRoomId: string) => {
+    setUnreadCounts(prev => ({
+      ...prev,
+      [chatRoomId]: 0,
+    }));
+  };
 
   // Update user's online status
   const updateOnlineStatus = async (online: boolean) => {
@@ -161,19 +177,19 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     
     try {
-      // Reset unread count for this chat
-      setUnreadCounts(prev => ({
-        ...prev,
-        [chatRoomId]: 0
-      }));
+      clearUnreadCount(chatRoomId);
 
-      // Mark all messages in this chat as read
       const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
       onValue(messagesRef, async (snapshot) => {
         const messages = snapshot.val();
         if (messages) {
-          const messageIds = Object.keys(messages);
-          await markMessagesAsReadBatch(chatRoomId, messageIds);
+          const unreadMessageIds = Object.entries(messages)
+            .filter(([id, msg]: [string, any]) => msg.senderId !== user.uid)
+            .map(([id]) => id);
+          
+          if (unreadMessageIds.length > 0) {
+            await markMessagesAsReadBatch(chatRoomId, unreadMessageIds);
+          }
         }
       }, { onlyOnce: true });
     } catch (error) {
@@ -189,7 +205,9 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     markMessageAsRead,
     markChatAsRead,
     markMessagesAsReadBatch,
-    updateOnlineStatus
+    updateOnlineStatus,
+    incrementUnreadCount,
+    clearUnreadCount,
   };
 
   return (

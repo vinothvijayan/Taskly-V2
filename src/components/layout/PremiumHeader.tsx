@@ -30,8 +30,10 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { usePipWidgetManager } from '@/hooks/usePipWidgetManager.tsx';
+import { useTeamChat } from "@/contexts/TeamChatContext";
+import { Badge } from "@/components/ui/badge";
 
 const navLinks = [
   { href: "/tasks", label: "Tasks", icon: <CheckSquare className="h-5 w-5" /> },
@@ -51,6 +53,7 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
   const { isPipSupported, isPipOpen, openPip } = usePipWidgetManager();
+  const { totalUnreadCount } = useTeamChat();
 
   const getPageTitle = () => {
     const path = location.pathname;
@@ -122,13 +125,21 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
                     to={link.href}
                     aria-label={link.label}
                     className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent",
+                      "relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent",
                       location.pathname.startsWith(link.href)
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {link.icon}
+                    {link.href === '/team-chat' && totalUnreadCount > 0 && (
+                      <Badge 
+                        variant="destructive" 
+                        className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center p-0 text-xs font-bold"
+                      >
+                        {totalUnreadCount > 9 ? '9+' : totalUnreadCount}
+                      </Badge>
+                    )}
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent>
