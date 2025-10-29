@@ -30,7 +30,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { usePipWidgetManager } from '@/hooks/usePipWidgetManager.tsx';
 import { useTeamChat } from "@/contexts/TeamChatContext";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +54,8 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
   const isMobile = useIsMobile();
   const { isPipSupported, isPipOpen, openPip } = usePipWidgetManager();
   const { totalUnreadCount } = useTeamChat();
+
+  console.log(`[DEBUG] PremiumHeader: Received totalUnreadCount: ${totalUnreadCount}`);
 
   const getPageTitle = () => {
     const path = location.pathname;

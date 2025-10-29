@@ -24,9 +24,11 @@ export function ChatMessageNotifier() {
 
   useEffect(() => {
     if (!user) {
+      console.log('[DEBUG] ChatNotifier: User logged out, cleaning up listeners.');
       cleanupListeners();
       return;
     }
+    console.log('[DEBUG] ChatNotifier: User logged in, setting up Firestore listener for chat rooms.');
 
     const chatRoomsCollectionRef: CollectionReference<DocumentData> = collection(db, 'chatRooms');
     const chatRoomsQuery: Query<DocumentData> = query(
@@ -35,6 +37,7 @@ export function ChatMessageNotifier() {
     );
 
     firestoreUnsubscribeRef.current = onSnapshot(chatRoomsQuery, (snapshot) => {
+      console.log(`[DEBUG] ChatNotifier: Firestore snapshot received with ${snapshot.size} chat rooms for user.`);
       const currentChatRoomIds = new Set<string>();
       snapshot.forEach(doc => {
         currentChatRoomIds.add(doc.id);
@@ -51,41 +54,43 @@ export function ChatMessageNotifier() {
       // Add listeners for new chat rooms
       currentChatRoomIds.forEach(chatRoomId => {
         if (!rtdbUnsubscribers.current.has(chatRoomId)) {
+          console.log(`[DEBUG] ChatNotifier: Setting up new RTDB listener for chat room: ${chatRoomId}`);
           
-          // --- NEW, MORE ROBUST LOGIC ---
           const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
           
-          // 1. Get the timestamp of the last known message to avoid notifying for old messages.
           const lastMessageQuery = rtdbQuery(messagesRef, orderByChild('timestamp'), limitToLast(1));
           
           onValue(lastMessageQuery, (lastMessageSnapshot) => {
-            let lastTimestamp = Date.now() - 1000; // Default to 1 second ago to be safe
+            let lastTimestamp = Date.now() - 1000;
             if (lastMessageSnapshot.exists()) {
               const lastMessageData = lastMessageSnapshot.val();
               const lastMessageKey = Object.keys(lastMessageData)[0];
               lastTimestamp = lastMessageData[lastMessageKey].timestamp;
             }
+            console.log(`[DEBUG] ChatNotifier: Starting listener for chat ${chatRoomId} for messages after timestamp: ${lastTimestamp}`);
 
-            // 2. Now, listen ONLY for messages added AFTER that timestamp.
             const newMessagesQuery = rtdbQuery(messagesRef, orderByChild('timestamp'), startAt(lastTimestamp + 1));
             
             const messageUnsubscribe = onChildAdded(newMessagesQuery, (messageSnapshot) => {
+              console.log(`[DEBUG] ChatNotifier: >>> NEW MESSAGE DETECTED in room ${chatRoomId} <<<`);
               const messageData = messageSnapshot.val();
               const messageId = messageSnapshot.key;
 
               if (!messageId || !messageData) return;
 
               const message = { id: messageId, ...messageData } as ChatMessage;
+              console.log('[DEBUG] ChatNotifier: Message Data:', message);
               
-              // Don't notify for your own messages unless it's a self-chat
               const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
               if (message.senderId === user.uid && !isSelfChat) {
+                console.log('[DEBUG] ChatNotifier: Ignoring own message.');
                 return;
               }
 
-              // This is a genuinely new message. Trigger notifications.
+              console.log('[DEBUG] ChatNotifier: Calling incrementUnreadCount...');
               incrementUnreadCount(chatRoomId);
 
+              console.log('[DEBUG] ChatNotifier: Calling toast.custom...');
               toast.custom((t) => (
                 <ChatMessageToast
                   senderName={message.senderName}
@@ -95,8 +100,6 @@ export function ChatMessageNotifier() {
                 />
               ));
 
-              // Schedule native/PWA notification for when the app is in the background
-              // (This part is unchanged and correct)
               const notificationTitle = `New message from ${message.senderName}`;
               const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
               const notificationId = getSafeNotificationId(message.timestamp);
@@ -131,7 +134,7 @@ export function ChatMessageNotifier() {
 
             rtdbUnsubscribers.current.set(chatRoomId, () => off(newMessagesQuery, 'child_added', messageUnsubscribe));
 
-          }, { onlyOnce: true }); // This onValue runs only once to get the starting point.
+          }, { onlyOnce: true });
         }
       });
     });

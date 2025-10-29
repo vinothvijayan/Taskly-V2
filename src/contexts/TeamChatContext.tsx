@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TasksContext";
 import { rtdb } from "@/lib/firebase";
 import { ref, onValue, off, set, push, serverTimestamp, update } from "firebase/database";
-import { ChatMessage, UserProfile } from "@/types";
+import { ChatMessage, ChatRoom, UserProfile } from "@/types";
 
 interface OnlineStatus {
   [userId: string]: {
@@ -47,10 +47,15 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
   const [messageStatus, setMessageStatus] = useState<MessageStatus>({});
 
   const incrementUnreadCount = (chatRoomId: string) => {
-    setUnreadCounts(prev => ({
-      ...prev,
-      [chatRoomId]: (prev[chatRoomId] || 0) + 1,
-    }));
+    console.log(`[DEBUG] TeamChatContext: incrementUnreadCount called for room ${chatRoomId}`);
+    setUnreadCounts(prev => {
+      const newCount = (prev[chatRoomId] || 0) + 1;
+      console.log(`[DEBUG] TeamChatContext: Unread count for ${chatRoomId} is now ${newCount}`);
+      return {
+        ...prev,
+        [chatRoomId]: newCount,
+      };
+    });
   };
 
   const clearUnreadCount = (chatRoomId: string) => {
@@ -135,6 +140,10 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
 
   // Calculate total unread count
   const totalUnreadCount = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
+
+  useEffect(() => {
+    console.log(`[DEBUG] TeamChatContext: Total unread count updated to: ${totalUnreadCount}`);
+  }, [totalUnreadCount]);
 
   // Mark a specific message as read
   const markMessageAsRead = async (chatRoomId: string, messageId: string) => {
