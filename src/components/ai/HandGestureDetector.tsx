@@ -22,7 +22,8 @@ const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
   'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
-  'Victory': { action: 'pinch-control', icon: PictureInPicture, threshold: 0.7, title: 'Pinch Control' },
+  // Changed from Victory to Pinched_Finger for click/scroll control
+  'Pinched_Finger': { action: 'pinch-control', icon: PictureInPicture, threshold: 0.6, title: 'Pinch Control' },
 };
 
 // New component for the visual pointer
@@ -40,8 +41,8 @@ const AirMousePointer = ({ x, y, isPinching, isVisible }: { x: number, y: number
         top: y,
         transform: 'translate(-50%, -50%)', // Center the pointer on the cursor
       }}
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
+      initial={{ scale: 1 }}
+      animate={{ scale: isPinching ? 1.5 : 1 }}
       transition={{ duration: 0.1 }}
     >
       {isPinching && <MousePointerClick className="h-4 w-4 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />}
@@ -73,9 +74,12 @@ export function HandGestureDetector() {
   const [pointerY, setPointerY] = useState(0); // Screen pixel Y
   const [isPointerVisible, setIsPointerVisible] = useState(false);
   
-  const SCROLL_THRESHOLD = 0.005;
-  const SCROLL_SENSITIVITY = 1000;
-  const CLICK_DURATION_MS = 500; // Max duration for a pinch to be considered a click
+  const SCROLL_THRESHOLD = 0.002; // Reduced threshold for better responsiveness
+  const SCROLL_SENSITIVITY = 1500; // Increased sensitivity for faster scrolling
+  const CLICK_DURATION_MS = 300; // Max duration for a pinch to be considered a click
+  const SCROLL_FRICTION = 0.9; // Friction for smooth deceleration
+  const scrollVelocityRef = useRef(0);
+  const lastFrameTimeRef = useRef(performance.now());
   // --- END SCROLLING & PINCHING STATE ---
   
   const COOLDOWN_MS = 3000;
@@ -183,13 +187,16 @@ export function HandGestureDetector() {
 
     const detect = () => {
       const video = videoRef.current;
+      const now = performance.now();
+      const deltaTime = now - lastFrameTimeRef.current;
+      lastFrameTimeRef.current = now;
+
       if (!video || video.readyState !== 4) {
         animationFrameId = requestAnimationFrame(detect);
         return;
       }
 
       if (video.currentTime !== lastVideoTime) {
-        const now = performance.now();
         const result: GestureRecognizerResult = gestureRecognizer.recognizeForVideo(video, now);
         lastVideoTime = video.currentTime;
 
@@ -198,7 +205,6 @@ export function HandGestureDetector() {
         let topGestureName: string | null = null;
         let topGestureScore = 0;
         let wristY = null;
-        let wristX = null;
         let indexFingerTipX = null;
         let indexFingerTipY = null;
 
@@ -206,14 +212,12 @@ export function HandGestureDetector() {
         if (handDetected) {
             const handLandmarks = result.landmarks[0];
             wristY = handLandmarks[0].y; 
-            wristX = handLandmarks[0].x; 
             
             // Get Index Finger Tip (Landmark 8) for pointer position
             indexFingerTipX = handLandmarks[8].x;
             indexFingerTipY = handLandmarks[8].y;
 
             // Map normalized coordinates to screen pixels
-            // FIX: Removed the (1 - x) inversion. The video mirroring should handle the visual flip.
             const screenX = indexFingerTipX * window.innerWidth; 
             const screenY = indexFingerTipY * window.innerHeight;
             
@@ -226,8 +230,8 @@ export function HandGestureDetector() {
                 topGestureName = topGesture.categoryName;
                 topGestureScore = topGesture.score;
                 
-                // Use Victory as a proxy for Pinch/Click control
-                if (topGestureName === 'Victory' && topGestureScore > GESTURE_MAP.Victory.threshold) {
+                // Use Pinched_Finger for Pinch/Click control
+                if (topGestureName === 'Pinched_Finger' && topGestureScore > GESTURE_MAP.Pinched_Finger.threshold) {
                     isPinchGesture = true;
                 }
             }
@@ -244,21 +248,18 @@ export function HandGestureDetector() {
                 setIsPinching(true);
                 setPinchStartTime(now);
                 setLastHandY(wristY); // Reset Y position at start of pinch
-                setScrollVelocity(0);
+                scrollVelocityRef.current = 0;
             } else {
                 // Pinch is ongoing - check for scrolling
                 if (lastHandY !== null && wristY !== null) {
                     const deltaY = wristY - lastHandY;
                     
                     if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-                        const scrollAmount = deltaY * SCROLL_SENSITIVITY;
-                        
-                        // Simulate scroll on the main document body
-                        window.scrollBy({ top: -scrollAmount, behavior: 'instant' });
-                        
-                        setScrollVelocity(scrollAmount);
+                        // Calculate velocity based on deltaY and deltaTime
+                        const instantaneousVelocity = deltaY * SCROLL_SENSITIVITY;
+                        scrollVelocityRef.current = instantaneousVelocity;
                     } else {
-                        setScrollVelocity(0);
+                        scrollVelocityRef.current = 0;
                     }
                     setLastHandY(wristY);
                 }
@@ -273,9 +274,18 @@ export function HandGestureDetector() {
                     simulateClick(pointerX, pointerY); // Use screen coordinates
                 }
                 setIsPinching(false);
-                setScrollVelocity(0);
+                setLastHandY(null);
             }
-            setLastHandY(null);
+            // Apply friction to scroll velocity for smooth deceleration
+            scrollVelocityRef.current *= SCROLL_FRICTION;
+        }
+        
+        // Apply scroll based on velocity
+        if (Math.abs(scrollVelocityRef.current) > 1) {
+            window.scrollBy({ top: -scrollVelocityRef.current * (deltaTime / 1000), behavior: 'instant' });
+            setScrollVelocity(scrollVelocityRef.current); // Update state for UI indicator
+        } else {
+            setScrollVelocity(0);
         }
         // --- END PINCHING & SCROLLING LOGIC ---
 
@@ -321,7 +331,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt, isPinching, lastHandY, scrollVelocity, pointerX, pointerY]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt, isPinching, pointerX, pointerY]);
 
   const handleOpenPipFromPrompt = () => {
     if (isPipSupported && !isPipOpen) {
@@ -419,7 +429,7 @@ export function HandGestureDetector() {
                     <div className="flex items-center gap-2">
                         <Hand className="h-4 w-4 text-info" />
                         <span className="text-info">
-                            Scroll: {scrollVelocity > 5 ? 'DOWN' : scrollVelocity < -5 ? 'UP' : 'Idle'}
+                            Scroll: {scrollVelocity > 1 ? 'DOWN' : scrollVelocity < -1 ? 'UP' : 'Idle'}
                         </span>
                     </div>
                 )}
