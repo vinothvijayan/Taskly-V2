@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TasksContext";
 import { rtdb } from "@/lib/firebase";
@@ -46,7 +46,7 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
   const [unreadCounts, setUnreadCounts] = useState<UnreadCounts>({});
   const [messageStatus, setMessageStatus] = useState<MessageStatus>({});
 
-  const incrementUnreadCount = (chatRoomId: string) => {
+  const incrementUnreadCount = useCallback((chatRoomId: string) => {
     console.log(`[DEBUG] TeamChatContext: incrementUnreadCount called for room ${chatRoomId}`);
     setUnreadCounts(prev => {
       const newCount = (prev[chatRoomId] || 0) + 1;
@@ -56,17 +56,17 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
         [chatRoomId]: newCount,
       };
     });
-  };
+  }, []);
 
-  const clearUnreadCount = (chatRoomId: string) => {
+  const clearUnreadCount = useCallback((chatRoomId: string) => {
     setUnreadCounts(prev => ({
       ...prev,
       [chatRoomId]: 0,
     }));
-  };
+  }, []);
 
   // Update user's online status
-  const updateOnlineStatus = async (online: boolean) => {
+  const updateOnlineStatus = useCallback(async (online: boolean) => {
     if (!user) return;
     
     try {
@@ -78,7 +78,7 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error updating online status:", error);
     }
-  };
+  }, [user]);
 
   // Set up presence system
   useEffect(() => {
@@ -106,7 +106,7 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [user]);
+  }, [user, updateOnlineStatus]);
 
   // Listen to team members' online status
   useEffect(() => {
@@ -146,7 +146,7 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
   }, [totalUnreadCount]);
 
   // Mark a specific message as read
-  const markMessageAsRead = async (chatRoomId: string, messageId: string) => {
+  const markMessageAsRead = useCallback(async (chatRoomId: string, messageId: string) => {
     if (!user) return;
     
     try {
@@ -158,10 +158,10 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error marking message as read:", error);
     }
-  };
+  }, [user]);
 
   // Mark multiple messages as read in a single batch operation
-  const markMessagesAsReadBatch = async (chatRoomId: string, messageIds: string[]) => {
+  const markMessagesAsReadBatch = useCallback(async (chatRoomId: string, messageIds: string[]) => {
     if (!user || messageIds.length === 0) return;
     
     try {
@@ -179,10 +179,10 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error marking messages as read:", error);
     }
-  };
+  }, [user]);
 
   // Mark entire chat as read
-  const markChatAsRead = async (chatRoomId: string) => {
+  const markChatAsRead = useCallback(async (chatRoomId: string) => {
     if (!user) return;
     
     try {
@@ -204,7 +204,7 @@ export function TeamChatProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error marking chat as read:", error);
     }
-  };
+  }, [user, clearUnreadCount, markMessagesAsReadBatch]);
 
   const value = {
     onlineStatus,
