@@ -82,53 +82,57 @@ export function ChatMessageNotifier() {
               console.log('[DEBUG] ChatNotifier: Message Data:', message);
               
               const isSelfChat = chatRoomId.split('_')[0] === chatRoomId.split('_')[1];
-              if (message.senderId === user.uid && !isSelfChat) {
-                console.log('[DEBUG] ChatNotifier: Ignoring own message.');
-                return;
-              }
+              const isFromMe = message.senderId === user.uid;
 
-              console.log('[DEBUG] ChatNotifier: Calling incrementUnreadCount...');
-              incrementUnreadCount(chatRoomId);
+              // --- REFACTORED NOTIFICATION LOGIC ---
+              const shouldNotify = !isFromMe || isSelfChat;
 
-              console.log('[DEBUG] ChatNotifier: Calling toast.custom...');
-              toast.custom((t) => (
-                <ChatMessageToast
-                  senderName={message.senderName}
-                  senderAvatarUrl={message.senderAvatar}
-                  messagePreview={message.message}
-                  onDismiss={() => toast.dismiss(t)}
-                />
-              ));
+              if (shouldNotify) {
+                console.log(`[DEBUG] ChatNotifier: Notification triggered. isFromMe: ${isFromMe}, isSelfChat: ${isSelfChat}`);
+                
+                incrementUnreadCount(chatRoomId);
 
-              const notificationTitle = `New message from ${message.senderName}`;
-              const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
-              const notificationId = getSafeNotificationId(message.timestamp);
+                toast.custom((t) => (
+                  <ChatMessageToast
+                    senderName={message.senderName}
+                    senderAvatarUrl={message.senderAvatar}
+                    messagePreview={message.message}
+                    onDismiss={() => toast.dismiss(t)}
+                  />
+                ));
 
-              if (Capacitor.isNativePlatform()) {
-                import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
-                  LocalNotifications.schedule({
-                    notifications: [{
-                      id: notificationId,
-                      title: notificationTitle,
+                const notificationTitle = `New message from ${message.senderName}`;
+                const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
+                const notificationId = getSafeNotificationId(message.timestamp);
+
+                if (Capacitor.isNativePlatform()) {
+                  import('@capacitor/local-notifications').then(({ LocalNotifications }) => {
+                    LocalNotifications.schedule({
+                      notifications: [{
+                        id: notificationId,
+                        title: notificationTitle,
+                        body: notificationBody,
+                        schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
+                        channelId: 'app_main_channel',
+                        extra: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId }
+                      }]
+                    }).catch(error => console.error('Failed to schedule native chat notification:', error));
+                  });
+                } else {
+                  if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification(notificationTitle, {
                       body: notificationBody,
-                      schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
-                      channelId: 'app_main_channel',
-                      extra: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId }
-                    }]
-                  }).catch(error => console.error('Failed to schedule native chat notification:', error));
-                });
-              } else {
-                if ('Notification' in window && Notification.permission === 'granted') {
-                  new Notification(notificationTitle, {
-                    body: notificationBody,
-                    icon: '/icon-192x192.png',
-                    badge: '/icon-192x192.png',
-                    tag: `chat-message-${message.id}`,
-                    data: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId },
-                    requireInteraction: false,
-                    vibrate: [100, 50, 100]
-                  } as any);
+                      icon: '/icon-192x192.png',
+                      badge: '/icon-192x192.png',
+                      tag: `chat-message-${message.id}`,
+                      data: { type: 'chat_message', senderId: message.senderId, chatRoomId: chatRoomId },
+                      requireInteraction: false,
+                      vibrate: [100, 50, 100]
+                    } as any);
+                  }
                 }
+              } else {
+                console.log(`[DEBUG] ChatNotifier: Notification ignored. isFromMe: ${isFromMe}, isSelfChat: ${isSelfChat}`);
               }
             });
 
