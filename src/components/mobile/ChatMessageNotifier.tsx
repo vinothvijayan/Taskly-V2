@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { rtdb, db } from '@/lib/firebase';
-import { ref, onChildAdded, off, query as rtdbQuery, orderByChild, limitToLast } from 'firebase/database'; 
+import { ref, onChildAdded, off, query as rtdbQuery, orderByChild, startAt } from 'firebase/database'; 
 import { collection, where, onSnapshot, Unsubscribe, Query, DocumentData, CollectionReference, query } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { getSafeNotificationId } from '@/lib/notificationId';
@@ -19,14 +19,12 @@ import { ChatMessage } from '@/types';
 export function ChatMessageNotifier() {
   const { user } = useAuth();
   const { incrementUnreadCount } = useTeamChat();
-  const lastSeenPerRoom = useRef<Map<string, number>>(new Map());
   const rtdbUnsubscribers = useRef<Map<string, () => void>>(new Map());
   const firestoreUnsubscribeRef = useRef<Unsubscribe | null>(null);
 
   useEffect(() => {
     if (!user) {
       cleanupListeners();
-      lastSeenPerRoom.current.clear();
       return;
     }
 
@@ -42,20 +40,21 @@ export function ChatMessageNotifier() {
         currentChatRoomIds.add(doc.id);
       });
 
+      // Clean up listeners for rooms the user is no longer part of
       rtdbUnsubscribers.current.forEach((unsub, chatRoomId) => {
         if (!currentChatRoomIds.has(chatRoomId)) {
           unsub();
           rtdbUnsubscribers.current.delete(chatRoomId);
-          lastSeenPerRoom.current.delete(chatRoomId);
         }
       });
 
+      // Set up listeners for new rooms
       currentChatRoomIds.forEach(chatRoomId => {
         if (!rtdbUnsubscribers.current.has(chatRoomId)) {
           const messagesQuery = rtdbQuery(
             ref(rtdb, `chats/${chatRoomId}/messages`),
             orderByChild('timestamp'),
-            limitToLast(10)
+            startAt(Date.now()) // <-- This is the key fix: only listen for messages from now on
           );
           
           const messageUnsubscribe = onChildAdded(messagesQuery, (messagesSnapshot) => {
@@ -66,20 +65,17 @@ export function ChatMessageNotifier() {
 
             const message = { id: messageId, ...messageData } as ChatMessage;
             
+            // Ignore own messages
             if (message.senderId === user.uid) {
-              lastSeenPerRoom.current.set(chatRoomId, message.timestamp);
               return;
             }
 
-            const lastSeenTimestamp = lastSeenPerRoom.current.get(chatRoomId) || 0;
-            if (message.timestamp <= lastSeenTimestamp) {
-              return;
-            }
+            // --- This is a new message from someone else ---
 
-            lastSeenPerRoom.current.set(chatRoomId, message.timestamp);
-
-            // Increment unread count and show toast
+            // 1. Increment unread count for the badge
             incrementUnreadCount(chatRoomId);
+
+            // 2. Show the custom toast notification
             toast.custom((t) => (
               <ChatMessageToast
                 senderName={message.senderName}
@@ -89,7 +85,7 @@ export function ChatMessageNotifier() {
               />
             ));
 
-            // Schedule native/PWA notification
+            // 3. Schedule native/PWA notification for when the app is in the background
             const notificationTitle = `New message from ${message.senderName}`;
             const notificationBody = message.message.length > 100 ? `${message.message.substring(0, 100)}...` : message.message;
             const notificationId = getSafeNotificationId(message.timestamp);
