@@ -426,7 +426,7 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-full px-2">
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
                           <Paperclip className="h-5 w-5 text-muted-foreground" />
                         </Button>
@@ -438,7 +438,7 @@ export default function TeamChatPage() {
                           placeholder="Type a message" 
                           autoFocus 
                           rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2.5 px-2 text-base" 
                         />
                       </div>
                       <Button 
@@ -526,7 +526,7 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-4 py-3 shadow-lg z-10">
                     <div className="flex items-end gap-3">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-full px-2">
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
                           <Paperclip className="h-5 w-5 text-muted-foreground" />
                         </Button>
@@ -538,7 +538,7 @@ export default function TeamChatPage() {
                           placeholder="Type a message" 
                           autoFocus 
                           rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2.5 px-2 text-base" 
                         />
                       </div>
                       <Button 
