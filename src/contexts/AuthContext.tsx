@@ -179,7 +179,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(IMPERSONATION_TARGET_KEY);
     
     if (originalUid) {
-      // Reload the original admin profile
+      // CRITICAL FIX: Fetch and set the original admin's profile
       await fetchUserProfile(originalUid);
     }
     setIsImpersonating(false);
