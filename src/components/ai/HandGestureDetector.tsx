@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand, PictureInPicture } from 'lucide-react';
+import { ThumbsUp, Loader2, VideoOff, Camera, LayoutDashboard, MessageSquare, Hand, PictureInPicture, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePipWidgetManager } from '@/hooks/usePipWidgetManager'; // <-- NEW IMPORT
-import { motion, AnimatePresence } from 'framer-motion'; // <-- ADDED IMPORTS
-import { Button } from '@/components/ui/button'; // <-- ADDED IMPORT
+import { usePipWidgetManager } from '@/hooks/usePipWidgetManager';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
 
 // Import MediaPipe dependencies
 import {
@@ -20,16 +20,16 @@ const MODEL_ASSET_PATH = 'https://storage.googleapis.com/mediapipe-models/gestur
 // Define gesture mappings and thresholds
 const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
-  'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' }, // <-- UPDATED TO 0.7
+  'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
-  'Victory': { action: 'open-pip', icon: PictureInPicture, threshold: 0.7, title: 'Open PiP Widget' }, // <-- NEW GESTURE
+  'Victory': { action: 'pinch-control', icon: PictureInPicture, threshold: 0.7, title: 'Pinch Control' }, // Victory is now 'pinch-control'
 };
 
 export function HandGestureDetector() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { openPip, isPipSupported, isPipOpen } = usePipWidgetManager(); // <-- USE PiP HOOK
+  const { openPip, isPipSupported, isPipOpen } = usePipWidgetManager();
   const [gestureRecognizer, setGestureRecognizer] = useState<GestureRecognizer | null>(null);
   const [loading, setLoading] = useState(true);
   const [cameraActive, setCameraActive] = useState(false);
@@ -37,16 +37,19 @@ export function HandGestureDetector() {
   const [lastGestureTime, setLastGestureTime] = useState(0);
   const [currentGesture, setCurrentGesture] = useState<string | null>(null);
   const [showPipPrompt, setShowPipPrompt] = useState(false);
-  const [showCamera, setShowCamera] = useState(false); // <-- NEW STATE
+  const [showCamera, setShowCamera] = useState(false);
   
-  // --- NEW SCROLLING STATE ---
+  // --- SCROLLING & PINCHING STATE ---
   const [lastHandY, setLastHandY] = useState<number | null>(null);
   const [scrollVelocity, setScrollVelocity] = useState(0);
-  const SCROLL_THRESHOLD = 0.005; // Minimum normalized vertical movement (0 to 1)
-  const SCROLL_SENSITIVITY = 1000; // Multiplier for scroll speed
-  // --- END SCROLLING STATE ---
+  const [isPinching, setIsPinching] = useState(false);
+  const [pinchStartTime, setPinchStartTime] = useState(0);
+  const SCROLL_THRESHOLD = 0.005;
+  const SCROLL_SENSITIVITY = 1000;
+  const CLICK_DURATION_MS = 500; // Max duration for a pinch to be considered a click
+  // --- END SCROLLING & PINCHING STATE ---
   
-  const COOLDOWN_MS = 3000; // 3 seconds cooldown
+  const COOLDOWN_MS = 3000;
 
   // 1. Load Model and Setup Camera
   useEffect(() => {
@@ -113,10 +116,38 @@ export function HandGestureDetector() {
     if (showPipPrompt) {
       const timer = setTimeout(() => {
         setShowPipPrompt(false);
-      }, 8000); // 8 seconds to click the prompt
+      }, 8000);
       return () => clearTimeout(timer);
     }
   }, [showPipPrompt]);
+
+  // Helper to simulate a click at the center of the hand
+  const simulateClick = (normalizedX: number, normalizedY: number) => {
+    // Convert normalized coordinates (0 to 1) to screen coordinates
+    const screenX = normalizedX * window.innerWidth;
+    const screenY = normalizedY * window.innerHeight;
+
+    // Find the element at the hand position
+    const element = document.elementFromPoint(screenX, screenY);
+
+    if (element) {
+      console.log(`Simulating click on: ${element.tagName} at (${screenX.toFixed(0)}, ${screenY.toFixed(0)})`);
+      
+      // Dispatch a click event
+      element.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX: screenX,
+        clientY: screenY,
+      }));
+      
+      toast({
+        title: 'Click Detected! 🖱️',
+        description: `Clicked on ${element.tagName}`,
+        duration: 1500,
+      });
+    }
+  };
 
   // 3. Detection Loop
   useEffect(() => {
@@ -137,73 +168,102 @@ export function HandGestureDetector() {
         const result: GestureRecognizerResult = gestureRecognizer.recognizeForVideo(video, now);
         lastVideoTime = video.currentTime;
 
-        // --- SCROLLING LOGIC ---
-        if (result.landmarks.length > 0) {
-          const handLandmarks = result.landmarks[0];
-          // Use the wrist landmark (index 0) for tracking vertical position (normalized 0 to 1)
-          const wristY = handLandmarks[0].y; 
-          
-          if (lastHandY !== null) {
-            const deltaY = wristY - lastHandY;
+        let handDetected = result.landmarks.length > 0;
+        let isPinchGesture = false;
+        let topGestureName: string | null = null;
+        let topGestureScore = 0;
+        let wristY = null;
+        let wristX = null;
+
+        if (handDetected) {
+            const handLandmarks = result.landmarks[0];
+            wristY = handLandmarks[0].y; 
+            wristX = handLandmarks[0].x; 
             
-            if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
-              const scrollAmount = deltaY * SCROLL_SENSITIVITY;
-              
-              // Simulate scroll on the main document body
-              window.scrollBy({ top: -scrollAmount, behavior: 'instant' });
-              
-              setScrollVelocity(scrollAmount);
-            } else {
-              setScrollVelocity(0);
-            }
-          }
-          setLastHandY(wristY);
-        } else {
-          setLastHandY(null);
-          setScrollVelocity(0);
-        }
-        // --- END SCROLLING LOGIC ---
-
-        if (result.gestures.length > 0) {
-          const topGesture = result.gestures[0][0];
-          setCurrentGesture(topGesture.categoryName);
-          
-          // --- CONSOLE LOGGING FOR DEBUGGING ---
-          console.log(
-            `[GESTURE DEBUG] Detected: ${topGesture.categoryName} (Score: ${topGesture.score.toFixed(2)})`
-          );
-          // --- END CONSOLE LOGGING ---
-          
-          const gestureConfig = GESTURE_MAP[topGesture.categoryName as keyof typeof GESTURE_MAP];
-
-          if (gestureConfig && topGesture.score > gestureConfig.threshold) {
-            const currentTime = Date.now();
-            if (currentTime - lastGestureTime > COOLDOWN_MS) {
-              setLastGestureTime(currentTime);
-              
-              if (gestureConfig.action === 'open-pip') {
-                if (isPipSupported && !isPipOpen) {
-                    console.log('GESTURE DETECTED: Victory! Showing PiP prompt.');
-                    setShowPipPrompt(true); // Show prompt instead of opening directly
-                    toast({ title: 'Gesture Detected! Click to Open PiP 🖼️', duration: 3000 });
-                } else if (isPipOpen) {
-                    toast({ title: 'PiP is already open.', description: 'Close the floating window first.' });
-                } else if (!isPipSupported) {
-                    toast({ title: 'PiP Not Supported', description: 'Your browser does not support Picture-in-Picture API.', variant: 'destructive' });
+            if (result.gestures.length > 0) {
+                const topGesture = result.gestures[0][0];
+                topGestureName = topGesture.categoryName;
+                topGestureScore = topGesture.score;
+                
+                // Use Victory as a proxy for Pinch/Click control
+                if (topGestureName === 'Victory' && topGestureScore > GESTURE_MAP.Victory.threshold) {
+                    isPinchGesture = true;
                 }
-              } else if (gestureConfig.path) {
-                console.log(`GESTURE TRIGGERED: ${topGesture.categoryName}! Navigating to ${gestureConfig.path}`);
-                toast({
-                  title: `Gesture Recognized! ${gestureConfig.title}`,
-                  description: `Navigating to ${gestureConfig.title} page...`,
-                  duration: 3000,
-                });
-                navigate(gestureConfig.path);
-              }
             }
-          }
+        }
+        
+        setCurrentGesture(topGestureName);
+
+        // --- PINCHING & SCROLLING LOGIC ---
+        if (isPinchGesture) {
+            if (!isPinching) {
+                // Start of pinch
+                setIsPinching(true);
+                setPinchStartTime(now);
+                setLastHandY(wristY); // Reset Y position at start of pinch
+                setScrollVelocity(0);
+            } else {
+                // Pinch is ongoing - check for scrolling
+                if (lastHandY !== null && wristY !== null) {
+                    const deltaY = wristY - lastHandY;
+                    
+                    if (Math.abs(deltaY) > SCROLL_THRESHOLD) {
+                        const scrollAmount = deltaY * SCROLL_SENSITIVITY;
+                        window.scrollBy({ top: -scrollAmount, behavior: 'instant' });
+                        setScrollVelocity(scrollAmount);
+                    } else {
+                        setScrollVelocity(0);
+                    }
+                    setLastHandY(wristY);
+                }
+            }
         } else {
-          setCurrentGesture(null);
+            // Pinch is released or not detected
+            if (isPinching) {
+                // End of pinch - check for click action
+                const pinchDuration = now - pinchStartTime;
+                if (pinchDuration < CLICK_DURATION_MS && wristX !== null && wristY !== null) {
+                    // Simulate click if it was a quick pinch
+                    simulateClick(wristX, wristY);
+                }
+                setIsPinching(false);
+                setScrollVelocity(0);
+            }
+            setLastHandY(null);
+        }
+        // --- END PINCHING & SCROLLING LOGIC ---
+
+
+        // --- NAVIGATION GESTURE LOGIC (Only trigger if NOT pinching) ---
+        if (!isPinching && topGestureName) {
+            const gestureConfig = GESTURE_MAP[topGestureName as keyof typeof GESTURE_MAP];
+
+            if (gestureConfig && topGestureScore > gestureConfig.threshold) {
+                const currentTime = Date.now();
+                if (currentTime - lastGestureTime > COOLDOWN_MS) {
+                    setLastGestureTime(currentTime);
+                    
+                    if (gestureConfig.action === 'open-pip') {
+                        if (isPipSupported && !isPipOpen) {
+                            console.log('GESTURE DETECTED: Victory! Showing PiP prompt.');
+                            setShowPipPrompt(true);
+                            toast({ title: 'Gesture Detected! Click to Open PiP 🖼️', duration: 3000 });
+                        } else if (isPipOpen) {
+                            toast({ title: 'PiP is already open.', description: 'Close the floating window first.' });
+                        } else if (!isPipSupported) {
+                            toast({ title: 'PiP Not Supported', description: 'Your browser does not support Picture-in-Picture API.', variant: 'destructive' });
+                        }
+                    } else if (gestureConfig.path) {
+                        console.log(`GESTURE TRIGGERED: ${topGestureName}! Navigating to ${gestureConfig.path}`);
+                        toast({
+                            title: `Gesture Recognized! ${gestureConfig.title}`,
+                            description: `Navigating to ${gestureConfig.title} page...`,
+                            duration: 3000,
+                        });
+                        navigate(gestureConfig.path);
+                    }
+                }
+            }
         }
       }
 
@@ -215,7 +275,7 @@ export function HandGestureDetector() {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt, lastHandY, scrollVelocity]);
+  }, [gestureRecognizer, detectionActive, navigate, toast, lastGestureTime, openPip, isPipSupported, isPipOpen, setShowPipPrompt, isPinching, lastHandY, scrollVelocity]);
 
   const handleOpenPipFromPrompt = () => {
     if (isPipSupported && !isPipOpen) {
@@ -225,7 +285,7 @@ export function HandGestureDetector() {
     }
   };
 
-  // 4. Render UI (Hidden video feed and status indicator + NEW Prompt)
+  // 4. Render UI
   return (
     <>
       {/* Hidden Video Element for Processing */}
@@ -297,7 +357,15 @@ export function HandGestureDetector() {
                     </span>
                 </div>
                 
-                {/* NEW: Air Mouse/Scroll Status */}
+                {/* NEW: Pinch/Click Status */}
+                <div className="flex items-center gap-2">
+                    <MousePointerClick className="h-4 w-4 text-info" />
+                    <span className={cn(isPinching ? 'text-info font-semibold' : 'text-muted-foreground')}>
+                        Pinch: {isPinching ? 'Active (Scroll/Click)' : 'Idle'}
+                    </span>
+                </div>
+                
+                {/* NEW: Scroll Status */}
                 {cameraActive && (
                     <div className="flex items-center gap-2">
                         <Hand className="h-4 w-4 text-info" />
