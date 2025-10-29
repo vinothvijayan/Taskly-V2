@@ -22,8 +22,7 @@ const GESTURE_MAP = {
   'Thumb_Up': { path: '/tasks', icon: ThumbsUp, threshold: 0.6, title: 'Tasks' },
   'Open_Palm': { path: '/', icon: Hand, threshold: 0.7, title: 'Dashboard' },
   'Closed_Fist': { path: '/chat', icon: MessageSquare, threshold: 0.7, title: 'AI Assistant' },
-  // Changed from Victory to Pinched_Finger for click/scroll control
-  'Pinched_Finger': { action: 'pinch-control', icon: PictureInPicture, threshold: 0.6, title: 'Pinch Control' },
+  'Pinched_Finger': { action: 'pinch-control', icon: PictureInPicture, threshold: 0.65, title: 'Pinch Control' }, // Slightly higher threshold for pinch
 };
 
 // New component for the visual pointer
@@ -74,10 +73,15 @@ export function HandGestureDetector() {
   const [pointerY, setPointerY] = useState(0); // Screen pixel Y
   const [isPointerVisible, setIsPointerVisible] = useState(false);
   
-  const SCROLL_THRESHOLD = 0.002; // Reduced threshold for better responsiveness
-  const SCROLL_SENSITIVITY = 1500; // Increased sensitivity for faster scrolling
-  const CLICK_DURATION_MS = 300; // Max duration for a pinch to be considered a click
-  const SCROLL_FRICTION = 0.9; // Friction for smooth deceleration
+  // Smoothing references
+  const pointerXRef = useRef(0);
+  const pointerYRef = useRef(0);
+  const SMOOTHING_FACTOR = 0.25; // Increased smoothing for stability
+
+  const SCROLL_THRESHOLD = 0.003; // Slightly increased threshold
+  const SCROLL_SENSITIVITY = 1500; 
+  const CLICK_DURATION_MS = 300; 
+  const SCROLL_FRICTION = 0.85; // Increased friction for faster stop
   const scrollVelocityRef = useRef(0);
   const lastFrameTimeRef = useRef(performance.now());
   // --- END SCROLLING & PINCHING STATE ---
@@ -218,11 +222,15 @@ export function HandGestureDetector() {
             indexFingerTipY = handLandmarks[8].y;
 
             // Map normalized coordinates to screen pixels
-            const screenX = indexFingerTipX * window.innerWidth; 
-            const screenY = indexFingerTipY * window.innerHeight;
+            const targetX = indexFingerTipX * window.innerWidth; 
+            const targetY = indexFingerTipY * window.innerHeight;
             
-            setPointerX(screenX);
-            setPointerY(screenY);
+            // Apply smoothing (EMA)
+            pointerXRef.current += (targetX - pointerXRef.current) * SMOOTHING_FACTOR;
+            pointerYRef.current += (targetY - pointerYRef.current) * SMOOTHING_FACTOR;
+
+            setPointerX(pointerXRef.current);
+            setPointerY(pointerYRef.current);
             setIsPointerVisible(true);
             
             if (result.gestures.length > 0) {
@@ -429,7 +437,7 @@ export function HandGestureDetector() {
                     <div className="flex items-center gap-2">
                         <Hand className="h-4 w-4 text-info" />
                         <span className="text-info">
-                            Scroll: {scrollVelocity > 1 ? 'DOWN' : scrollVelocity < -1 ? 'UP' : 'Idle'}
+                            Scroll: {scrollVelocity > 5 ? 'DOWN' : scrollVelocity < -5 ? 'UP' : 'Idle'}
                         </span>
                     </div>
                 )}
