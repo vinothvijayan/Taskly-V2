@@ -1,22 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Activity } from '@/types';
+import { Activity, UserProfile } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { CheckSquare, MessageSquare, PlusSquare, ThumbsUp, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { ReactionToast } from '@/components/ui/ReactionToast';
+import { useTasks } from '@/contexts/TasksContext';
 
-const useActivities = (teamId?: string) => {
+const useActivities = (
+  teamId: string | undefined,
+  currentUserId: string | undefined,
+  teamMembers: UserProfile[],
+  onNewReaction: (reactor: UserProfile, taskTitle: string) => void
+) => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const prevActivitiesRef = useRef<Activity[]>([]);
 
   useEffect(() => {
     if (!teamId) {
@@ -32,16 +40,38 @@ const useActivities = (teamId?: string) => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedActivities: Activity[] = [];
+      const newActivities: Activity[] = [];
       snapshot.forEach(doc => {
-        fetchedActivities.push({ id: doc.id, ...doc.data() } as Activity);
+        newActivities.push({ id: doc.id, ...doc.data() } as Activity);
       });
-      setActivities(fetchedActivities);
+
+      // Detect new reactions
+      if (prevActivitiesRef.current.length > 0) {
+        newActivities.forEach(newActivity => {
+          const oldActivity = prevActivitiesRef.current.find(a => a.id === newActivity.id);
+          if (oldActivity) {
+            const oldReactors = new Set(oldActivity.reactions?.['👍'] || []);
+            const newReactors = newActivity.reactions?.['👍'] || [];
+            
+            newReactors.forEach(reactorId => {
+              if (!oldReactors.has(reactorId) && reactorId !== currentUserId) {
+                const reactor = teamMembers.find(m => m.uid === reactorId);
+                if (reactor && newActivity.task?.title) {
+                  onNewReaction(reactor, newActivity.task.title);
+                }
+              }
+            });
+          }
+        });
+      }
+
+      setActivities(newActivities);
+      prevActivitiesRef.current = newActivities;
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [teamId]);
+  }, [teamId, currentUserId, teamMembers, onNewReaction]);
 
   return { activities, loading };
 };
@@ -137,8 +167,22 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
 };
 
 export function TeamActivityFeed() {
-  const { userProfile } = useAuth();
-  const { activities, loading } = useActivities(userProfile?.teamId);
+  const { user, userProfile } = useAuth();
+  const { teamMembers } = useTasks();
+
+  const handleNewReaction = useCallback((reactor: UserProfile, taskTitle: string) => {
+    toast.custom((t) => (
+      <ReactionToast
+        reactorName={reactor.displayName || 'A team member'}
+        reactorAvatarUrl={reactor.photoURL}
+        taskTitle={taskTitle}
+      />
+    ), {
+      duration: 4000,
+    });
+  }, []);
+
+  const { activities, loading } = useActivities(userProfile?.teamId, user?.uid, teamMembers, handleNewReaction);
 
   if (!userProfile?.teamId) {
     return (
