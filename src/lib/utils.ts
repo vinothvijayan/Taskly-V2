@@ -7,6 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export const TASK_COMPLETE_SOUND_URL = '/sounds/iphone_ding.mp3';
 export const TIMER_COMPLETE_SOUND_URL = '/sounds/ting.mp3';
+export const CHAT_MESSAGE_SOUND_URL = '/sounds/ting.mp3';
 
 export async function playSound(url: string) {
   try {

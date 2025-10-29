@@ -11,6 +11,7 @@ import { useTeamChat } from '@/contexts/TeamChatContext';
 import { toast } from 'sonner';
 import { ChatMessageToast } from '@/components/ui/ChatMessageToast';
 import { ChatMessage } from '@/types';
+import { playSound, CHAT_MESSAGE_SOUND_URL } from '@/lib/utils';
 
 /**
  * A headless component that monitors for new team chat messages and sends 
@@ -90,6 +91,7 @@ export function ChatMessageNotifier() {
               if (shouldNotify) {
                 console.log(`[DEBUG] ChatNotifier: Notification triggered. isFromMe: ${isFromMe}, isSelfChat: ${isSelfChat}`);
                 
+                playSound(CHAT_MESSAGE_SOUND_URL);
                 incrementUnreadCount(chatRoomId);
 
                 toast.custom((t) => (
