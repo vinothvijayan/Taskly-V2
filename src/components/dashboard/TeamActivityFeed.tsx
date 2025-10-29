@@ -54,7 +54,8 @@ const useActivities = (
             const newReactors = newActivity.reactions?.['👍'] || [];
             
             newReactors.forEach(reactorId => {
-              if (!oldReactors.has(reactorId) && reactorId !== currentUserId) {
+              // REMOVED: && reactorId !== currentUserId
+              if (!oldReactors.has(reactorId)) {
                 const reactor = teamMembers.find(m => m.uid === reactorId);
                 if (reactor && newActivity.task?.title) {
                   onNewReaction(reactor, newActivity.task.title);
