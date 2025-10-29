@@ -375,7 +375,25 @@ export default function TeamChatPage() {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
                             const hasImage = message.type === 'image' && message.imageUrl;
                             const hasCaption = message.message && message.message.trim().length > 0;
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[85%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}><div className="flex flex-col">{hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}<div className={cn("flex items-baseline", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}><div className="leading-relaxed mr-12 flex-1">{hasCaption ? <p>{message.message}</p> : !hasImage && <p>{message.message}</p>}</div><div className={cn("absolute bottom-1.5 right-2.5 flex items-center gap-1 text-xs opacity-70 whitespace-nowrap", hasImage && !hasCaption && "bg-black/30 text-white rounded-full px-1.5 py-0.5")}><span>{formatMessageTime(message.timestamp)}</span>{isMyMessage && getMessageTickIcon(message)}</div></div></div></div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[85%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
+                              <div className="flex flex-col">
+                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
+                                <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
+                                  {(hasCaption || !hasImage) && (
+                                    <p className="break-words leading-relaxed">
+                                      {message.message}
+                                    </p>
+                                  )}
+                                  <div className={cn(
+                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 ml-auto",
+                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
+                                  )}>
+                                    <span>{formatMessageTime(message.timestamp)}</span>
+                                    {isMyMessage && getMessageTickIcon(message)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
                           };
                           return <div key={message.id} className={cn("flex mb-1", isMyMessage ? "justify-end" : "justify-start")}><MessageBubble /></div>;
                         }))}
@@ -383,7 +401,7 @@ export default function TeamChatPage() {
                       </div>
                     </ScrollArea>
                   </div>
-                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10"><div className="flex gap-2"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus className="flex-1 rounded-full border-0 bg-muted/50" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div></div>
+                  <div className="bg-background border-t px-4 py-3 shadow-lg z-10"><div className="flex gap-2"><Button variant="ghost" size="icon" className="rounded-full" onClick={handleAttachmentClick}><Paperclip className="h-5 w-5 text-muted-foreground" /></Button><Input value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} ref={inputRef} placeholder="Type a message" autoFocus className="flex-1 rounded-full border-0 bg-muted/30" /><Button onClick={sendMessage} disabled={!newMessage.trim() || sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</Button></div></div>
                 </div>
               )
             )}
@@ -431,7 +449,25 @@ export default function TeamChatPage() {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
                             const hasImage = message.type === 'image' && message.imageUrl;
                             const hasCaption = message.message && message.message.trim().length > 0;
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[75%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}><div className="flex flex-col">{hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}<div className={cn("flex items-baseline", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}><div className="leading-relaxed mr-12 flex-1">{hasCaption ? <p>{message.message}</p> : !hasImage && <p>{message.message}</p>}</div><div className={cn("absolute bottom-1.5 right-2.5 flex items-center gap-1 text-xs opacity-70 whitespace-nowrap", hasImage && !hasCaption && "bg-black/30 text-white rounded-full px-1.5 py-0.5")}><span>{formatMessageTime(message.timestamp)}</span>{isMyMessage && getMessageTickIcon(message)}</div></div></div></div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[75%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
+                              <div className="flex flex-col">
+                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
+                                <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
+                                  {(hasCaption || !hasImage) && (
+                                    <p className="break-words leading-relaxed">
+                                      {message.message}
+                                    </p>
+                                  )}
+                                  <div className={cn(
+                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 ml-auto",
+                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
+                                  )}>
+                                    <span>{formatMessageTime(message.timestamp)}</span>
+                                    {isMyMessage && getMessageTickIcon(message)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
                           };
                           return <div key={message.id} className={cn("flex mb-1", isMyMessage ? "justify-end" : "justify-start")}><MessageBubble /></div>;
                         }))}
