@@ -172,9 +172,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     unsubscribeFunctions.push(personalTasksUnsubscribe);
     
     if (userProfile.teamId) {
+      // FIX: Fetch ALL tasks in the team's collection for leaderboard scoring
       const teamTasksQuery = query(
         collection(db, 'teams', userProfile.teamId, 'tasks'),
-        where('assignedTo', 'array-contains', user.uid), // <-- ADD THIS LINE
         orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
       );
       
