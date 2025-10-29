@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Search, Command, User, Settings, LogOut, Menu, X,
-  LayoutDashboard, CheckSquare, Users, Calendar, NotebookText, BarChart3, Mic, PictureInPicture
+  LayoutDashboard, CheckSquare, Users, Calendar, NotebookText, BarChart3, Mic, PictureInPicture,
+  UserMinus // Icon for stopping impersonation
 } from "lucide-react";
 import {
   Tooltip,
@@ -43,7 +44,7 @@ const navLinks = [
 ];
 
 export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNode }) {
-  const { user, userProfile, signOutUser } = useAuth();
+  const { user, userProfile, signOutUser, isImpersonating, stopImpersonating } = useAuth();
   const { state } = useSidebar();
   const location = useLocation();
   const navigate = useNavigate();
@@ -227,6 +228,17 @@ export function PremiumHeader({ mobileTrigger }: { mobileTrigger?: React.ReactNo
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                
+                {isImpersonating && (
+                  <DropdownMenuItem 
+                    onClick={stopImpersonating}
+                    className="text-destructive focus:text-destructive font-semibold"
+                  >
+                    <UserMinus className="mr-2 h-4 w-4" />
+                    <span>Stop Impersonating</span>
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem onClick={() => navigate("/profile")}>
                   <User className="mr-2 h-4 w-4" />
                   <span>Profile</span>
