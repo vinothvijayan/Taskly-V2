@@ -117,28 +117,59 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     };
   }, [isRecording, recordingStartTime]);
 
+  // Helper function to contain the MediaRecorder logic
+  const startRecorderWithStream = async (stream: MediaStream, isSystemAudio: boolean) => {
+    try {
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const recorder = new MediaRecorder(stream, { mimeType });
+
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
+      recorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        setRecordedAudio(audioBlob);
+        streamRef.current?.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      };
+
+      recorder.start(1000); // This is where the NotSupportedError can happen
+      setMediaRecorder(recorder);
+      setIsRecording(true);
+      setRecordingStartTime(Date.now());
+      setRecordingDuration(0);
+
+      if (isSystemAudio) {
+        toast({
+          title: "Recording Started 🎙️",
+          description: "Recording system audio from the selected tab/screen.",
+        });
+      }
+    } catch (error) {
+      console.error("Error starting MediaRecorder:", error);
+      if (stream) stream.getTracks().forEach(track => track.stop());
+      
+      // Re-throw a more specific error to be caught by the main function
+      if (error instanceof DOMException && error.name === 'NotSupportedError' && isSystemAudio) {
+        throw new Error("Could not record audio from the selected screen/window. Please try sharing a 'Chrome Tab' with audio enabled instead.");
+      } else {
+        throw error; // re-throw other errors
+      }
+    }
+  };
+
   const startRecording = async () => {
     if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to start recording.",
-        variant: "destructive"
-      });
+      toast({ title: "Authentication required", variant: "destructive" });
       return;
     }
-    
-    if (recordedAudio) {
-      setRecordedAudio(null);
-    }
+    if (recordedAudio) setRecordedAudio(null);
 
     if (Capacitor.isNativePlatform()) {
       // --- NATIVE PLATFORM LOGIC (Microphone only) ---
       try {
         const fileName = `meetly_${Date.now()}.wav`;
-        
-        // This path is internal to the app's data directory
         const internalPath = `records/${fileName}`;
-
         mediaRef.current = new Media(internalPath, 
           () => console.log('Native recording success.'), 
           (err: any) => {
@@ -159,148 +190,61 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         toast({ title: "Recording Failed", description: "Could not start native recorder.", variant: "destructive" });
       }
     } else {
-      // --- WEB/DESKTOP PLATFORM LOGIC (System Audio with Microphone Fallback) ---
-      let stream: MediaStream | null = null;
-      let isSystemAudio = false;
-
-      // 0. Inform user about the requirement
+      // --- WEB/DESKTOP PLATFORM LOGIC ---
       const systemAudioToastId = showLoading("A browser prompt will appear. To record system audio, please select 'Share system audio' or 'Share tab audio' in the prompt.");
+      let systemStream: MediaStream | null = null;
 
-      // 1. Check for support and secure context
-      if (!navigator.mediaDevices.getDisplayMedia || !window.isSecureContext) {
-        dismissToast(systemAudioToastId);
-        toast({
-          title: "System Audio Not Available",
-          description: "Recording from other tabs is not supported in this environment (requires a secure HTTPS connection). Falling back to microphone.",
-          variant: "destructive"
-        });
-        stream = null; // Ensure stream is null to trigger fallback
-      } else {
-        // 2. Attempt to capture system audio via getDisplayMedia
-        try {
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true, // Request video as well, as it increases compatibility
-            audio: true,
-          });
-          
-          if (stream.getAudioTracks().length > 0) {
-            const audioTrack = stream.getAudioTracks()[0];
-            if (audioTrack.enabled && !audioTrack.muted) {
-              isSystemAudio = true;
-            } else {
-              console.warn("System audio track is disabled or muted. Falling back to microphone.");
-              toast({
-                title: "System Audio Unavailable",
-                description: "Could not capture audio from the selected screen. Please try sharing a 'Chrome Tab' with audio instead. Falling back to microphone.",
-                variant: "destructive"
-              });
-              stream.getTracks().forEach(track => track.stop());
-              stream = null;
-            }
-          } else {
-            // If we got a stream but no audio, it's a failure. Stop video tracks and fallback.
-            stream.getVideoTracks().forEach(track => track.stop());
-            stream = null;
-          }
-        } catch (error: any) {
-          // Log the failure, but proceed to microphone fallback
-          console.warn(`System audio capture failed: ${error.name}. Falling back to microphone.`);
-          
-          if (error.name === 'NotSupportedError') {
-            toast({
-                title: "System Audio Not Supported",
-                description: "Your browser or environment may not support tab audio capture. Falling back to microphone.",
-                variant: "destructive"
-            });
-          } else if (error.name !== 'NotAllowedError') { // User cancelling is not an error
-             toast({
-                title: "System Audio Capture Failed",
-                description: "Could not capture tab audio. Falling back to microphone.",
-                variant: "destructive"
-             });
-          }
-          stream = null; // Ensure stream is null for fallback
-        } finally {
-          dismissToast(systemAudioToastId);
+      try {
+        // --- ATTEMPT 1: SYSTEM AUDIO ---
+        if (!navigator.mediaDevices.getDisplayMedia || !window.isSecureContext) {
+          throw new Error("getDisplayMedia not supported.");
         }
-      }
 
-      // 2. Fallback to microphone if system audio failed or was not supported
-      if (!stream || stream.getAudioTracks().length === 0) {
-        if (stream) stream.getTracks().forEach(track => track.stop()); // Clean up failed display stream
+        systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         
+        if (systemStream.getAudioTracks().length === 0 || !systemStream.getAudioTracks()[0].enabled || systemStream.getAudioTracks()[0].muted) {
+          systemStream.getTracks().forEach(track => track.stop()); // Clean up
+          throw new Error("No usable audio track found in screen share.");
+        }
+        
+        dismissToast(systemAudioToastId);
+        await startRecorderWithStream(systemStream, true); // Try to record with system audio
+
+      } catch (systemError: any) {
+        // This block catches failures from getDisplayMedia OR startRecorderWithStream
+        dismissToast(systemAudioToastId);
+        console.warn(`System audio attempt failed: ${systemError.message}. Falling back to microphone.`);
+        
+        if (systemStream) systemStream.getTracks().forEach(track => track.stop());
+
+        // --- ATTEMPT 2: MICROPHONE FALLBACK ---
         try {
-          stream = await navigator.mediaDevices.getUserMedia({
-              audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  sampleRate: 44100
-              }
+          const micStream = await navigator.mediaDevices.getUserMedia({
+              audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
           });
-          isSystemAudio = false;
-          toast({
+          
+          if (systemError.name === 'NotAllowedError') {
+            toast({
               title: "Microphone Only 🎤",
-              description: "System audio capture failed. Recording microphone input.",
-          });
-        } catch (error: any) {
-          console.error("getUserMedia failed:", error);
+              description: "Screen share was cancelled. Recording microphone input instead.",
+            });
+          } else {
+            toast({
+              title: "Microphone Only 🎤",
+              description: systemError.message,
+            });
+          }
+
+          await startRecorderWithStream(micStream, false); // Record with microphone
+
+        } catch (micError: any) {
+          console.error("Microphone fallback also failed:", micError);
           toast({
               title: "Recording Failed",
-              description: "Microphone access denied. Cannot start recording.",
+              description: "Could not access microphone. Please check permissions.",
               variant: "destructive"
           });
-          return;
         }
-      }
-
-      // 3. Start recording with the acquired stream
-      try {
-        streamRef.current = stream;
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-        const recorder = new MediaRecorder(stream, { mimeType });
-
-        const chunks: Blob[] = [];
-
-        recorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            chunks.push(event.data);
-          }
-        };
-
-        recorder.onstop = () => {
-          const audioBlob = new Blob(chunks, { type: mimeType });
-          setRecordedAudio(audioBlob);
-          streamRef.current?.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-        };
-
-        recorder.start(1000);
-        setMediaRecorder(recorder);
-        setIsRecording(true);
-        setRecordingStartTime(Date.now());
-        setRecordingDuration(0);
-
-        if (isSystemAudio) {
-            toast({
-                title: "Recording Started 🎙️",
-                description: "Recording system audio from the selected tab/screen.",
-            });
-        }
-
-      } catch (error) {
-        console.error("Error starting MediaRecorder:", error);
-        if (stream) stream.getTracks().forEach(track => track.stop());
-        
-        let description = "An unexpected error occurred while starting the recorder.";
-        if (error instanceof DOMException && error.name === 'NotSupportedError' && isSystemAudio) {
-            description = "Could not record audio from the selected screen/window. Please try sharing a 'Chrome Tab' with audio enabled instead.";
-        }
-
-        toast({
-            title: "Recording Failed",
-            description: description,
-            variant: "destructive"
-        });
       }
     }
   };
