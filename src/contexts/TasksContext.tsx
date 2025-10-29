@@ -150,29 +150,29 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const unsubscribeFunctions: Unsubscribe[] = [];
     
-    const personalTasksQuery = query(
-      collection(db, 'users', user.uid, 'tasks'),
-      orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
-    );
-    
-    const personalTasksUnsubscribe = onSnapshot(personalTasksQuery, (snapshot) => {
-      const personalTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-      
-      setTasks(prevTasks => {
-        const teamTasks = prevTasks.filter(task => task.teamId);
-        const allTasks = [...personalTasks, ...teamTasks];
-        return sortTasks(allTasks); // Use new sort function
-      });
-      setLoading(false);
-    }, (error) => {
-      console.error("Error in personal tasks listener:", error);
-      toast({ title: "Connection error", description: "Lost connection to personal tasks.", variant: "destructive" });
-      setLoading(false);
-    });
-    unsubscribeFunctions.push(personalTasksUnsubscribe);
+    // 1. Personal Tasks (Only fetch if user is NOT in a team, or if we need to merge later)
+    // Since we want all scorable tasks in the team collection, we only fetch personal tasks
+    // if the user is not part of a team.
+    if (!userProfile.teamId) {
+        const personalTasksQuery = query(
+            collection(db, 'users', user.uid, 'tasks'),
+            orderBy('createdAt', 'desc')
+        );
+        
+        const personalTasksUnsubscribe = onSnapshot(personalTasksQuery, (snapshot) => {
+            const personalTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+            setTasks(sortTasks(personalTasks));
+            setLoading(false);
+        }, (error) => {
+            console.error("Error in personal tasks listener:", error);
+            toast({ title: "Connection error", description: "Lost connection to personal tasks.", variant: "destructive" });
+            setLoading(false);
+        });
+        unsubscribeFunctions.push(personalTasksUnsubscribe);
+    }
     
     if (userProfile.teamId) {
-      // FIX: Fetch ALL tasks in the team's collection for leaderboard scoring
+      // 2. Team Tasks (Fetch ALL tasks in the team's collection for leaderboard scoring)
       const teamTasksQuery = query(
         collection(db, 'teams', userProfile.teamId, 'tasks'),
         orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
@@ -181,17 +181,17 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const teamTasksUnsubscribe = onSnapshot(teamTasksQuery, (snapshot) => {
         const teamTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
         
-        setTasks(prevTasks => {
-          const personalTasks = prevTasks.filter(task => !task.teamId);
-          const allTasks = [...personalTasks, ...teamTasks];
-          return sortTasks(allTasks); // Use new sort function
-        });
+        // If the user is in a team, the tasks array is just the team tasks.
+        setTasks(sortTasks(teamTasks));
+        setLoading(false);
       }, (error) => {
         console.error("Error in team tasks listener:", error);
         toast({ title: "Team connection error", description: "Lost connection to team tasks.", variant: "destructive" });
+        setLoading(false);
       });
       unsubscribeFunctions.push(teamTasksUnsubscribe);
 
+      // 3. Team Members
       const teamDocRef = doc(db, 'teams', userProfile.teamId);
       const teamMembersUnsubscribe = onSnapshot(teamDocRef, async (teamDoc) => {
         if (teamDoc.exists()) {
@@ -227,7 +227,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (!user || !userProfile) return;
 
     const tempId = `temp-${Date.now()}`;
-    const isTeamTask = !!(userProfile.teamId && taskData.assignedTo && taskData.assignedTo.length > 0);
+    // REVISED LOGIC: If the user is in a team, the task is always a team task for scoring purposes.
+    const isTeamTask = !!userProfile.teamId;
     
     const newTask: Task = {
       ...taskData,
@@ -248,6 +249,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const { id, ...firestoreData } = newTask;
       if (!firestoreData.teamId) delete firestoreData.teamId;
 
+      // Save to team collection if in a team, otherwise save to personal collection
       const collectionPath = isTeamTask ? `teams/${userProfile.teamId}/tasks` : `users/${user.uid}/tasks`;
       const docRef = await addDoc(collection(db, collectionPath), firestoreData);
       
@@ -288,7 +290,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (!originalTask) return prevTasks;
 
       const newAssignedTo = taskData.assignedTo || originalTask.assignedTo || [];
-      const shouldBeTeamTask = !!(userProfile.teamId && newAssignedTo.length > 0);
+      // REVISED LOGIC: If the user is in a team, the task is always a team task for scoring purposes.
+      const shouldBeTeamTask = !!userProfile.teamId;
       const targetTeamId = shouldBeTeamTask ? userProfile.teamId : null;
 
       updatedTaskForState = { ...originalTask, ...taskData, teamId: targetTeamId || undefined };
@@ -313,7 +316,11 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const movingCollections = (originalTask.teamId || null) !== (updatedTaskForState.teamId || null);
+      // Determine the correct collection path based on the original task's teamId or the user's current teamId
+      const originalCollectionPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`;
+      const newCollectionPath = updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${user.uid}/tasks`;
+      
+      const movingCollections = originalCollectionPath !== newCollectionPath;
       
       const dataForFirestore: { [key: string]: any } = { ...taskData };
 
@@ -339,9 +346,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       dataForFirestore.teamId = updatedTaskForState.teamId || deleteField();
       
       if (movingCollections) {
-        const currentTaskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
+        const currentTaskRef = doc(db, originalCollectionPath, taskId);
         await deleteDoc(currentTaskRef);
-        const newTaskRef = doc(db, updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
+        const newTaskRef = doc(db, newCollectionPath, taskId);
         const { id, ...dataForFirestoreWithMove } = updatedTaskForState;
         
         Object.keys(dataForFirestoreWithMove).forEach(key => {
@@ -352,7 +359,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
         await setDoc(newTaskRef, dataForFirestoreWithMove);
       } else {
-        const taskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
+        const taskRef = doc(db, originalCollectionPath, taskId);
         await updateDoc(taskRef, dataForFirestore);
       }
 
