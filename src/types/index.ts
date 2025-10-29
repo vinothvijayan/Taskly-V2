@@ -77,9 +77,10 @@ export interface ChatMessage {
   senderName: string;
   senderEmail: string;
   senderAvatar?: string;
-  message: string;
+  message: string; // Used for text content or image caption
   timestamp: number;
-  type: 'text' | 'system';
+  type: 'text' | 'system' | 'image'; // Add 'image'
+  imageUrl?: string; // URL for the image
 }
 
 export interface ChatRoom {
