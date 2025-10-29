@@ -25,6 +25,7 @@ import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Leaderboard } from "@/components/dashboard/Leaderboard";
 import { TeamActivityFeed } from "@/components/dashboard/TeamActivityFeed";
+import { TeamManagementCard } from "@/components/dashboard/TeamManagementCard";
 
 // Animation Variants for Framer Motion
 const containerVariants = {
@@ -172,10 +173,15 @@ export default function DashboardPage() {
             <TeamActivityFeed />
           </motion.div>
 
-          {/* Team Leaderboard */}
-          <motion.div variants={itemVariants} initial="hidden" animate="visible">
-            <Leaderboard />
-          </motion.div>
+          {/* Right column with Leaderboard and Team Management */}
+          <div className="space-y-6">
+            <motion.div variants={itemVariants} initial="hidden" animate="visible">
+              <Leaderboard />
+            </motion.div>
+            <motion.div variants={itemVariants} initial="hidden" animate="visible">
+              <TeamManagementCard />
+            </motion.div>
+          </div>
         </div>
       </div>
       
