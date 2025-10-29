@@ -30,7 +30,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { usePipWidgetManager } from '@/hooks/usePipWidgetManager.tsx';
 import { useTeamChat } from "@/contexts/TeamChatContext";
 import { Badge } from "@/components/ui/badge";
