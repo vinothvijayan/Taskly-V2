@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
 import { rtdb, db } from "@/lib/firebase"; // Import db (Firestore)
 import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast } from "firebase/database";
