@@ -58,7 +58,7 @@ export function useVoiceCommands() {
     const lowerTranscript = transcript.toLowerCase().trim();
     console.log('Processing command:', lowerTranscript);
 
-    if (lowerTranscript.includes('open tasks') || lowerTranscript.includes('go to tasks')) {
+    if (lowerTranscript.includes('open tasks') || lowerTranscript.includes('go to tasks') || lowerTranscript.includes('show my tasks')) {
       speak('Affirmative. Navigating to Task Manager.');
       navigate('/tasks');
     } else if (lowerTranscript.includes('open dashboard') || lowerTranscript.includes('go home')) {
@@ -79,12 +79,12 @@ export function useVoiceCommands() {
         const title = taskMatch[2].trim();
         if (user) {
           addTask({ title, priority: 'medium', status: 'todo', createdBy: user.uid, createdAt: new Date().toISOString() } as Omit<Task, 'id' | 'createdAt'>);
-          speak(`Task ${title} successfully logged.`);
+          speak(`Task created: ${title}`);
         } else {
-          speak('Authentication required to log new tasks.');
+          speak('Please sign in to create tasks.');
         }
       } else {
-        speak('Please specify the task title.');
+        speak('What should the task be called?');
       }
     } else if (lowerTranscript.includes('start tracking')) {
       if (isTracking && trackingTask) {
@@ -130,7 +130,8 @@ export function useVoiceCommands() {
     recognitionRef.current.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
       const lowerTranscript = transcript.toLowerCase().trim();
-      
+      console.log('Raw Transcript:', lowerTranscript);
+
       // Clear the wake word timeout if we receive any result
       if (wakeWordTimeoutRef.current) {
         clearTimeout(wakeWordTimeoutRef.current);
