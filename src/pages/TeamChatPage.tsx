@@ -409,7 +409,7 @@ export default function TeamChatPage() {
                                     </p>
                                   )}
                                   <div className={cn(
-                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 ml-auto",
+                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end",
                                     hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
                                   )}>
                                     <span>{formatMessageTime(message.timestamp)}</span>
@@ -427,7 +427,7 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-full p-1">
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
                           <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
@@ -512,8 +512,10 @@ export default function TeamChatPage() {
                                     </p>
                                   )}
                                   <div className={cn(
-                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 ml-auto",
-                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
+                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap",
+                                    hasImage && !hasCaption
+                                      ? "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
+                                      : "mt-1 w-full justify-end"
                                   )}>
                                     <span>{formatMessageTime(message.timestamp)}</span>
                                     {isMyMessage && getMessageTickIcon(message)}
