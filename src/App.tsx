@@ -411,7 +411,7 @@ export default function App() {
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
             <Toaster />
-            <Sonner />
+            <Sonner position="top-center" />
             <AuthContextProvider>
               <ConfettiProvider>
                 <NotificationsContextProvider>

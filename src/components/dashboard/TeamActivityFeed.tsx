@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ReactionToast } from '@/components/ui/ReactionToast';
 import { useTasks } from '@/contexts/TasksContext';
+import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
 
 const useActivities = (
   teamId: string | undefined,
@@ -54,11 +55,27 @@ const useActivities = (
             const newReactors = newActivity.reactions?.['👍'] || [];
             
             newReactors.forEach(reactorId => {
-              // REMOVED: && reactorId !== currentUserId
-              if (!oldReactors.has(reactorId)) {
+              if (!oldReactors.has(reactorId)) { // This is a new reaction
                 const reactor = teamMembers.find(m => m.uid === reactorId);
+                const activityAuthorId = newActivity.actor.uid;
+
                 if (reactor && newActivity.task?.title) {
+                  // 1. Show the toast for everyone (including the reactor)
                   onNewReaction(reactor, newActivity.task.title);
+
+                  // 2. Send a system notification ONLY to the author of the activity,
+                  //    and only if the reactor is not the author.
+                  if (currentUserId === activityAuthorId && reactorId !== currentUserId) {
+                    unifiedNotificationService.sendNotification({
+                      title: '👍 New Reaction',
+                      body: `${reactor.displayName || 'Someone'} reacted to your activity on "${newActivity.task.title}"`,
+                      type: 'general',
+                      data: {
+                        taskId: newActivity.task.id,
+                        type: 'reaction'
+                      }
+                    });
+                  }
                 }
               }
             });
