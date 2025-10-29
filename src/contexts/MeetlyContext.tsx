@@ -8,13 +8,16 @@ import {
   query,
   orderBy,
   onSnapshot,
-  where
+  where,
+  deleteField
 } from "firebase/firestore";
 import {
   ref as storageRef,
   uploadBytes,
   getDownloadURL,
-  deleteObject
+  deleteObject,
+  updateMetadata,
+  getMetadata
 } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +41,7 @@ interface MeetlyContextType {
   deleteRecording: (recordingId: string) => Promise<void>;
   uploadRecording: (audioBlob: Blob, title: string, duration: number) => Promise<void>;
   clearRecordedAudio: () => void;
+  retryProcessing: (recordingId: string) => Promise<void>; // New function
 }
 
 const MeetlyContext = createContext<MeetlyContextType | undefined>(undefined);
@@ -366,6 +370,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       
       await updateDoc(docRef, {
         audioUrl: audioUrl,
+        filePath: fileName, // Save the file path for retries
         status: 'processing'
       });
       
@@ -419,6 +424,54 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const retryProcessing = async (recordingId: string) => {
+    const loadingToastId = showLoading("Retrying processing...");
+    try {
+      const recording = recordings.find(r => r.id === recordingId);
+      if (!recording || !recording.filePath) {
+        throw new Error("Recording file path not found. Cannot retry.");
+      }
+
+      // 1. Optimistically update the UI
+      setRecordings(prev => prev.map(r => r.id === recordingId ? { ...r, status: 'processing', error: undefined } : r));
+
+      // 2. Update the Firestore document to 'processing' and clear the error
+      const docRef = doc(db, 'meetingRecordings', recordingId);
+      await updateDoc(docRef, {
+        status: 'processing',
+        error: deleteField()
+      });
+
+      // 3. Trigger the storage function by updating metadata
+      const fileRef = storageRef(storage, recording.filePath);
+      const existingMetadata = await getMetadata(fileRef);
+
+      await updateMetadata(fileRef, {
+        customMetadata: {
+          ...existingMetadata.customMetadata,
+          retry_timestamp: new Date().toISOString()
+        }
+      });
+
+      dismissToast(loadingToastId);
+      toast({
+        title: "Reprocessing Started",
+        description: "The AI is analyzing your recording again. This may take a few minutes."
+      });
+    } catch (error: any) {
+      dismissToast(loadingToastId);
+      console.error("Error retrying processing:", error);
+      // Revert optimistic update on failure
+      const originalRecording = recordings.find(r => r.id === recordingId);
+      setRecordings(prev => prev.map(r => r.id === recordingId ? { ...originalRecording!, status: 'failed', error: error.message } : r));
+      toast({
+        title: "Retry Failed",
+        description: error.message || "Could not start reprocessing.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const value = {
     recordings,
     loading,
@@ -430,6 +483,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     deleteRecording,
     uploadRecording,
     clearRecordedAudio,
+    retryProcessing,
   };
 
   return (

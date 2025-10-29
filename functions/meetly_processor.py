@@ -51,7 +51,7 @@ def process_meetly_recording(cloud_event: storage_fn.CloudEvent[storage_fn.Stora
     temp_mp3_path = os.path.join(temp_dir, "converted.mp3")
 
     try:
-        doc_ref.update({"status": "processing"})
+        doc_ref.update({"status": "processing", "error": firestore.DELETE_FIELD})
         bucket = storage.bucket()
         blob = bucket.blob(file_path)
         blob.download_to_filename(temp_webm_path)
