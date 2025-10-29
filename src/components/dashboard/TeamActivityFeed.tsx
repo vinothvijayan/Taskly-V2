@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckSquare, MessageSquare, PlusSquare, Users } from 'lucide-react';
+import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ReactionToast } from '@/components/ui/ReactionToast';
 import { useTasks } from '@/contexts/TasksContext';
 import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const EMOJIS = ['👍', '🔥', '❤️'];
 
@@ -166,28 +167,50 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
             <span>{activity.timestamp ? formatDistanceToNow(activity.timestamp.toDate(), { addSuffix: true }) : ''}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {EMOJIS.map(emoji => {
-            const reactions = activity.reactions?.[emoji] || [];
-            const hasReacted = user ? reactions.includes(user.uid) : false;
-            
-            return (
-              <Button
-                key={emoji}
-                variant={hasReacted ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2 gap-1"
-                onClick={() => toggleReaction(emoji)}
-              >
-                <span className={cn("text-base transition-transform", hasReacted && "scale-110")}>{emoji}</span>
-                {reactions.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {Object.entries(activity.reactions || {}).map(([emoji, reactors]) => {
+            if (reactors.length > 0) {
+              const hasReacted = user ? reactors.includes(user.uid) : false;
+              return (
+                <Button
+                  key={emoji}
+                  variant={hasReacted ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-7 px-2 gap-1 border-primary/20"
+                  onClick={() => toggleReaction(emoji)}
+                >
+                  <span className={cn("text-base transition-transform", hasReacted && "scale-110")}>{emoji}</span>
                   <span className={cn("text-xs", hasReacted ? "text-primary font-semibold" : "text-muted-foreground")}>
-                    {reactions.length}
+                    {reactors.length}
                   </span>
-                )}
-              </Button>
-            );
+                </Button>
+              );
+            }
+            return null;
           })}
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+                <SmilePlus className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-1">
+              <div className="flex gap-1">
+                {EMOJIS.map(emoji => (
+                  <Button
+                    key={emoji}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-xl rounded-full"
+                    onClick={() => toggleReaction(emoji)}
+                  >
+                    {emoji}
+                  </Button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </motion.div>
