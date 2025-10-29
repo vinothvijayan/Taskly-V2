@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "chats": {
+      "$chatRoomId": {
+        "messages": {
+          ".indexOn": "timestamp"
+        }
+      }
+    },
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
