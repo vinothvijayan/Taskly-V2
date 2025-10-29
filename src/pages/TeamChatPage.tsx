@@ -439,7 +439,7 @@ export default function TeamChatPage() {
                           placeholder="Type a message" 
                           autoFocus 
                           rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-1.5 px-2 text-base" 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-1.5 px-2 text-base min-h-0" 
                         />
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
                           <Paperclip className="h-5 w-5 text-muted-foreground" />
@@ -490,7 +490,7 @@ export default function TeamChatPage() {
             <div className="flex-1 flex flex-col min-h-0">
               {selectedUser ? (
                 <>
-                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
+                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p></div></div>
                   <div className="flex-1 whatsapp-wallpaper overflow-hidden">
                     <ScrollArea className="h-full">
                       <div className="p-6 space-y-1">
@@ -542,7 +542,7 @@ export default function TeamChatPage() {
                           placeholder="Type a message" 
                           autoFocus 
                           rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-base" 
+                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-base min-h-0" 
                         />
                         <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
                           <Paperclip className="h-5 w-5 text-muted-foreground" />
