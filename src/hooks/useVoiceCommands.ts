@@ -33,16 +33,28 @@ export function useVoiceCommands() {
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      // Attempt to find a deep/robotic voice (OS dependent)
-      const voices = window.speechSynthesis.getVoices();
-      const jarvisVoice = voices.find(v => v.name.toLowerCase().includes('google us english') || v.name.toLowerCase().includes('male'));
+      // 1. Cancel any ongoing speech to prevent double-speaking
+      window.speechSynthesis.cancel();
       
-      if (jarvisVoice) {
-        utterance.voice = jarvisVoice;
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // 2. Simplify voice selection for consistency
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => 
+        v.name.toLowerCase().includes('male') || 
+        v.name.toLowerCase().includes('google us english')
+      );
+      
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+      } else if (voices.length > 0) {
+        // Fallback to the first available voice
+        utterance.voice = voices[0];
       }
       
       utterance.rate = 1.1;
+      
+      // 3. Speak the utterance
       window.speechSynthesis.speak(utterance);
     }
   }, []);
@@ -87,7 +99,7 @@ export function useVoiceCommands() {
           speak('Authentication required to log new tasks.');
         }
       } else {
-        speak('Please specify the task title.');
+        speak('What should the task be called?');
       }
     } else if (lowerTranscript.includes('start tracking')) {
       if (isTracking && trackingTask) {
