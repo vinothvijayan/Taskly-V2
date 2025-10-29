@@ -41,7 +41,8 @@ import {
   Plus,
   Copy,
   Reply,
-  Paperclip
+  Paperclip,
+  Smile
 } from "lucide-react";
 import { AttachmentPreviewModal } from "@/components/chat/AttachmentPreviewModal";
 
@@ -426,9 +427,9 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-full">
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 flex-shrink-0" onClick={handleAttachmentClick}>
-                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                          <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
                         <Textarea 
                           value={newMessage} 
@@ -440,6 +441,9 @@ export default function TeamChatPage() {
                           rows={1} 
                           className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
                         />
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
+                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                        </Button>
                       </div>
                       <Button 
                         onClick={sendMessage} 
@@ -526,9 +530,9 @@ export default function TeamChatPage() {
                   </div>
                   <div className="bg-background border-t px-4 py-2 shadow-lg z-10">
                     <div className="flex items-end gap-3">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-full">
-                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 flex-shrink-0" onClick={handleAttachmentClick}>
-                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                          <Smile className="h-5 w-5 text-muted-foreground" />
                         </Button>
                         <Textarea 
                           value={newMessage} 
@@ -540,6 +544,9 @@ export default function TeamChatPage() {
                           rows={1} 
                           className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-2 px-2 text-base" 
                         />
+                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
+                          <Paperclip className="h-5 w-5 text-muted-foreground" />
+                        </Button>
                       </div>
                       <Button 
                         onClick={sendMessage} 
