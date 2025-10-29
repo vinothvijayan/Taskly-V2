@@ -19,7 +19,8 @@ import {
   updateMetadata,
   getMetadata
 } from "firebase/storage";
-import { db, storage } from "@/lib/firebase";
+import { db, storage, functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -183,7 +184,19 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           });
           
           if (stream.getAudioTracks().length > 0) {
-            isSystemAudio = true;
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack.enabled && !audioTrack.muted) {
+              isSystemAudio = true;
+            } else {
+              console.warn("System audio track is disabled or muted. Falling back to microphone.");
+              toast({
+                title: "System Audio Unavailable",
+                description: "Could not capture audio from the selected screen. Please try sharing a 'Chrome Tab' with audio instead. Falling back to microphone.",
+                variant: "destructive"
+              });
+              stream.getTracks().forEach(track => track.stop());
+              stream = null;
+            }
           } else {
             // If we got a stream but no audio, it's a failure. Stop video tracks and fallback.
             stream.getVideoTracks().forEach(track => track.stop());
@@ -277,9 +290,15 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error starting MediaRecorder:", error);
         if (stream) stream.getTracks().forEach(track => track.stop());
+        
+        let description = "An unexpected error occurred while starting the recorder.";
+        if (error instanceof DOMException && error.name === 'NotSupportedError' && isSystemAudio) {
+            description = "Could not record audio from the selected screen/window. Please try sharing a 'Chrome Tab' with audio enabled instead.";
+        }
+
         toast({
             title: "Recording Failed",
-            description: "An unexpected error occurred while starting the recorder.",
+            description: description,
             variant: "destructive"
         });
       }
