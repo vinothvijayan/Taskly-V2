@@ -174,8 +174,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (userProfile.teamId) {
       const teamTasksQuery = query(
         collection(db, 'teams', userProfile.teamId, 'tasks'),
-        where('assignedTo', 'array-contains', user.uid), // <-- ADD THIS LINE
-        orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
+        orderBy('createdAt', 'desc') // Re-sort locally
       );
       
       const teamTasksUnsubscribe = onSnapshot(teamTasksQuery, (snapshot) => {
@@ -253,6 +252,16 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       
       const finalTask = { ...newTask, id: docRef.id };
       setTasks(prev => sortTasks(prev.map(task => (task.id === tempId ? finalTask : task))));
+
+      if (isTeamTask) {
+        const { logActivity } = await import('@/lib/activityLogger');
+        logActivity(
+          userProfile.teamId!,
+          'TASK_CREATED',
+          { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+          { task: { id: docRef.id, title: finalTask.title } }
+        );
+      }
 
       if (finalTask.dueDate) {
         notificationService.scheduleTaskReminder(finalTask, 15);
@@ -391,7 +400,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   }, [user, toast]);
 
   const toggleTaskStatus = useCallback(async (taskId: string, options?: { playSound?: boolean }) => {
-    if (!user) return;
+    if (!user || !userProfile) return;
 
     let originalTask: Task | undefined;
     let updatedTaskForState: Task | undefined;
@@ -421,6 +430,16 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
           { title: "Task completed! 🎯", body: `Great job completing "${originalTask.title}"!`, type: 'task-complete', read: false, data: { taskId, taskTitle: originalTask.title } },
           user.uid
         );
+
+        if (originalTask.teamId) {
+          const { logActivity } = await import('@/lib/activityLogger');
+          logActivity(
+            originalTask.teamId,
+            'TASK_COMPLETED',
+            { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+            { task: { id: originalTask.id, title: originalTask.title } }
+          );
+        }
       }
 
       const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
@@ -434,7 +453,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling task status:", error);
       toast({ title: "Failed to update task", variant: "destructive" });
     }
-  }, [user, playSound, showConfetti, addNotification, toast]);
+  }, [user, userProfile, playSound, showConfetti, addNotification, toast]);
 
   const toggleTaskPriority = useCallback(async (taskId: string) => {
     if (!user) return;

@@ -7,15 +7,16 @@ import { Button } from '@/components/ui/button';
 import { MessageCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Task } from '@/types';
 
 interface TaskCommentsProps {
-  taskId: string;
+  task: Task;
   className?: string;
   isExpanded: boolean; // Now controls content visibility, not component mounting
   onToggleExpanded: () => void; // Still used for the parent's state
 }
 
-export function TaskComments({ taskId, className, isExpanded, onToggleExpanded }: TaskCommentsProps) {
+export function TaskComments({ task, className, isExpanded, onToggleExpanded }: TaskCommentsProps) {
   const { 
     comments, 
     commentCounts, 
@@ -29,10 +30,10 @@ export function TaskComments({ taskId, className, isExpanded, onToggleExpanded }
   // A ref to manage the unsubscribe timer, preventing re-renders
   const unsubscribeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const taskComments = comments[taskId] || [];
-  const commentCount = commentCounts[taskId] || 0;
+  const taskComments = comments[task.id] || [];
+  const commentCount = commentCounts[task.id] || 0;
   // Only show the main "Loading..." text on the very first fetch
-  const isLoading = loading[taskId] === true && taskComments.length === 0;
+  const isLoading = loading[task.id] === true && taskComments.length === 0;
 
   // Proactive Subscription: This useEffect will now always run when TaskComments is mounted.
   useEffect(() => {
@@ -42,15 +43,15 @@ export function TaskComments({ taskId, className, isExpanded, onToggleExpanded }
     }
     
     // Subscribe to comments for this task.
-    const unsubscribe = subscribeToTaskComments(taskId);
+    const unsubscribe = subscribeToTaskComments(task.id);
     
     // When the component unmounts, perform a final cleanup.
     return () => {
       if (unsubscribe) {
-        unsubscribeFromTaskComments(taskId);
+        unsubscribeFromTaskComments(task.id);
       }
     };
-  }, [taskId, subscribeToTaskComments, unsubscribeFromTaskComments]);
+  }, [task.id, subscribeToTaskComments, unsubscribeFromTaskComments]);
   
   // Delayed Unsubscription: This prevents re-fetching if the user quickly toggles the comment section.
   useEffect(() => {
@@ -64,10 +65,10 @@ export function TaskComments({ taskId, className, isExpanded, onToggleExpanded }
       // If the user collapses the comments, plan to unsubscribe in 30 seconds.
       // If they re-open within that time, the plan will be cancelled.
       unsubscribeTimerRef.current = setTimeout(() => {
-        unsubscribeFromTaskComments(taskId);
+        unsubscribeFromTaskComments(task.id);
       }, 30000); // 30 seconds
     }
-  }, [isExpanded, taskId, unsubscribeFromTaskComments]);
+  }, [isExpanded, task.id, unsubscribeFromTaskComments]);
 
   const handleCommentAdded = () => {
     setShowCommentForm(false); // Hide form after successful submission
@@ -100,7 +101,7 @@ export function TaskComments({ taskId, className, isExpanded, onToggleExpanded }
                   </Button>
                 ) : (
                   <CommentForm
-                    taskId={taskId}
+                    task={task}
                     onCommentAdded={handleCommentAdded}
                     onCancel={() => setShowCommentForm(false)}
                   />

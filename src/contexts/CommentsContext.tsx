@@ -13,7 +13,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { TaskComment } from '@/types';
+import { Task, TaskComment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTasks } from '@/contexts/TasksContext'; // Import useTasks
 import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
@@ -23,7 +23,7 @@ interface CommentsContextType {
   comments: { [taskId: string]: TaskComment[] };
   commentCounts: { [taskId: string]: number };
   loading: { [taskId: string]: boolean };
-  addComment: (taskId: string, content: string, taskTitle?: string) => Promise<void>;
+  addComment: (task: Task, content: string) => Promise<void>;
   updateComment: (commentId: string, taskId: string, content: string) => Promise<void>;
   deleteComment: (commentId: string, taskId: string) => Promise<void>;
   subscribeToTaskComments: (taskId: string) => (() => void) | null;
@@ -33,21 +33,21 @@ interface CommentsContextType {
 const CommentsContext = createContext<CommentsContextType | null>(null);
 
 export function CommentsContextProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const tasksContext = useTasks(); // Use the TasksContext
   const [comments, setComments] = useState<{ [taskId: string]: TaskComment[] }>({});
   const [commentCounts, setCommentCounts] = useState<{ [taskId: string]: number }>({});
   const [loading, setLoading] = useState<{ [taskId: string]: boolean }>({});
   const [unsubscribers, setUnsubscribers] = useState<{ [taskId: string]: () => void }>({});
 
-  const addComment = async (taskId: string, content: string, taskTitle?: string) => {
+  const addComment = async (task: Task, content: string) => {
     if (!user || !content.trim()) return;
 
     const newCommentTimestamp = new Date().toISOString(); // Get timestamp before adding
     try {
-      const commentsRef = collection(db, 'taskComments', taskId, 'comments');
+      const commentsRef = collection(db, 'taskComments', task.id, 'comments');
       await addDoc(commentsRef, {
-        taskId,
+        taskId: task.id,
         userId: user.uid,
         userDisplayName: user.displayName || user.email,
         userPhotoURL: user.photoURL,
@@ -57,17 +57,28 @@ export function CommentsContextProvider({ children }: { children: React.ReactNod
       });
 
       // Update the parent task's lastCommentedAt to trigger re-sorting
-      await tasksContext.updateTaskLastCommentedAt(taskId, newCommentTimestamp);
+      await tasksContext.updateTaskLastCommentedAt(task.id, newCommentTimestamp);
       
-      // Send notification for new comment (only if task title is provided)
-      if (taskTitle) {
-        await unifiedNotificationService.sendCommentNotification(
-          taskTitle,
-          user.displayName || user.email || 'Anonymous',
-          content.trim(),
-          taskId
+      if (task.teamId && userProfile) {
+        const { logActivity } = await import('@/lib/activityLogger');
+        logActivity(
+          task.teamId,
+          'COMMENT_ADDED',
+          { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+          {
+            task: { id: task.id, title: task.title },
+            comment: { contentPreview: content.trim().substring(0, 100) }
+          }
         );
       }
+      
+      // Send notification for new comment
+      await unifiedNotificationService.sendCommentNotification(
+        task.title,
+        user.displayName || user.email || 'Anonymous',
+        content.trim(),
+        task.id
+      );
       
       toast.success('Comment added successfully');
     } catch (error) {

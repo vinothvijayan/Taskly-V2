@@ -139,3 +139,25 @@ export interface Opportunity {
   meetingDate?: string;
   meetingStatus?: 'scheduled' | 'done';
 }
+
+export interface Activity {
+  id: string;
+  teamId: string;
+  type: 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED';
+  timestamp: any; // Firebase Timestamp
+  actor: {
+    uid: string;
+    displayName: string;
+    photoURL?: string;
+  };
+  task?: {
+    id: string;
+    title: string;
+  };
+  comment?: {
+    contentPreview: string;
+  };
+  reactions?: {
+    [emoji: string]: string[];
+  };
+}

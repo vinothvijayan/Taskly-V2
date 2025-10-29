@@ -189,7 +189,7 @@ export const MobileTaskCard = memo(function MobileTaskCard({
           {(!isCompleted || (task.subtasks && task.subtasks.length > 0)) && <SubtasksSection task={task} />}
           
           <TaskComments 
-            taskId={task.id} 
+            task={task} 
             isExpanded={isCommentsExpanded} 
             onToggleExpanded={() => setIsCommentsExpanded(!isCommentsExpanded)} 
           />

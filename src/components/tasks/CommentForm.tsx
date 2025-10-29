@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useComments } from '@/contexts/CommentsContext';
 import { Send, X } from 'lucide-react';
+import { Task } from '@/types';
 
 interface CommentFormProps {
-  taskId: string;
+  task: Task;
   initialContent?: string;
   isEditing?: boolean;
   commentId?: string;
@@ -14,7 +15,7 @@ interface CommentFormProps {
 }
 
 export function CommentForm({ 
-  taskId, 
+  task, 
   initialContent = '', 
   isEditing = false, 
   commentId,
@@ -35,9 +36,9 @@ export function CommentForm({
     setIsSubmitting(true);
     try {
       if (isEditing && commentId) {
-        await updateComment(commentId, taskId, content);
+        await updateComment(commentId, task.id, content);
       } else {
-        await addComment(taskId, content);
+        await addComment(task, content);
       }
       
       setContent('');
