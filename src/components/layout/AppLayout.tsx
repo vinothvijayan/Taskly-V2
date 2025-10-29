@@ -1,7 +1,7 @@
 import { ReactNode } from "react"
 import { useLocation } from "react-router-dom"
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar"
-import { AppSidebar } from "./AppSidebar"
+import { AppSidebar, SidebarNavContent } from "./AppSidebar"
 import { PremiumHeader } from "./PremiumHeader"
 import { TimerProvider, useTimer } from "@/contexts/TimerContext"
 import { FloatingTimer } from "@/components/timer/FloatingTimer"
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
+import { HandGestureDetector } from "@/components/ai/HandGestureDetector" // <-- IMPORTED
 
 interface AppLayoutProps {
   children: ReactNode
@@ -53,7 +54,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
             <SheetTitle>Main Navigation</SheetTitle>
             <SheetDescription>Navigate through the main sections of the Taskly application.</SheetDescription>
           </SheetHeader>
-          {/* SidebarNavContent is not imported here, assuming it's handled by AppSidebar or SheetContent children */}
+          <SidebarNavContent onLinkClick={() => setState('collapsed')} collapsed={false} isMobile={isMobile} />
         </SheetContent>
       </Sheet>
     );
@@ -86,6 +87,7 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       <FloatingTimer />
       <TimeTrackingWidget />
       <PerformanceMonitor />
+      <HandGestureDetector /> {/* <-- MOVED HERE */}
     </div>
   )
 }

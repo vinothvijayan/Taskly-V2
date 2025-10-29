@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import {
   BarChart3, CheckCircle, Clock, Target, TrendingUp, Filter, Calendar as CalendarIcon,
-  Plus, Search, Flame, Award, Activity, Users, UserPlus, X, CheckSquare, ListChecks // ADDED ListChecks
+  Plus, Search, Flame, Award, Activity, Users, UserPlus, X, CheckSquare // <-- ADDED CheckSquare
 } from "lucide-react";
 
 import { useTasks } from "@/contexts/TasksContext";
@@ -25,7 +25,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerFooter, DrawerClose } from "@/components/ui/drawer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"; // <-- ADDED IMPORTS
 
 // Custom Components
 import { TaskCard } from "@/components/tasks/TaskCard";
@@ -34,7 +34,6 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { ContributionGraph } from "@/components/dashboard/ContributionGraph";
 import { DashboardSkeleton } from "@/components/skeletons";
 import { Leaderboard } from "@/components/dashboard/Leaderboard";
-import { TeamActivityFeed } from "@/components/dashboard/TeamActivityFeed"; // <-- NEW IMPORT
 
 interface FilterState {
   status: "all" | Task["status"];
@@ -85,7 +84,33 @@ const StatCard = ({ title, value, icon: Icon, colorClass, bgColorClass }: any) =
   </motion.div>
 );
 
-// Removed FilterControls as they are now only needed on TasksPage
+const FilterControls = ({ filters, setFilters, isMobile, inDrawer = false }: { filters: FilterState, setFilters: (filters: FilterState) => void, isMobile: boolean, inDrawer?: boolean }) => (
+  <div className={cn("grid gap-4", inDrawer ? "grid-cols-1 p-4" : "sm:grid-cols-2 lg:grid-cols-4")}>
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input placeholder="Search tasks..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} className="pl-10" />
+    </div>
+    <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value as FilterState["status"] })}>
+      <SelectTrigger><SelectValue placeholder="Filter by status" /></SelectTrigger>
+      <SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="todo">To Do</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem></SelectContent>
+    </Select>
+    <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value as FilterState["priority"] })}>
+      <SelectTrigger><SelectValue placeholder="Filter by priority" /></SelectTrigger>
+      <SelectContent><SelectItem value="all">All Priority</SelectItem><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem></SelectContent>
+    </Select>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange.from && "text-muted-foreground")}>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {filters.dateRange.from ? filters.dateRange.to ? `${format(filters.dateRange.from, "LLL dd")} - ${format(filters.dateRange.to, "LLL dd")}` : format(filters.dateRange.from, "LLL dd, y") : <span>Pick a date range</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar initialFocus mode="range" selected={filters.dateRange} onSelect={(range) => setFilters({ ...filters, dateRange: { from: range?.from, to: range?.to } })} numberOfMonths={isMobile ? 1 : 2} />
+      </PopoverContent>
+    </Popover>
+  </div>
+);
 
 export default function DashboardPage() {
   const {
@@ -101,8 +126,7 @@ export default function DashboardPage() {
 
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [showForm, setShowForm] = useState(false);
-  
-  // Simplified filter state for dashboard view
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
     status: "all",
     priority: "all",
@@ -125,12 +149,17 @@ export default function DashboardPage() {
   const longestStreak = getLongestStreak();
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Filter tasks for the current user's active list (top 5)
-  const myActiveTasks = useMemo(() => {
-    return tasks
-      .filter(task => task.status !== 'completed' && task.createdBy === user?.uid)
-      .slice(0, 5);
-  }, [tasks, user?.uid]);
+  const filteredTasks = tasks.filter(task => {
+    if (filters.status !== "all" && task.status !== filters.status) return false;
+    if (filters.priority !== "all" && task.priority !== filters.priority) return false;
+    if (filters.search && !task.title.toLowerCase().includes(filters.search.toLowerCase()) && !task.description?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.dateRange.from || filters.dateRange.to) {
+      const taskDate = new Date(task.createdAt);
+      if (filters.dateRange.from && taskDate < filters.dateRange.from) return false;
+      if (filters.dateRange.to && taskDate > filters.dateRange.to) return false;
+    }
+    return true;
+  });
 
   const handleCreateTask = (taskData: Omit<Task, "id" | "createdAt">) => {
     const newTaskData: any = {
@@ -156,12 +185,18 @@ export default function DashboardPage() {
     if (task) startTaskTimer(task);
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    deleteTask(taskId);
+  const clearFilters = () => {
+    setFilters({ status: "all", priority: "all", dateRange: { from: undefined, to: undefined }, search: "" });
+    if(isMobile) setIsFilterDrawerOpen(false);
   };
-
-  const handleToggleStatus = (taskId: string) => {
-    toggleTaskStatus(taskId);
+  
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (filters.status !== "all") count++;
+    if (filters.priority !== "all") count++;
+    if (filters.search) count++;
+    if (filters.dateRange.from) count++;
+    return count;
   };
 
   const getAssignedProfiles = (assignedToUids?: string[]): UserProfile[] => {
@@ -196,6 +231,7 @@ export default function DashboardPage() {
               <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
               <p className="text-sm text-muted-foreground">Welcome back, {userProfile?.displayName || user?.email}!</p>
             </div>
+            {/* FIX: Use Tailwind class to hide button on mobile screen sizes, preventing flicker */}
             <Button 
               onClick={() => setShowForm(true)} 
               variant="focus" 
@@ -206,7 +242,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Stats Grid */}
+        {/* --- THIS IS THE CORRECTED & REFACTORED STATS GRID --- */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -220,6 +256,7 @@ export default function DashboardPage() {
           <StatCard title="Current Streak" value={`${currentStreak} ${currentStreak === 1 ? 'day' : 'days'}`} icon={Flame} colorClass="text-orange-500" bgColorClass="bg-orange-500/10" />
           <StatCard title="Longest Streak" value={`${longestStreak} ${longestStreak === 1 ? 'day' : 'days'}`} icon={Award} colorClass="text-purple-500" bgColorClass="bg-purple-500/10" />
         </motion.div>
+        {/* --- END OF FIX --- */}
 
         {!isMobile && (
           <motion.div variants={itemVariants} initial="hidden" animate="visible">
@@ -227,41 +264,58 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Task Management, Activity Feed, and Leaderboard Grid */}
+        {/* Task Management and Team Collaboration Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Column: My Active Tasks & Team Activity Feed */}
-          <motion.div variants={itemVariants} initial="hidden" animate="visible" className="lg:col-span-2 space-y-6">
-            
-            {/* My Active Tasks */}
+          {/* Task Management */}
+          <motion.div variants={itemVariants} initial="hidden" animate="visible" className="lg:col-span-2">
             <Card className="shadow-elegant">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <ListChecks className="h-5 w-5 text-primary" />
-                    My Top Active Tasks
-                  </CardTitle>
-                  <Button variant="link" size="sm" onClick={() => navigate('/tasks')}>
-                    View All ({activeTasks})
-                  </Button>
+                  <CardTitle className="flex items-center gap-2"><BarChart3 className="h-5 w-5" />Task Management</CardTitle>
+                  {!isMobile && getActiveFilterCount() > 0 && <Button variant="outline" size="sm" onClick={clearFilters} className="hover-scale">Clear Filters</Button>}
                 </div>
               </CardHeader>
-              <CardContent className="p-4 md:p-6">
-                <ScrollArea className="h-[300px]">
-                  {myActiveTasks.length === 0 ? (
+              <CardContent className="space-y-4 p-4 md:p-6">
+                {isMobile ? (
+                  <div className="flex items-center justify-between gap-2">
+                     <div className="flex-1 text-sm text-muted-foreground">
+                        Showing {filteredTasks.length} of {totalTasks} tasks
+                     </div>
+                     <Drawer open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
+                        <DrawerTrigger asChild>
+                           <Button variant="outline" size="sm" className="shrink-0">
+                              <Filter className="h-4 w-4 mr-2" />
+                              <span>Filters</span>
+                              {getActiveFilterCount() > 0 && <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-xs">{getActiveFilterCount()}</Badge>}
+                           </Button>
+                        </DrawerTrigger>
+                        <DrawerContent>
+                           <DrawerHeader><DrawerTitle>Filter Tasks</DrawerTitle></DrawerHeader>
+                           <FilterControls inDrawer={true} filters={filters} setFilters={setFilters} isMobile={isMobile} />
+                           <DrawerFooter className="flex-row gap-2">
+                              <DrawerClose asChild><Button variant="outline" className="flex-1">Close</Button></DrawerClose>
+                              <Button onClick={clearFilters} variant="destructive" className="flex-1">Clear Filters</Button>
+                           </DrawerFooter>
+                        </DrawerContent>
+                     </Drawer>
+                  </div>
+                ) : <FilterControls filters={filters} setFilters={setFilters} isMobile={isMobile} />}
+                
+                <ScrollArea className="h-[500px]">
+                  {filteredTasks.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center py-12 px-4">
                       <Target className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-                      <h3 className="text-lg font-medium text-muted-foreground mb-2">You're all caught up!</h3>
-                      <p className="text-sm text-muted-foreground mb-4 max-w-xs">Time to create a new task or start a focus session.</p>
+                      <h3 className="text-lg font-medium text-muted-foreground mb-2">No tasks found</h3>
+                      <p className="text-sm text-muted-foreground mb-4 max-w-xs">{totalTasks === 0 ? "Create your first task to get started." : "Try adjusting your filters or create a new task."}</p>
                       <Button onClick={() => setShowForm(true)} variant="focus"><Plus className="h-4 w-4 mr-2" />Create Task</Button>
                     </div>
                   ) : (
                     <div className="space-y-3 pr-3">
                       <AnimatePresence>
-                        {myActiveTasks.map(task => (
+                        {filteredTasks.map(task => (
                            <motion.div key={task.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
                            {isMobile ? (
-                              <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={deleteTask} onToggleStatus={handleToggleStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
+                              <MobileTaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={deleteTask} onToggleStatus={toggleTaskStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
                            ) : (
                               <TaskCard key={task.id} task={task} onEdit={setEditingTask} onDelete={deleteTask} onToggleStatus={toggleTaskStatus} onTogglePriority={toggleTaskPriority} onStartTimer={handleStartTimer} assignedProfiles={getAssignedProfiles(task.assignedTo)} />
                            )}
@@ -273,13 +327,9 @@ export default function DashboardPage() {
                 </ScrollArea>
               </CardContent>
             </Card>
-            
-            {/* Team Activity Feed */}
-            <TeamActivityFeed />
-            
           </motion.div>
 
-          {/* Right Column: Team Leaderboard */}
+          {/* Team Leaderboard */}
           <motion.div variants={itemVariants} initial="hidden" animate="visible">
             <Leaderboard />
           </motion.div>

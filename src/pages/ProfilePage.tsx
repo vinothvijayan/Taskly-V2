@@ -31,8 +31,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-}
-from "@/components/ui/select";
+} from "@/components/ui/select";
 import {
   User,
   Mail,
@@ -50,9 +49,7 @@ import {
   UserPlus,
   Check,
   X,
-  Activity,
-  UserMinus,
-  UserCog // <-- ADDED MISSING ICON
+  Activity
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { toast } from "@/components/ui/use-toast";
@@ -186,10 +183,10 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSetRole = async (newRole: UserProfile['role']) => {
+  const handleSetSuperadmin = async () => {
     try {
-      await updateUserProfile({ role: newRole });
-      toast({ title: "Role Updated", description: `Your role is now set to ${newRole}.` });
+      await updateUserProfile({ role: 'superadmin' });
+      toast({ title: "Role Updated", description: "You are now a Superadmin! Access granted to restricted features." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to set role.", variant: "destructive" });
     }
@@ -357,32 +354,11 @@ export default function ProfilePage() {
                 </div>
             </div>
             
-            {/* Superadmin Role Management Section */}
-            {userProfile.role === 'superadmin' && (
-                <div className="w-full mt-6 pt-4 border-t border-dashed space-y-3">
-                    <h4 className="text-sm font-medium flex items-center gap-2 text-destructive">
-                        <UserCog className="h-4 w-4" /> Superadmin Controls
-                    </h4>
-                    <p className="text-xs text-muted-foreground">
-                        You currently have full application access. Revert your role if no longer needed.
-                    </p>
-                    <Button 
-                        onClick={() => handleSetRole('admin')} 
-                        variant="destructive" 
-                        className="w-full bg-red-600 hover:bg-red-700"
-                    >
-                        <UserMinus className="h-4 w-4 mr-2" />
-                        Revert to Admin Role
-                    </Button>
-                </div>
-            )}
-            {/* End Superadmin Role Management Section */}
-
-            {/* Temporary Superadmin Button (Only visible if not already superadmin) */}
+            {/* Temporary Superadmin Button */}
             {userProfile.role !== 'superadmin' && (
                 <div className="w-full mt-6 pt-4 border-t border-dashed">
                     <Button 
-                        onClick={() => handleSetRole('superadmin')} 
+                        onClick={handleSetSuperadmin} 
                         variant="destructive" 
                         className="w-full bg-purple-600 hover:bg-purple-700"
                     >

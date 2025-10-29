@@ -36,10 +36,6 @@ import {
 import { auth, googleProvider, db, setupRecaptcha, sendOTP, verifyOTP } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
-// --- CONSTANTS FOR IMPERSONATION ---
-const IMPERSONATION_KEY = 'taskly_impersonator_uid';
-const IMPERSONATION_TARGET_KEY = 'taskly_impersonated_uid';
-
 // --- INTERFACES ---
 
 interface UserProfile {
@@ -57,7 +53,7 @@ interface UserProfile {
     language: string;
   };
   teamId?: string | null;
-  role?: 'admin' | 'user' | 'superadmin'; // Added superadmin
+  role?: 'admin' | 'user';
 }
 
 interface TeamRequest {
@@ -89,7 +85,7 @@ interface AuthContextType {
   signInWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
   verifyPhoneOTP: (confirmationResult: ConfirmationResult, otp: string) => Promise<void>;
   signOutUser: () => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>, targetUid?: string) => Promise<void>;
+  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   setupPhoneAuth: (containerId: string) => RecaptchaVerifier;
@@ -98,9 +94,6 @@ interface AuthContextType {
   acceptTeamRequest: (requestId: string, senderId: string) => Promise<void>;
   declineTeamRequest: (requestId: string) => Promise<void>;
   fetchTeamMembers: () => Promise<UserProfile[]>;
-  impersonateUser: (targetUid: string) => Promise<void>; // NEW
-  stopImpersonating: () => Promise<void>; // NEW
-  isImpersonating: boolean; // NEW
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -109,83 +102,20 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isImpersonating, setIsImpersonating] = useState(false); // NEW
   const { toast } = useToast();
 
-  // --- CORE AUTH STATE LISTENER ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
       if (currentUser) {
-        // Check for active impersonation session
-        const impersonatorUid = localStorage.getItem(IMPERSONATION_KEY);
-        const targetUid = localStorage.getItem(IMPERSONATION_TARGET_KEY);
-
-        if (impersonatorUid && targetUid) {
-          // If an impersonation session is active, load the target user's profile
-          await loadImpersonatedProfile(targetUid);
-          setIsImpersonating(true);
-          // We keep the Firebase user object (currentUser) as the admin's, 
-          // but the userProfile is the target's.
-          setUser(currentUser); 
-        } else {
-          // Normal login flow
-          setUser(currentUser);
-          await fetchOrCreateUserProfile(currentUser);
-          setIsImpersonating(false);
-        }
+        await fetchOrCreateUserProfile(currentUser);
       } else {
-        // User logged out
-        setUser(null);
         setUserProfile(null);
-        setIsImpersonating(false);
-        localStorage.removeItem(IMPERSONATION_KEY);
-        localStorage.removeItem(IMPERSONATION_TARGET_KEY);
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
-
-  // --- IMPERSONATION HELPERS ---
-  const loadImpersonatedProfile = async (uid: string) => {
-    const userDocRef = doc(db, "users", uid);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-      const profileData = userDoc.data() as UserProfile;
-      setUserProfile(profileData);
-    } else {
-      // If target profile doesn't exist, stop impersonation
-      stopImpersonating();
-    }
-  };
-
-  const impersonateUser = async (targetUid: string) => {
-    if (!user) throw new Error("Admin must be logged in to impersonate.");
-    if (userProfile?.role !== 'superadmin') throw new Error("Permission denied.");
-
-    // Store admin's UID and target UID
-    localStorage.setItem(IMPERSONATION_KEY, user.uid);
-    localStorage.setItem(IMPERSONATION_TARGET_KEY, targetUid);
-
-    // Force reload of profile data to switch context
-    await loadImpersonatedProfile(targetUid);
-    setIsImpersonating(true);
-  };
-
-  const stopImpersonating = async () => {
-    const originalUid = localStorage.getItem(IMPERSONATION_KEY);
-    
-    localStorage.removeItem(IMPERSONATION_KEY);
-    localStorage.removeItem(IMPERSONATION_TARGET_KEY);
-    
-    if (originalUid) {
-      // CRITICAL FIX: Fetch and set the original admin's profile
-      await fetchUserProfile(originalUid);
-    }
-    setIsImpersonating(false);
-  };
-  // --- END IMPERSONATION HELPERS ---
-
 
   const fetchUserProfile = async (uid: string) => {
     const userDocRef = doc(db, "users", uid);
@@ -285,27 +215,11 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   };
 
-  const updateUserProfile = async (data: Partial<UserProfile>, targetUid?: string) => {
+  const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user || !userProfile) return;
-    
-    // Determine which UID to update:
-    // 1. If targetUid is provided (Admin action)
-    // 2. If impersonating, use the impersonated user's UID
-    // 3. Otherwise, use the current user's UID
-    const finalUid = targetUid 
-      ? targetUid 
-      : isImpersonating 
-        ? userProfile.uid 
-        : user.uid;
-    
-    const userDocRef = doc(db, "users", finalUid);
+    const userDocRef = doc(db, "users", user.uid);
     await firestoreUpdateDoc(userDocRef, data);
-    
-    // Only update local state if we are updating the currently active profile (either self or impersonated)
-    if (finalUid === userProfile.uid) {
-      setUserProfile({ ...userProfile, ...data });
-    }
-    
+    setUserProfile({ ...userProfile, ...data });
     toast({ title: "Profile Updated! ✨" });
   };
 
@@ -473,9 +387,6 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     acceptTeamRequest,
     declineTeamRequest,
     fetchTeamMembers,
-    impersonateUser, // NEW
-    stopImpersonating, // NEW
-    isImpersonating, // NEW
   };
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

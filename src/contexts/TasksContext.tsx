@@ -147,54 +147,51 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   const setupRealtimeListeners = useCallback(() => {
     if (!user || !userProfile) return;
 
-    // Determine the UID for which we should fetch tasks (impersonated or actual user)
-    const activeUid = userProfile.uid;
-
     setLoading(true);
     const unsubscribeFunctions: Unsubscribe[] = [];
     
-    // 1. Personal Tasks (Only fetch if user is NOT in a team, or if we need to merge later)
-    // Since we want all scorable tasks in the team collection, we only fetch personal tasks
-    // if the user is not part of a team.
-    if (!userProfile.teamId) {
-        const personalTasksQuery = query(
-            collection(db, 'users', activeUid, 'tasks'),
-            orderBy('createdAt', 'desc')
-        );
-        
-        const personalTasksUnsubscribe = onSnapshot(personalTasksQuery, (snapshot) => {
-            const personalTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
-            setTasks(sortTasks(personalTasks));
-            setLoading(false);
-        }, (error) => {
-            console.error("Error in personal tasks listener:", error);
-            toast({ title: "Connection error", description: "Lost connection to personal tasks.", variant: "destructive" });
-            setLoading(false);
-        });
-        unsubscribeFunctions.push(personalTasksUnsubscribe);
-    }
+    const personalTasksQuery = query(
+      collection(db, 'users', user.uid, 'tasks'),
+      orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
+    );
+    
+    const personalTasksUnsubscribe = onSnapshot(personalTasksQuery, (snapshot) => {
+      const personalTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+      
+      setTasks(prevTasks => {
+        const teamTasks = prevTasks.filter(task => task.teamId);
+        const allTasks = [...personalTasks, ...teamTasks];
+        return sortTasks(allTasks); // Use new sort function
+      });
+      setLoading(false);
+    }, (error) => {
+      console.error("Error in personal tasks listener:", error);
+      toast({ title: "Connection error", description: "Lost connection to personal tasks.", variant: "destructive" });
+      setLoading(false);
+    });
+    unsubscribeFunctions.push(personalTasksUnsubscribe);
     
     if (userProfile.teamId) {
-      // 2. Team Tasks (Fetch ALL tasks in the team's collection for leaderboard scoring)
       const teamTasksQuery = query(
         collection(db, 'teams', userProfile.teamId, 'tasks'),
+        where('assignedTo', 'array-contains', user.uid), // <-- ADD THIS LINE
         orderBy('createdAt', 'desc') // Initial order for fetching, will be re-sorted locally
       );
       
       const teamTasksUnsubscribe = onSnapshot(teamTasksQuery, (snapshot) => {
         const teamTasks: Task[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
         
-        // If the user is in a team, the tasks array is just the team tasks.
-        setTasks(sortTasks(teamTasks));
-        setLoading(false);
+        setTasks(prevTasks => {
+          const personalTasks = prevTasks.filter(task => !task.teamId);
+          const allTasks = [...personalTasks, ...teamTasks];
+          return sortTasks(allTasks); // Use new sort function
+        });
       }, (error) => {
         console.error("Error in team tasks listener:", error);
         toast({ title: "Team connection error", description: "Lost connection to team tasks.", variant: "destructive" });
-        setLoading(false);
       });
       unsubscribeFunctions.push(teamTasksUnsubscribe);
 
-      // 3. Team Members
       const teamDocRef = doc(db, 'teams', userProfile.teamId);
       const teamMembersUnsubscribe = onSnapshot(teamDocRef, async (teamDoc) => {
         if (teamDoc.exists()) {
@@ -229,17 +226,15 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   const addTask = useCallback(async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user || !userProfile) return;
 
-    const activeUid = userProfile.uid;
     const tempId = `temp-${Date.now()}`;
-    // REVISED LOGIC: If the user is in a team, the task is always a team task for scoring purposes.
-    const isTeamTask = !!userProfile.teamId;
+    const isTeamTask = !!(userProfile.teamId && taskData.assignedTo && taskData.assignedTo.length > 0);
     
     const newTask: Task = {
       ...taskData,
       id: tempId,
       assignedTo: taskData.assignedTo || [],
       teamId: isTeamTask ? userProfile.teamId : undefined,
-      createdBy: activeUid, // Use activeUid for creation
+      createdBy: user.uid,
       createdAt: new Date().toISOString(),
       status: 'todo',
       priority: taskData.priority || 'medium',
@@ -253,8 +248,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const { id, ...firestoreData } = newTask;
       if (!firestoreData.teamId) delete firestoreData.teamId;
 
-      // Save to team collection if in a team, otherwise save to personal collection
-      const collectionPath = isTeamTask ? `teams/${userProfile.teamId}/tasks` : `users/${activeUid}/tasks`;
+      const collectionPath = isTeamTask ? `teams/${userProfile.teamId}/tasks` : `users/${user.uid}/tasks`;
       const docRef = await addDoc(collection(db, collectionPath), firestoreData);
       
       const finalTask = { ...newTask, id: docRef.id };
@@ -268,7 +262,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (finalTask.assignedTo && finalTask.assignedTo.length > 0) {
         const assignerName = userProfile.displayName || user.email || 'Someone';
         for (const assignedUserId of finalTask.assignedTo) {
-          if (assignedUserId !== activeUid) {
+          if (assignedUserId !== user.uid) {
             notificationService.handleTaskAssignment(finalTask, assignerName, assignedUserId);
           }
         }
@@ -286,7 +280,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const activeUid = userProfile.uid;
     let originalTask: Task | undefined;
     let updatedTaskForState: Task | undefined;
 
@@ -295,8 +288,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (!originalTask) return prevTasks;
 
       const newAssignedTo = taskData.assignedTo || originalTask.assignedTo || [];
-      // REVISED LOGIC: If the user is in a team, the task is always a team task for scoring purposes.
-      const shouldBeTeamTask = !!userProfile.teamId;
+      const shouldBeTeamTask = !!(userProfile.teamId && newAssignedTo.length > 0);
       const targetTeamId = shouldBeTeamTask ? userProfile.teamId : null;
 
       updatedTaskForState = { ...originalTask, ...taskData, teamId: targetTeamId || undefined };
@@ -315,17 +307,13 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (newlyAssignedUsers.length > 0) {
         const assignerName = userProfile.displayName || user.email || 'Someone';
         for (const assignedUserId of newlyAssignedUsers) {
-          if (assignedUserId !== activeUid) {
+          if (assignedUserId !== user.uid) {
             notificationService.handleTaskAssignment(updatedTaskForState, assignerName, assignedUserId);
           }
         }
       }
 
-      // Determine the correct collection path based on the original task's teamId or the user's current teamId
-      const originalCollectionPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${originalTask.createdBy || activeUid}/tasks`;
-      const newCollectionPath = updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${updatedTaskForState.createdBy || activeUid}/tasks`;
-      
-      const movingCollections = originalCollectionPath !== newCollectionPath;
+      const movingCollections = (originalTask.teamId || null) !== (updatedTaskForState.teamId || null);
       
       const dataForFirestore: { [key: string]: any } = { ...taskData };
 
@@ -351,9 +339,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       dataForFirestore.teamId = updatedTaskForState.teamId || deleteField();
       
       if (movingCollections) {
-        const currentTaskRef = doc(db, originalCollectionPath, taskId);
+        const currentTaskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         await deleteDoc(currentTaskRef);
-        const newTaskRef = doc(db, newCollectionPath, taskId);
+        const newTaskRef = doc(db, updatedTaskForState.teamId ? `teams/${updatedTaskForState.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         const { id, ...dataForFirestoreWithMove } = updatedTaskForState;
         
         Object.keys(dataForFirestoreWithMove).forEach(key => {
@@ -364,7 +352,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
         await setDoc(newTaskRef, dataForFirestoreWithMove);
       } else {
-        const taskRef = doc(db, originalCollectionPath, taskId);
+        const taskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         await updateDoc(taskRef, dataForFirestore);
       }
 
@@ -377,7 +365,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   }, [user, userProfile, toast]);
 
   const deleteTask = useCallback(async (taskId: string) => {
-    if (!user || !userProfile) return;
+    if (!user) return;
     
     let taskToDelete: Task | undefined;
     setTasks(prev => {
@@ -388,7 +376,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (!taskToDelete) return;
 
     try {
-      const taskRefPath = taskToDelete.teamId ? `teams/${taskToDelete.teamId}/tasks/${taskId}` : `users/${taskToDelete.createdBy || userProfile.uid}/tasks/${taskId}`;
+      const taskRefPath = taskToDelete.teamId ? `teams/${taskToDelete.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
       await deleteDoc(doc(db, taskRefPath));
       
       notificationService.clearScheduledNotification(`task-reminder-${taskId}`);
@@ -400,10 +388,10 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error deleting task:", error);
       toast({ title: "Failed to delete task", variant: "destructive" });
     }
-  }, [user, userProfile, toast]);
+  }, [user, toast]);
 
   const toggleTaskStatus = useCallback(async (taskId: string, options?: { playSound?: boolean }) => {
-    if (!user || !userProfile) return;
+    if (!user) return;
 
     let originalTask: Task | undefined;
     let updatedTaskForState: Task | undefined;
@@ -435,7 +423,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${originalTask.createdBy || userProfile.uid}/tasks/${taskId}`;
+      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
       const updateData: any = { 
         status: updatedTaskForState.status, 
         completedAt: updatedTaskForState.status === 'completed' ? updatedTaskForState.completedAt : deleteField() 
@@ -446,10 +434,10 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       console.error("Error toggling task status:", error);
       toast({ title: "Failed to update task", variant: "destructive" });
     }
-  }, [user, userProfile, playSound, showConfetti, addNotification, toast]);
+  }, [user, playSound, showConfetti, addNotification, toast]);
 
   const toggleTaskPriority = useCallback(async (taskId: string) => {
-    if (!user || !userProfile) return;
+    if (!user) return;
     
     let originalTask: Task | undefined;
     setTasks(prev => {
@@ -462,17 +450,17 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (!originalTask) return;
 
     try {
-      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${originalTask.createdBy || userProfile.uid}/tasks/${taskId}`;
+      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
       await updateDoc(doc(db, taskRefPath), { priority: originalTask.priority === "high" ? "medium" : "high" });
     } catch (error) {
       setTasks(prev => sortTasks(prev.map(t => (t.id === taskId ? originalTask! : t))));
       console.error("Error toggling task priority:", error);
       toast({ title: "Failed to update priority", variant: "destructive" });
     }
-  }, [user, userProfile, toast]);
+  }, [user, toast]);
 
   const updateTaskTimeSpent = useCallback(async (taskId: string, timeToAdd: number) => {
-    if (!user || !userProfile) return;
+    if (!user) return;
     
     let originalTask: Task | undefined;
     setTasks(prev => {
@@ -485,14 +473,14 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (!originalTask) return;
 
     try {
-      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${originalTask.createdBy || userProfile.uid}/tasks/${taskId}`;
+      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
       await updateDoc(doc(db, taskRefPath), { timeSpent: (originalTask.timeSpent || 0) + timeToAdd });
     } catch (error) {
       setTasks(prev => sortTasks(prev.map(t => (t.id === taskId ? originalTask! : t))));
       console.error("Error updating task time:", error);
       throw error;
     }
-  }, [user, userProfile]);
+  }, [user]);
 
   const addSubtask = useCallback(async (taskId: string, title: string) => {
     const newSubtask: Subtask = { id: `sub-${Date.now()}`, title, isCompleted: false, createdAt: new Date().toISOString() };
