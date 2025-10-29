@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Users, BarChart3, Search, Phone, Calendar, ChevronRight, Loader2, Filter, FileDown, PhoneCall, Plus, RefreshCw } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { startOfDay, endOfDay, format } from "date-fns";
