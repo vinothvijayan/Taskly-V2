@@ -130,9 +130,11 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       // --- NATIVE PLATFORM LOGIC (Microphone only) ---
       try {
         const fileName = `meetly_${Date.now()}.wav`;
-        const filePath = Filesystem.getUri({ directory: Directory.Data, path: fileName }).uri;
         
-        mediaRef.current = new Media(filePath, 
+        // This path is internal to the app's data directory
+        const internalPath = `records/${fileName}`;
+
+        mediaRef.current = new Media(internalPath, 
           () => console.log('Native recording success.'), 
           (err: any) => {
             console.error('Native recording error:', err);
@@ -196,7 +198,6 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           toast({
               title: "Microphone Only 🎤",
               description: "System audio capture failed. Recording microphone input.",
-              variant: "warning"
           });
         } catch (error: any) {
           console.error("getUserMedia failed:", error);
@@ -270,7 +271,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           const fileName = filePath.substring(filePath.lastIndexOf('/') + 1);
           
           const result = await Filesystem.readFile({ 
-            path: fileName,
+            path: `records/${fileName}`, // Read from the 'records' subdirectory
             directory: Directory.Data
           });
           
@@ -278,7 +279,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
           const blob = await fetchRes.blob();
           setRecordedAudio(blob);
           
-          await Filesystem.deleteFile({ path: fileName, directory: Directory.Data });
+          await Filesystem.deleteFile({ path: `records/${fileName}`, directory: Directory.Data });
           
         } catch (e) {
           console.error("Error reading recorded file or cleaning up", e);
