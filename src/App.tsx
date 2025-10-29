@@ -31,7 +31,7 @@ import AdminRoute from "./components/auth/AdminRoute"; // Import AdminRoute
 import { TaskAssignmentNotifier } from "@/components/mobile/TaskAssignmentNotifier";
 import { ChatMessageNotifier } from "@/components/mobile/ChatMessageNotifier";
 import { TeamChatProvider } from "@/contexts/TeamChatContext";
-import { unifiedNotificationService } from "@/lib/unifiedNotificationService";
+import { unifiedNotificationService } from "./lib/unifiedNotificationService";
 import { TeamInviteNotifier } from "@/components/mobile/TeamInviteNotifier";
 
 // Context Providers
@@ -254,97 +254,6 @@ function AppContent() {
     }
   };
 
-  // Legacy effect for backward compatibility - can be removed
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    createNotificationChannel();
-    const listenerHandles: PluginListenerHandle[] = [];
-
-    const setupPushNotifications = async () => {
-      try {
-        await PushNotifications.requestPermissions();
-        await PushNotifications.register();
-
-        listenerHandles.push(
-          await PushNotifications.addListener('registration', (token) => {
-            console.log('Push registration success. Received token.');
-            setFcmToken(token);
-          })
-        );
-
-        listenerHandles.push(
-          await PushNotifications.addListener('registrationError', (error) => {
-            console.error('Push registration FAILED:', error);
-          })
-        );
-        
-        listenerHandles.push(
-          await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-            console.log('SILENT/DATA-ONLY Push received:', notification);
-            
-            const title = notification.data?.title || 'New Notification';
-            const body = notification.data?.body || 'Check the app for details.';
-
-            LocalNotifications.schedule({
-              notifications: [{
-                id: getSafeNotificationId(), // Use getSafeNotificationId()
-                title: title,
-                body: body,
-                schedule: { at: new Date(), allowWhileIdle: true },
-                channelId: 'app_main_channel',
-                extra: notification.data,
-              }]
-            });
-          })
-        );
-
-        listenerHandles.push(
-          await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-            console.log('Push notification action performed:', action);
-            const taskId = action.notification.data?.taskId;
-            if (taskId) {
-              navigate(`/tasks?taskId=${taskId}`);
-            }
-          })
-        );
-
-        listenerHandles.push(
-          await LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
-            console.log('Local notification action performed:', notification);
-            
-            const extra = notification.notification.extra;
-            if (extra?.taskId) {
-              navigate('/tasks');
-            } else if (extra?.type === 'chat_message') {
-              navigate('/chat');
-            } else if (extra?.type === 'team_invite') {
-              navigate('/dashboard');
-            }
-          })
-        );
-
-      } catch (error) {
-        console.error("Failed to setup push notifications:", error);
-      }
-    };
-
-    setupPushNotifications();
-    unifiedNotificationService.init();
-
-    return () => {
-      console.log("Removing all push notification listeners...");
-      listenerHandles.forEach(handle => {
-        try {
-          handle.remove();
-        } catch (error) {
-          console.warn("Failed to remove listener handle:", error);
-        }
-      });
-    };
-    
-  }, [navigate]);
-
   return (
     <>
       <NotificationSetup />
@@ -403,45 +312,55 @@ function AppContent() {
   );
 }
 
-export default function App() {
+// New component to wrap all providers
+function RootProviders({ children }: { children: React.ReactNode }) {
   // Initialize MSAL when the application first loads
   useEffect(() => {
     initMsal();
   }, []);
 
   return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <AuthContextProvider>
+          <ConfettiProvider>
+            <NotificationsContextProvider>
+              <TasksContextProvider>
+                <TeamChatProvider>
+                  <CommentsContextProvider>
+                    <TaskTimeTrackerProvider>
+                      <MeetlyContextProvider>
+                        <SalesOpportunityProvider>
+                          <ContactsProvider>
+                            <TooltipProvider>
+                              {children}
+                            </TooltipProvider>
+                          </ContactsProvider>
+                        </SalesOpportunityProvider>
+                      </MeetlyContextProvider>
+                    </TaskTimeTrackerProvider>
+                  </CommentsContextProvider>
+                </TeamChatProvider>
+              </TasksContextProvider>
+            </NotificationsContextProvider>
+          </ConfettiProvider>
+        </AuthContextProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+// The new default export App component
+export default function App() {
+  return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AuthContextProvider>
-              <ConfettiProvider>
-                <NotificationsContextProvider>
-                  <TasksContextProvider>
-                    <TeamChatProvider>
-                      <CommentsContextProvider>
-                        <TaskTimeTrackerProvider>
-                          <MeetlyContextProvider>
-                            <SalesOpportunityProvider>
-                              <ContactsProvider>
-                                <BrowserRouter>
-                                  <AppContent />
-                                </BrowserRouter>
-                              </ContactsProvider>
-                            </SalesOpportunityProvider>
-                          </MeetlyContextProvider>
-                        </TaskTimeTrackerProvider>
-                      </CommentsContextProvider>
-                    </TeamChatProvider>
-                  </TasksContextProvider>
-                </NotificationsContextProvider>
-              </ConfettiProvider>
-            </AuthContextProvider>
-          </TooltipProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <RootProviders>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </RootProviders>
+      <Toaster />
+      <Sonner />
     </ErrorBoundary>
   );
 }
