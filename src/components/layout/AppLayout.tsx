@@ -9,12 +9,11 @@ import { TimeTrackingWidget } from "@/components/timer/TimeTrackingWidget"
 import { TeamChatProvider } from "@/contexts/TeamChatContext"
 import { OfflineIndicator } from "@/components/common/OfflineIndicator"
 import { PerformanceMonitor } from "@/components/performance/PerformanceMonitor"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-is-mobile"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Menu } from "lucide-react"
-import { HandGestureDetector } from "@/components/ai/HandGestureDetector" // <-- IMPORTED
 
 interface AppLayoutProps {
   children: ReactNode
@@ -87,7 +86,6 @@ function AppLayoutContent({ children }: AppLayoutProps) {
       <FloatingTimer />
       <TimeTrackingWidget />
       <PerformanceMonitor />
-      <HandGestureDetector /> {/* <-- MOVED HERE */}
     </div>
   )
 }

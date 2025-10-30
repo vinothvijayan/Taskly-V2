@@ -65,7 +65,6 @@ const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const AIFeaturesPage = lazy(() => import("./pages/AIFeaturesPage")); // <-- ADDED IMPORT
 
 // Create QueryClient instance outside component
 const queryClient = new QueryClient({
@@ -291,7 +290,7 @@ function AppContent() {
                 id: getSafeNotificationId(), // Use getSafeNotificationId()
                 title: title,
                 body: body,
-                schedule: { at: new Date(), allowWhileIdle: true },
+                schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
                 channelId: 'app_main_channel',
                 extra: notification.data,
               }]
@@ -386,7 +385,6 @@ function AppContent() {
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/chat" element={<ChatPage />} />
                     <Route path="/profile" element={<ProfilePage />} />
-                    <Route path="/ai-features" element={<AIFeaturesPage />} /> {/* <-- ADDED ROUTE */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>
