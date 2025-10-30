@@ -100,9 +100,9 @@ if (typeof firebase !== 'undefined') {
   });
 }
 
-// --- NEW: BACKGROUND TIME TRACKING LOGIC ---
+// --- BACKGROUND TIME TRACKING LOGIC ---
 
-let timerInterval = null;
+let timerTimeout = null;
 const TIMER_SESSION_KEY = 'currentSession';
 const SUBTASK_TIMER_SESSION_KEY = 'currentSubtaskSession';
 
@@ -111,7 +111,6 @@ function openDB() {
     const request = indexedDB.open('TasklyOfflineDB', 1);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
-    // No onupgradeneeded here, it's handled by the main app
   });
 }
 
@@ -140,17 +139,19 @@ async function manageSession(key, action, data = null) {
 }
 
 function runTimer() {
-  if (timerInterval) clearInterval(timerInterval);
+  if (timerTimeout) return;
 
-  timerInterval = setInterval(async () => {
+  const tick = async () => {
     const [session, subtaskSession] = await Promise.all([
       manageSession(TIMER_SESSION_KEY, 'get'),
       manageSession(SUBTASK_TIMER_SESSION_KEY, 'get')
     ]);
 
     const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    let isAnyTimerActive = false;
 
     if (session && !session.isPaused) {
+      isAnyTimerActive = true;
       const elapsed = Math.floor((Date.now() - session.startTime) / 1000);
       const totalElapsed = session.accumulatedSeconds + elapsed;
       
@@ -168,6 +169,7 @@ function runTimer() {
     }
     
     if (subtaskSession && !subtaskSession.isPaused) {
+      isAnyTimerActive = true;
       const elapsed = Math.floor((Date.now() - subtaskSession.startTime) / 1000);
       const totalElapsed = subtaskSession.accumulatedSeconds + elapsed;
       
@@ -185,11 +187,15 @@ function runTimer() {
       });
     }
 
-    if ((!session || session.isPaused) && (!subtaskSession || subtaskSession.isPaused)) {
-      clearInterval(timerInterval);
-      timerInterval = null;
+    if (isAnyTimerActive) {
+      timerTimeout = setTimeout(tick, 1000);
+    } else {
+      clearTimeout(timerTimeout);
+      timerTimeout = null;
     }
-  }, 1000);
+  };
+
+  tick();
 }
 
 async function handleTimeTrackingMessage(data) {
@@ -200,7 +206,7 @@ async function handleTimeTrackingMessage(data) {
     case 'START_TIME_TRACKING':
     case 'START_SUBTASK_TIME_TRACKING':
       await manageSession(key, 'set', session);
-      if (!timerInterval) runTimer();
+      runTimer();
       break;
     
     case 'PAUSE_TIME_TRACKING':
@@ -228,7 +234,7 @@ async function handleTimeTrackingMessage(data) {
           startTime: Date.now(),
           pausedAt: null
         });
-        if (!timerInterval) runTimer();
+        runTimer();
       }
       break;
     }
@@ -260,28 +266,19 @@ async function handleTimeTrackingMessage(data) {
   }
 }
 
-// =========================================================================
-// === UPDATED MESSAGE LISTENER FOR APP UPDATES AND NOTIFICATIONS ===
-// =========================================================================
 self.addEventListener('message', (event) => {
-  // Handle the 'SKIP_WAITING' message from the main application to activate the new SW
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('Service Worker received SKIP_WAITING message. Activating new version.');
     self.skipWaiting();
-    return; // Stop further execution for this message type
+    return;
   }
 
-  // Handle background time tracking messages
   if (event.data && event.data.type && event.data.type.startsWith('TIME_TRACKING_')) {
     handleTimeTrackingMessage(event.data);
     return;
   }
 
-  // Handle the 'SHOW_NOTIFICATION' message from the main application
   if (event.data.type === 'SHOW_NOTIFICATION') {
     const { options } = event.data;
-    
-    // Show notification with mobile optimizations
     self.registration.showNotification(options.title, {
       body: options.body,
       icon: options.icon || '/icon-192x192.png',
@@ -299,33 +296,24 @@ self.addEventListener('message', (event) => {
     });
   }
 });
-// =========================================================================
 
-// Enhanced fetch event with smart caching strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
   
-  // Handle different types of requests
   if (url.pathname.startsWith('/api/') || url.hostname.includes('firestore') || url.hostname.includes('firebase')) {
-    // API requests - network first with cache fallback
     event.respondWith(networkFirstStrategy(request));
   } else if (url.pathname.match(/\.(png|jpg|jpeg|gif|svg|webp)$/)) {
-    // Images - cache first
     event.respondWith(cacheFirstStrategy(request));
   } else if (STATIC_ASSETS.includes(url.pathname)) {
-    // Static assets - cache first
     event.respondWith(cacheFirstStrategy(request));
   } else {
-    // Other requests - stale while revalidate
     event.respondWith(staleWhileRevalidateStrategy(request));
   }
 });
 
-// Caching strategies
 async function networkFirstStrategy(request) {
   try {
     const networkResponse = await fetch(request);
@@ -372,7 +360,6 @@ async function staleWhileRevalidateStrategy(request) {
   return cachedResponse || fetchPromise;
 }
 
-// Push event for notifications
 self.addEventListener('push', (event) => {
   const options = {
     body: event.data ? event.data.text() : 'New notification from Taskly',
@@ -402,17 +389,13 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Notification click event
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Handle notification action clicks
   if (event.action) {
-    // Send action to main thread
     event.waitUntil(
       self.clients.matchAll({ type: 'window' }).then((clients) => {
         if (clients.length > 0) {
-          // Focus existing window and send message
           clients[0].focus();
           clients[0].postMessage({
             type: 'NOTIFICATION_ACTION',
@@ -420,10 +403,8 @@ self.addEventListener('notificationclick', (event) => {
             notificationData: event.notification.data
           });
         } else {
-          // Open new window
           self.clients.openWindow('/').then(client => {
             if (client) {
-              // Send message once window loads
               client.postMessage({
                 type: 'NOTIFICATION_ACTION',
                 action: event.action,
@@ -435,7 +416,6 @@ self.addEventListener('notificationclick', (event) => {
       })
     );
   } else {
-    // Default click - open app
     event.waitUntil(
       self.clients.matchAll({ type: 'window' }).then((clients) => {
         if (clients.length > 0) {
@@ -447,7 +427,6 @@ self.addEventListener('notificationclick', (event) => {
     );
   }
 
-  // Send general notification click event
   event.waitUntil(
     self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {
@@ -461,7 +440,6 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Background sync for offline functionality
 self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
     event.waitUntil(
@@ -474,17 +452,14 @@ self.addEventListener('sync', (event) => {
   }
 });
 
-// Check for scheduled notifications in IndexedDB
 async function checkScheduledNotifications() {
   try {
-    // Open IndexedDB
     const db = await new Promise((resolve, reject) => {
       const request = indexedDB.open('TasklyOfflineDB', 1);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
 
-    // Get scheduled notifications
     const transaction = db.transaction(['scheduledNotifications'], 'readwrite');
     const store = transaction.objectStore('scheduledNotifications');
     const index = store.index('status');
@@ -499,7 +474,6 @@ async function checkScheduledNotifications() {
     
     for (const notification of pendingNotifications) {
       if (notification.scheduledTime <= now) {
-        // Show notification
         await self.registration.showNotification(notification.title, {
           body: notification.body,
           icon: notification.icon || '/icon-192x192.png',
@@ -513,7 +487,6 @@ async function checkScheduledNotifications() {
           timestamp: Date.now()
         });
 
-        // Mark as delivered
         notification.status = 'delivered';
         await new Promise((resolve, reject) => {
           const updateRequest = store.put(notification);
