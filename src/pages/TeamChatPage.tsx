@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
 import { rtdb, db, storage } from "@/lib/firebase";
-import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast } from "firebase/database";
+import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast, update, set } from "firebase/database";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, serverTimestamp as firestoreServerTimestamp } from "firebase/firestore";
 import { notificationService } from "@/lib/notifications";
@@ -42,7 +42,8 @@ import {
   Copy,
   Reply,
   Paperclip,
-  Smile
+  Smile,
+  AlertCircle
 } from "lucide-react";
 import { AttachmentPreviewModal } from "@/components/chat/AttachmentPreviewModal";
 
@@ -210,46 +211,68 @@ export default function TeamChatPage() {
 
   const handleSendAttachment = async (files: File[], caption: string) => {
     if (!user || !selectedUser || !userProfile || files.length === 0) return;
-    setSending(true);
+
     try {
       const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const isLastFile = i === files.length - 1;
-        const timestamp = Date.now();
-        const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
-        const fileRef = storageRef(storage, filePath);
+      const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
 
-        const snapshot = await uploadBytes(fileRef, file);
-        const imageUrl = await getDownloadURL(snapshot.ref);
+      files.forEach(async (file, index) => {
+        const isLastFile = index === files.length - 1;
+        const previewUrl = URL.createObjectURL(file);
 
-        const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
-        const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
-            senderId: user.uid,
-            senderName: userProfile.displayName || user.email || 'Unknown',
-            senderEmail: user.email || '',
-            senderAvatar: userProfile.photoURL,
-            message: isLastFile ? caption : '', // Only add caption to the last image
-            timestamp: serverTimestamp(),
-            type: 'image',
-            imageUrl: imageUrl,
+        const placeholderData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
+          senderId: user.uid,
+          senderName: userProfile.displayName || user.email || 'Unknown',
+          senderEmail: user.email || '',
+          senderAvatar: userProfile.photoURL,
+          message: isLastFile ? caption : '',
+          timestamp: serverTimestamp(),
+          type: 'image',
+          imageUrl: '',
+          previewUrl: previewUrl,
+          status: 'uploading',
         };
+        
+        const newMessageRef = push(messagesRef);
+        await set(newMessageRef, placeholderData);
+        const messageId = newMessageRef.key;
 
-        await push(messagesRef, messageData);
+        if (!messageId) {
+          console.error("Failed to get message key from Firebase push.");
+          return;
+        }
 
-        // Update last message info for the chat room
-        if (isLastFile) {
-          const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
-          await setDoc(chatRoomInfoRef, { 
+        try {
+          const timestamp = Date.now();
+          const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
+          const fileRef = storageRef(storage, filePath);
+          const snapshot = await uploadBytes(fileRef, file);
+          const finalImageUrl = await getDownloadURL(snapshot.ref);
+
+          const finalUpdate = {
+            imageUrl: finalImageUrl,
+            status: 'sent',
+            previewUrl: null
+          };
+          await update(ref(rtdb, `chats/${chatRoomId}/messages/${messageId}`), finalUpdate);
+
+          if (isLastFile) {
+            const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+            await setDoc(chatRoomInfoRef, { 
               participants: [user.uid, selectedUser.uid], 
               lastActivity: firestoreServerTimestamp(),
-              lastMessage: { ...messageData, message: caption || '📷 Image' }
-          }, { merge: true });
-        }
-      }
+              lastMessage: { ...placeholderData, message: caption || '📷 Image', imageUrl: finalImageUrl, status: 'sent', previewUrl: null }
+            }, { merge: true });
+          }
 
-      // Send a single notification for the batch
+        } catch (uploadError) {
+          console.error("Error uploading attachment:", uploadError);
+          await update(ref(rtdb, `chats/${chatRoomId}/messages/${messageId}`), { status: 'failed' });
+        } finally {
+          URL.revokeObjectURL(previewUrl);
+        }
+      });
+
       if (user.uid !== selectedUser.uid) {
         const notificationBody = caption ? `Sent ${files.length} image(s): ${caption}` : `Sent ${files.length} image(s)`;
         notificationService.addInAppNotification(
@@ -262,10 +285,8 @@ export default function TeamChatPage() {
       }
 
     } catch (error) {
-        console.error("Error sending attachment:", error);
+        console.error("Error preparing to send attachment:", error);
         toast({ title: "Failed to send image(s)", variant: "destructive" });
-    } finally {
-        setSending(false);
     }
   };
 
@@ -408,11 +429,19 @@ export default function TeamChatPage() {
                           const isMyMessage = message.senderId === user?.uid;
                           const MessageBubble = () => {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
-                            const hasImage = message.type === 'image' && message.imageUrl;
+                            const hasImage = message.type === 'image' && (message.imageUrl || message.previewUrl);
                             const hasCaption = message.message && message.message.trim().length > 0;
+                            const isUploading = message.status === 'uploading';
+                            const uploadFailed = message.status === 'failed';
                             return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[85%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
                               <div className="flex flex-col">
-                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover" />)}
+                                {hasImage && (
+                                  <div className="relative">
+                                    <img src={isUploading ? message.previewUrl : message.imageUrl} alt="Attachment" className={cn("rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover", isUploading && "opacity-50")} />
+                                    {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>}
+                                    {uploadFailed && <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>}
+                                  </div>
+                                )}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
                                     <p className="break-words leading-relaxed whitespace-pre-wrap">
@@ -511,11 +540,19 @@ export default function TeamChatPage() {
                           const isMyMessage = message.senderId === user?.uid;
                           const MessageBubble = () => {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
-                            const hasImage = message.type === 'image' && message.imageUrl;
+                            const hasImage = message.type === 'image' && (message.imageUrl || message.previewUrl);
                             const hasCaption = message.message && message.message.trim().length > 0;
+                            const isUploading = message.status === 'uploading';
+                            const uploadFailed = message.status === 'failed';
                             return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[75%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
                               <div className="flex flex-col">
-                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover" />)}
+                                {hasImage && (
+                                  <div className="relative">
+                                    <img src={isUploading ? message.previewUrl : message.imageUrl} alt="Attachment" className={cn("rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover", isUploading && "opacity-50")} />
+                                    {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>}
+                                    {uploadFailed && <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>}
+                                  </div>
+                                )}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
                                     <p className="break-words leading-relaxed whitespace-pre-wrap">

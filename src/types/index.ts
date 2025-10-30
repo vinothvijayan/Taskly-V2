@@ -81,6 +81,8 @@ export interface ChatMessage {
   timestamp: number;
   type: 'text' | 'system' | 'image'; // Add 'image'
   imageUrl?: string; // URL for the image
+  status?: 'uploading' | 'sent' | 'failed'; // For optimistic UI
+  previewUrl?: string; // Local blob URL for preview
 }
 
 export interface ChatRoom {

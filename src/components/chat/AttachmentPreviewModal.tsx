@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Send, Loader2, X, Plus } from 'lucide-react';
+import { Send, X, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AttachmentPreviewModalProps {
@@ -18,7 +18,6 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
   const [localFiles, setLocalFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isSending, setIsSending] = useState(false);
   const addMoreFilesInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -29,18 +28,15 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
       setActiveIndex(0);
     }
 
-    // Cleanup function to revoke URLs when component unmounts or files change
     return () => {
       previewUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, [open, files]);
 
-  const handleSend = async () => {
-    if (localFiles.length === 0 || isSending) return;
-    setIsSending(true);
-    // Fire and forget the promise. The parent component will handle the async upload.
+  const handleSend = () => {
+    if (localFiles.length === 0) return;
     onSend(localFiles, caption);
-    onOpenChange(false); // Close modal immediately
+    onOpenChange(false);
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -52,20 +48,16 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
         return [];
       });
       setActiveIndex(0);
-      setIsSending(false); // Reset sending state on close
     }
     onOpenChange(isOpen);
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
     URL.revokeObjectURL(previewUrls[indexToRemove]);
-
     const newFiles = localFiles.filter((_, index) => index !== indexToRemove);
     const newUrls = previewUrls.filter((_, index) => index !== indexToRemove);
-
     setLocalFiles(newFiles);
     setPreviewUrls(newUrls);
-
     if (newFiles.length === 0) {
       onOpenChange(false);
     } else if (activeIndex >= indexToRemove) {
@@ -78,11 +70,9 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
     if (newFiles.length > 0) {
       const combinedFiles = [...localFiles, ...newFiles];
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
-      
       setLocalFiles(combinedFiles);
       setPreviewUrls(prev => [...prev, ...newUrls]);
     }
-    // Reset file input to allow selecting the same file again
     if(event.target) event.target.value = "";
   };
 
@@ -92,13 +82,11 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
         <DialogHeader className="p-4 bg-background dark:bg-muted/50 flex-shrink-0">
           <DialogTitle>Send Image{localFiles.length > 1 && 's'}</DialogTitle>
         </DialogHeader>
-        
         <div className="flex-1 flex items-center justify-center bg-black/80 p-4 relative overflow-hidden">
           {previewUrls[activeIndex] && (
             <img src={previewUrls[activeIndex]} alt="Preview" className="max-h-full max-w-full rounded-lg object-contain" />
           )}
         </div>
-
         <div className="p-4 bg-background dark:bg-muted/50 space-y-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <input type="file" ref={addMoreFilesInputRef} onChange={handleAddMoreFiles} accept="image/*" multiple className="hidden" />
@@ -119,7 +107,6 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
-
           <div className="flex items-center gap-2">
             <Input
               placeholder="Add a caption..."
@@ -127,8 +114,8 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
               onChange={(e) => setCaption(e.target.value)}
               className="flex-1 bg-muted dark:bg-background border-border h-10"
             />
-            <Button onClick={handleSend} disabled={isSending || localFiles.length === 0} size="icon" className="h-10 w-10 bg-[#25D366] hover:bg-[#20B358] text-white flex-shrink-0 rounded-full">
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <Button onClick={handleSend} disabled={localFiles.length === 0} size="icon" className="h-10 w-10 bg-[#25D366] hover:bg-[#20B358] text-white flex-shrink-0 rounded-full">
+              <Send className="h-4 w-4" />
             </Button>
           </div>
         </div>
