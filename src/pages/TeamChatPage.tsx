@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
 import { rtdb, db, storage } from "@/lib/firebase";
 import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast, update, set } from "firebase/database";
@@ -569,7 +569,7 @@ export default function TeamChatPage() {
             <div className="flex-1 flex flex-col min-h-0">
               {selectedUser ? (
                 <>
-                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p></div></div>
+                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
                   <div className="flex-1 whatsapp-wallpaper overflow-hidden">
                     <ScrollArea className="h-full">
                       <div className="p-6 space-y-1">
