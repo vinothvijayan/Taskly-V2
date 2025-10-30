@@ -1,13 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { UserProfile, ChatMessage } from '@/types';
+import { UserProfile, ChatMessage, Attachment } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Send, Loader2, Circle } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, Circle, FileText, AlertCircle } from 'lucide-react';
 import { rtdb } from '@/lib/firebase';
 import { ref, onValue, off, query, orderByChild, limitToLast } from 'firebase/database';
 import { cn } from '@/lib/utils';
+
+const formatFileSize = (bytes: number, decimals = 1) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
 
 interface PipChatViewProps {
   teamMembers: UserProfile[];
@@ -111,8 +120,38 @@ export const PipChatView: React.FC<PipChatViewProps> = ({
           <div className="space-y-2">
             {messages.map(msg => (
               <div key={msg.id} className={cn("flex", msg.senderId === userProfile?.uid ? "justify-end" : "justify-start")}>
-                <div className={cn("max-w-[80%] rounded-lg px-2 py-1 text-sm", msg.senderId === userProfile?.uid ? "bg-primary text-primary-foreground" : "bg-gray-700")}>
-                  {msg.message}
+                <div className={cn(
+                  "max-w-[80%] rounded-lg text-sm",
+                  msg.senderId === userProfile?.uid ? "bg-primary text-primary-foreground" : "bg-gray-700",
+                  (msg.type === 'media' && !msg.message) ? "p-0.5 bg-transparent" : "px-2 py-1"
+                )}>
+                  {msg.type === 'media' && msg.attachments && (
+                    <div className="space-y-1">
+                      {msg.attachments.map(att => (
+                        <div key={att.id}>
+                          {att.type === 'image' && (
+                            <div className="relative">
+                              <img src={att.status === 'uploading' ? att.previewUrl : att.url} className="rounded-md max-w-full h-auto" alt={att.fileName || 'Image'} />
+                              {att.status === 'uploading' && <div className="absolute inset-0 flex items-center justify-center bg-black/50"><Loader2 className="h-4 w-4 animate-spin text-white" /></div>}
+                              {att.status === 'failed' && <div className="absolute inset-0 flex items-center justify-center bg-black/50"><AlertCircle className="h-4 w-4 text-destructive" /></div>}
+                            </div>
+                          )}
+                          {att.type === 'document' && (
+                            <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-black/20 rounded-md">
+                              <FileText className="h-5 w-5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium truncate">{att.fileName}</p>
+                                {att.fileSize && <p className="text-[10px] text-gray-400">{formatFileSize(att.fileSize)}</p>}
+                              </div>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {msg.message && (
+                    <p className={cn(msg.type === 'media' && "mt-1 px-1.5 pb-0.5")}>{msg.message}</p>
+                  )}
                 </div>
               </div>
             ))}
