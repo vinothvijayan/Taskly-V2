@@ -140,8 +140,10 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       }
       systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       const systemAudioTracks = systemStream.getAudioTracks();
+      
+      // Check if system audio was successfully captured
       if (systemAudioTracks.length === 0 || !systemAudioTracks[0].enabled || systemAudioTracks[0].muted) {
-        throw new Error("To record meeting audio, you MUST select a browser TAB and check 'Share tab audio'.");
+        throw new Error("System audio track missing. To record meeting audio, you MUST select the 'Chrome Tab' option in the sharing prompt and check the 'Share tab audio' box.");
       }
 
       // 2. Get Microphone Audio

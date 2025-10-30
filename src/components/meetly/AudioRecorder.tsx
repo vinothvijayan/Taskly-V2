@@ -18,7 +18,8 @@ import {
   Volume2,
   VolumeX,
   AlertCircle,
-  Monitor
+  Monitor,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Capacitor } from "@capacitor/core";
@@ -197,9 +198,14 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
               )}
             </div>
 
-            <div className="text-sm text-muted-foreground text-center">
+            <div className="text-sm text-muted-foreground text-center space-y-2 pt-2">
               {!isRecording ? (
-                <p>Click to record your meeting with both mic and system audio.</p>
+                <div className="flex items-start justify-center text-left text-xs text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  <Info className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
+                  <p>
+                    **IMPORTANT:** When the sharing prompt appears, you MUST select the **Chrome Tab** option and check the **"Share tab audio"** box to capture the meeting's sound.
+                  </p>
+                </div>
               ) : (
                 <p>Recording in progress...</p>
               )}
