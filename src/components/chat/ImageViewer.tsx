@@ -66,7 +66,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 bg-black/80 border-0 max-w-[95vw] max-h-[95vh] h-full w-full flex flex-col gap-0 backdrop-blur-sm">
+      <DialogContent className="p-0 bg-black/80 border-0 max-w-[95vw] max-h-[95vh] h-full w-full flex flex-col gap-0 backdrop-blur-sm [&>button]:hidden">
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 to-transparent">
           <div className="text-white font-medium">
@@ -105,7 +105,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
 
         {/* Navigation Arrows */}
         {images.length > 1 && (
-          <>
+          <div>
             <Button
               variant="ghost"
               size="icon"
@@ -122,7 +122,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
             >
               <ChevronRight className="h-6 w-6" />
             </Button>
-          </>
+          </div>
         )}
 
         {/* Thumbnail Strip */}
