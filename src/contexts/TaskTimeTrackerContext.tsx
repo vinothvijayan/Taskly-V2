@@ -176,7 +176,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       startTime: now,
       pausedAt: null,
       isPaused: false,
-      accumulatedSeconds: task.timeSpent || 0,
+      accumulatedSeconds: 0,
     };
 
     try {
@@ -184,9 +184,16 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       await setDoc(sessionRef, session);
 
       setTrackingTask(task);
-      setCurrentSessionElapsedSeconds(task.timeSpent || 0);
+      setCurrentSessionElapsedSeconds(0);
       setIsTracking(true);
       setStartTime(now);
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'START_TIME_TRACKING',
+          session
+        });
+      }
 
       toast({
         title: "Time tracking started",
@@ -217,6 +224,12 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       setIsTracking(false);
       setStartTime(null);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'PAUSE_TIME_TRACKING'
+        });
+      }
+
       toast({
         title: "Time tracking paused",
         description: `Paused tracking for "${trackingTask.title}"`,
@@ -246,6 +259,12 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       setIsTracking(true);
       setStartTime(now);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'RESUME_TIME_TRACKING'
+        });
+      }
+
       toast({
         title: "Time tracking resumed",
         description: `Resumed tracking for "${trackingTask.title}"`,
@@ -272,9 +291,9 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       const sessionRef = doc(db, 'users', user.uid, 'activeTracking', 'currentSession');
       const finalSeconds = currentSessionElapsedSeconds;
 
-      if (finalSeconds > (trackingTask.timeSpent || 0)) {
-        await updateTaskTimeSpent(trackingTask.id, finalSeconds - (trackingTask.timeSpent || 0));
-        const formattedTime = getFormattedTime(finalSeconds - (trackingTask.timeSpent || 0));
+      if (finalSeconds > 0) {
+        await updateTaskTimeSpent(trackingTask.id, finalSeconds);
+        const formattedTime = getFormattedTime(finalSeconds);
 
         toast({
           title: "Time tracking stopped",
@@ -284,6 +303,11 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
       await deleteDoc(sessionRef);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'STOP_TIME_TRACKING'
+        });
+      }
     } catch (error) {
       console.error("Error stopping tracking:", error);
       toast({
@@ -344,6 +368,13 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       setIsTrackingSubtask(true);
       setSubtaskStartTime(now);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'START_SUBTASK_TIME_TRACKING',
+          session
+        });
+      }
+
       toast({
         title: "Time tracking started",
         description: `Now tracking time for subtask "${subtaskTitle}"`,
@@ -373,6 +404,12 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       setIsTrackingSubtask(false);
       setSubtaskStartTime(null);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'PAUSE_SUBTASK_TIME_TRACKING'
+        });
+      }
+
       toast({
         title: "Time tracking paused",
         description: `Paused tracking for "${trackingSubtask.subtaskTitle}"`,
@@ -401,6 +438,12 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
       setIsTrackingSubtask(true);
       setSubtaskStartTime(now);
+
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'RESUME_SUBTASK_TIME_TRACKING'
+        });
+      }
 
       toast({
         title: "Time tracking resumed",
@@ -440,6 +483,11 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
       await deleteDoc(sessionRef);
 
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'STOP_SUBTASK_TIME_TRACKING'
+        });
+      }
     } catch (error) {
       console.error("Error stopping subtask tracking:", error);
       toast({
