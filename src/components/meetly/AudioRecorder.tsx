@@ -35,24 +35,21 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
     uploadRecording,
     recordedAudio,
     clearRecordedAudio,
+    audioLevel,
   } = useMeetly();
   const { toast } = useToast();
 
-  const [audioLevel, setAudioLevel] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
     return () => {
-      if (audioContextRef.current) audioContextRef.current.close();
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioRef.current) {
         URL.revokeObjectURL(audioRef.current.src);
       }
@@ -65,60 +62,19 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
     }
   }, [recordedAudio]);
 
-  const setupAudioAnalyser = (stream: MediaStream) => {
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      audioContextRef.current = audioContext;
-      analyserRef.current = analyser;
-      monitorAudioLevel();
-    } catch (error) {
-      console.warn("Could not set up audio analyser:", error);
-    }
-  };
-
-  const monitorAudioLevel = () => {
-    if (!analyserRef.current) return;
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    const updateLevel = () => {
-      if (!analyserRef.current || !isRecording) return;
-      analyserRef.current.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      setAudioLevel(Math.min(100, (average / 255) * 100));
-      animationFrameRef.current = requestAnimationFrame(updateLevel);
-    };
-    updateLevel();
-  };
-
   const handleStartRecording = async () => {
     try {
       await startRecording();
-      if (!Capacitor.isNativePlatform()) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        setupAudioAnalyser(stream);
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to start recording:", error);
-      toast({
-        title: "Recording failed",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive"
-      });
+      setErrorMessage(error.message || "An unknown recording error occurred.");
+      setShowErrorDialog(true);
     }
   };
 
   const handleStopRecording = async () => {
     try {
       await stopRecording();
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      setAudioLevel(0);
     } catch (error) {
       console.error("Failed to stop recording:", error);
     }
@@ -312,6 +268,23 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
                 {uploading ? "Uploading..." : "Save & Process"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Recording Error
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base text-foreground">
+              {errorMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end pt-4">
+            <Button onClick={() => setShowErrorDialog(false)}>OK</Button>
           </div>
         </DialogContent>
       </Dialog>
