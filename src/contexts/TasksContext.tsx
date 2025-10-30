@@ -224,34 +224,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     };
   }, [user, userProfile, toast]);
 
-  useEffect(() => {
-    const handleSnooze = (event: CustomEvent) => {
-        const { taskId, minutes } = event.detail;
-        const task = tasks.find(t => t.id === taskId);
-        if (task && task.dueDate) {
-            const newDueDate = addMinutes(new Date(task.dueDate), minutes);
-            updateTask(taskId, { dueDate: newDueDate.toISOString() });
-        }
-    };
-
-    const handleReschedule = (event: CustomEvent) => {
-        const { taskId, days } = event.detail;
-        const task = tasks.find(t => t.id === taskId);
-        if (task && task.dueDate) {
-            const newDueDate = addDays(new Date(task.dueDate), days);
-            updateTask(taskId, { dueDate: newDueDate.toISOString() });
-        }
-    };
-
-    window.addEventListener('snooze-task', handleSnooze as EventListener);
-    window.addEventListener('reschedule-task', handleReschedule as EventListener);
-
-    return () => {
-        window.removeEventListener('snooze-task', handleSnooze as EventListener);
-        window.removeEventListener('reschedule-task', handleReschedule as EventListener);
-    };
-  }, [tasks, updateTask]);
-
   const addTask = useCallback(async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user || !userProfile) return;
 
@@ -612,6 +584,35 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     if (newCommentTimestamp > currentLastCommentedAt) {
       await updateTask(taskId, { lastCommentedAt: timestamp });
     }
+  }, [tasks, updateTask]);
+
+  // This useEffect hook is now placed after updateTask is defined.
+  useEffect(() => {
+    const handleSnooze = (event: CustomEvent) => {
+        const { taskId, minutes } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addMinutes(new Date(task.dueDate), minutes);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    const handleReschedule = (event: CustomEvent) => {
+        const { taskId, days } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addDays(new Date(task.dueDate), days);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    window.addEventListener('snooze-task', handleSnooze as EventListener);
+    window.addEventListener('reschedule-task', handleReschedule as EventListener);
+
+    return () => {
+        window.removeEventListener('snooze-task', handleSnooze as EventListener);
+        window.removeEventListener('reschedule-task', handleReschedule as EventListener);
+    };
   }, [tasks, updateTask]);
 
   const getTasksByDateRange = (startDate: Date, endDate: Date): Task[] => tasks.filter(task => {
