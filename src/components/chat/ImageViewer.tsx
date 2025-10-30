@@ -13,8 +13,27 @@ interface ImageViewerProps {
   startIndex?: number;
 }
 
+// Variants for the sliding animation
+const variants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? '100%' : '-100%',
+    opacity: 0,
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? '100%' : '-100%',
+    opacity: 0,
+  }),
+};
+
 export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: ImageViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(startIndex);
+  const [direction, setDirection] = useState(0);
 
   useEffect(() => {
     if (open) {
@@ -22,12 +41,13 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
     }
   }, [open, startIndex]);
 
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const handlePrev = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+  const paginate = (newDirection: number) => {
+    setDirection(newDirection);
+    if (newDirection > 0) {
+      setCurrentIndex((prev) => (prev + 1) % images.length);
+    } else {
+      setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    }
   };
 
   const handleDownload = () => {
@@ -35,7 +55,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
     if (currentImage?.url) {
       const link = document.createElement('a');
       link.href = currentImage.url;
-      link.download = `image_${currentIndex + 1}.png`; // Or derive from URL
+      link.download = `image_${currentIndex + 1}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -46,7 +66,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 bg-black/80 border-0 max-w-[95vw] max-h-[95vh] h-full w-full flex flex-col gap-0 backdrop-blur-sm">
+      <DialogContent className="p-0 bg-black/80 border-0 max-w-[95vw] max-h-[95vh] h-full w-full flex flex-col gap-0 backdrop-blur-sm [&>button]:hidden">
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-black/50 to-transparent">
           <div className="text-white font-medium">
@@ -64,16 +84,21 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
 
         {/* Main Image View */}
         <div className="flex-1 flex items-center justify-center relative overflow-hidden">
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} custom={direction}>
             <motion.img
               key={currentIndex}
               src={currentImage?.url}
               alt={`Image ${currentIndex + 1}`}
-              className="max-h-full max-w-full object-contain"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
+              className="absolute max-h-full max-w-full object-contain"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: 'spring', stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
             />
           </AnimatePresence>
         </div>
@@ -85,7 +110,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
               variant="ghost"
               size="icon"
               className="absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/30 hover:bg-black/50 h-10 w-10"
-              onClick={handlePrev}
+              onClick={() => paginate(-1)}
             >
               <ChevronLeft className="h-6 w-6" />
             </Button>
@@ -93,7 +118,7 @@ export function ImageViewer({ open, onOpenChange, images, startIndex = 0 }: Imag
               variant="ghost"
               size="icon"
               className="absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/30 hover:bg-black/50 h-10 w-10"
-              onClick={handleNext}
+              onClick={() => paginate(1)}
             >
               <ChevronRight className="h-6 w-6" />
             </Button>
