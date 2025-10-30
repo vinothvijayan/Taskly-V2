@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PomodoroTimer } from "@/components/timer/PomodoroTimer"
-import { Badge } from "@/components/ui/badge"
-import { Clock, Target, TrendingUp } from "lucide-react"
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PomodoroTimer } from "@/components/timer/PomodoroTimer";
+import { Badge } from "@/components/ui/badge";
+import { Clock, Target, TrendingUp } from "lucide-react";
 
 export default function TimerPage() {
   const [todayStats, setTodayStats] = useState({
@@ -10,7 +10,7 @@ export default function TimerPage() {
     totalFocusTime: 75, // minutes
     tasksCompleted: 2,
     currentStreak: 5 // days
-  })
+  });
 
   const handleTimerComplete = (sessionType: "focus" | "break", duration: number) => {
     if (sessionType === "focus") {
@@ -18,9 +18,9 @@ export default function TimerPage() {
         ...prev,
         focusSessions: prev.focusSessions + 1,
         totalFocusTime: prev.totalFocusTime + duration
-      }))
+      }));
     }
-  }
+  };
 
   return (
     <div className="container max-w-4xl mx-auto p-6 space-y-6">
@@ -84,5 +84,5 @@ export default function TimerPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
