@@ -54,6 +54,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AttachmentPreviewModal } from "@/components/chat/AttachmentPreviewModal";
 import { ImageViewer } from "@/components/chat/ImageViewer";
+import { VoiceMessagePlayer } from "@/components/chat/VoiceMessagePlayer";
 
 // Add a custom type to distinguish the self-chat entry
 type ChatListItem = UserProfile & { isSelf?: boolean };
@@ -655,6 +656,13 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
+                                            if (att.type === 'audio') {
+                                                return (
+                                                    <div key={att.id || index} className="col-span-2">
+                                                        <VoiceMessagePlayer attachment={att} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />
+                                                    </div>
+                                                )
+                                            }
                                             if (att.type === 'document') {
                                                 return (
                                                     <div key={att.id || index} className="col-span-2">
@@ -854,6 +862,13 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
+                                            if (att.type === 'audio') {
+                                                return (
+                                                    <div key={att.id || index} className="col-span-2">
+                                                        <VoiceMessagePlayer attachment={att} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />
+                                                    </div>
+                                                )
+                                            }
                                             if (att.type === 'document') {
                                                 return (
                                                     <div key={att.id || index} className="col-span-2">
