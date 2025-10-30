@@ -43,13 +43,25 @@ import {
   Reply,
   Paperclip,
   Smile,
-  AlertCircle
+  AlertCircle,
+  Image as ImageIcon,
+  FileText
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AttachmentPreviewModal } from "@/components/chat/AttachmentPreviewModal";
 import { ImageViewer } from "@/components/chat/ImageViewer";
 
 // Add a custom type to distinguish the self-chat entry
 type ChatListItem = UserProfile & { isSelf?: boolean };
+
+const formatFileSize = (bytes: number, decimals = 2) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
 
 export default function TeamChatPage() {
   const navigate = useNavigate();
@@ -83,7 +95,8 @@ export default function TeamChatPage() {
   const messageStatusRef = useRef<any>(null);
   const isMountedRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageVideoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (setOpen) {
@@ -215,7 +228,7 @@ export default function TeamChatPage() {
     }
   };
 
-  const handleSendAttachment = async (files: File[], caption: string) => {
+  const handleSendMedia = async (files: File[], caption: string) => {
     if (!user || !selectedUser || !userProfile || files.length === 0) return;
 
     const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
@@ -223,7 +236,7 @@ export default function TeamChatPage() {
 
     const optimisticAttachments: Attachment[] = files.map(file => ({
         id: `temp-${file.name}-${Date.now()}`,
-        type: 'image',
+        type: file.type.startsWith('image/') ? 'image' : 'video',
         url: '',
         previewUrl: URL.createObjectURL(file),
         status: 'uploading',
@@ -280,11 +293,11 @@ export default function TeamChatPage() {
     await setDoc(chatRoomInfoRef, { 
         participants: [user.uid, selectedUser.uid], 
         lastActivity: firestoreServerTimestamp(),
-        lastMessage: { ...placeholderData, message: caption || `📷 ${files.length} Image(s)` }
+        lastMessage: { ...placeholderData, message: caption || `📷 ${files.length} Media File(s)` }
     }, { merge: true });
 
     if (user.uid !== selectedUser.uid) {
-        const notificationBody = caption ? `Sent ${files.length} image(s): ${caption}` : `Sent ${files.length} image(s)`;
+        const notificationBody = caption ? `Sent ${files.length} media file(s): ${caption}` : `Sent ${files.length} media file(s)`;
         notificationService.addInAppNotification(
             selectedUser.uid,
             `New message from ${userProfile.displayName || user.email || 'Unknown'}`,
@@ -295,12 +308,101 @@ export default function TeamChatPage() {
     }
   };
 
-  const handleAttachmentClick = () => fileInputRef.current?.click();
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSendDocuments = async (files: File[], caption: string) => {
+    if (!user || !selectedUser || !userProfile || files.length === 0) return;
+
+    const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
+    const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
+
+    const optimisticAttachments: Attachment[] = files.map(file => ({
+        id: `temp-${file.name}-${Date.now()}`,
+        type: 'document',
+        url: '',
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        status: 'uploading',
+    }));
+
+    const placeholderData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
+        senderId: user.uid,
+        senderName: userProfile.displayName || user.email || 'Unknown',
+        senderEmail: user.email || '',
+        senderAvatar: userProfile.photoURL,
+        message: caption,
+        timestamp: serverTimestamp(),
+        type: 'media',
+        attachments: optimisticAttachments,
+    };
+
+    const newMessageRef = push(messagesRef);
+    const messageId = newMessageRef.key;
+    if (!messageId) {
+        console.error("Failed to get message key");
+        return;
+    }
+    await set(newMessageRef, placeholderData);
+
+    const uploadPromises = files.map(async (file, index) => {
+        try {
+            const timestamp = Date.now();
+            const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
+            const fileRef = storageRef(storage, filePath);
+            const snapshot = await uploadBytes(fileRef, file);
+            const finalFileUrl = await getDownloadURL(snapshot.ref);
+
+            const attachmentUpdatePath = `chats/${chatRoomId}/messages/${messageId}/attachments/${index}`;
+            await update(ref(rtdb), {
+                [`${attachmentUpdatePath}/url`]: finalFileUrl,
+                [`${attachmentUpdatePath}/status`]: 'sent',
+            });
+
+            return { success: true };
+        } catch (uploadError) {
+            console.error("Error uploading document:", uploadError);
+            const attachmentUpdatePath = `chats/${chatRoomId}/messages/${messageId}/attachments/${index}`;
+            await update(ref(rtdb), {
+                [`${attachmentUpdatePath}/status`]: 'failed',
+            });
+            return { success: false };
+        }
+    });
+
+    await Promise.all(uploadPromises);
+
+    const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+    await setDoc(chatRoomInfoRef, { 
+        participants: [user.uid, selectedUser.uid], 
+        lastActivity: firestoreServerTimestamp(),
+        lastMessage: { ...placeholderData, message: caption || `📄 ${files.length} Document(s)` }
+    }, { merge: true });
+
+    if (user.uid !== selectedUser.uid) {
+        const notificationBody = caption ? `Sent ${files.length} document(s): ${caption}` : `Sent ${files.length} document(s)`;
+        notificationService.addInAppNotification(
+            selectedUser.uid,
+            `New message from ${userProfile.displayName || user.email || 'Unknown'}`,
+            notificationBody,
+            'chat',
+            { chatRoomId, senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown' }
+        ).catch(e => console.warn(e));
+    }
+  };
+
+  const handleMediaFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
     if (files.length > 0) {
       setFilesToPreview(files);
     }
+    if (e.target) e.target.value = "";
+  };
+
+  const handleDocumentFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length > 0) {
+      handleSendDocuments(files, "");
+    }
+    if (e.target) e.target.value = "";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -382,12 +484,13 @@ export default function TeamChatPage() {
 
   return (
     <>
-      <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" multiple className="hidden" />
+      <input type="file" ref={imageVideoInputRef} onChange={handleMediaFileSelect} accept="image/*,video/*" multiple className="hidden" />
+      <input type="file" ref={documentInputRef} onChange={handleDocumentFileSelect} accept="*/*" multiple className="hidden" />
       <AttachmentPreviewModal
         open={filesToPreview.length > 0}
         onOpenChange={(isOpen) => { if (!isOpen) setFilesToPreview([]); }}
         files={filesToPreview}
-        onSend={handleSendAttachment}
+        onSend={handleSendMedia}
       />
       <ImageViewer
         open={imageViewerState.open}
@@ -457,13 +560,26 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
+                                            if (att.type === 'document') {
+                                                return (
+                                                    <div key={att.id || index} className="col-span-2">
+                                                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-black/10 dark:bg-black/20 rounded-lg hover:bg-black/20 dark:hover:bg-black/30 transition-colors">
+                                                            {att.status === 'uploading' ? <Loader2 className="h-8 w-8 animate-spin text-muted-foreground flex-shrink-0" /> : <FileText className="h-8 w-8 text-primary flex-shrink-0" />}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-semibold truncate text-sm">{att.fileName}</p>
+                                                                <p className="text-xs text-muted-foreground">{att.fileSize ? formatFileSize(att.fileSize) : ''}</p>
+                                                            </div>
+                                                        </a>
+                                                    </div>
+                                                )
+                                            }
                                             const isLastVisibleWithMore = index === 3 && remainingCount > 0;
                                             const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
                                             const imageUrl = att.status === 'uploading' ? att.previewUrl : att.url;
                                             return (
                                                 <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)} onClick={() => {
                                                     if (att.status === 'sent' && att.url) {
-                                                        const sentImages = attachments.filter(a => a.status === 'sent' && a.url);
+                                                        const sentImages = attachments.filter(a => a.status === 'sent' && a.url && a.type === 'image');
                                                         const clickedIndex = sentImages.findIndex(a => a.id === att.id);
                                                         setImageViewerState({
                                                             open: true,
@@ -520,9 +636,25 @@ export default function TeamChatPage() {
                           rows={1} 
                           className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-1.5 px-2 text-base min-h-0" 
                         />
-                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
-                          <Paperclip className="h-5 w-5 text-muted-foreground" />
-                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                              <Paperclip className="h-5 w-5 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 mb-2">
+                            <div className="space-y-1">
+                              <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
+                                <ImageIcon className="h-4 w-4 mr-2" />
+                                Photos & Videos
+                              </Button>
+                              <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Document
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <Button 
                         onClick={sendMessage} 
@@ -596,13 +728,26 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
+                                            if (att.type === 'document') {
+                                                return (
+                                                    <div key={att.id || index} className="col-span-2">
+                                                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-black/10 dark:bg-black/20 rounded-lg hover:bg-black/20 dark:hover:bg-black/30 transition-colors">
+                                                            {att.status === 'uploading' ? <Loader2 className="h-8 w-8 animate-spin text-muted-foreground flex-shrink-0" /> : <FileText className="h-8 w-8 text-primary flex-shrink-0" />}
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-semibold truncate text-sm">{att.fileName}</p>
+                                                                <p className="text-xs text-muted-foreground">{att.fileSize ? formatFileSize(att.fileSize) : ''}</p>
+                                                            </div>
+                                                        </a>
+                                                    </div>
+                                                )
+                                            }
                                             const isLastVisibleWithMore = index === 3 && remainingCount > 0;
                                             const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
                                             const imageUrl = att.status === 'uploading' ? att.previewUrl : att.url;
                                             return (
                                                 <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)} onClick={() => {
                                                     if (att.status === 'sent' && att.url) {
-                                                        const sentImages = attachments.filter(a => a.status === 'sent' && a.url);
+                                                        const sentImages = attachments.filter(a => a.status === 'sent' && a.url && a.type === 'image');
                                                         const clickedIndex = sentImages.findIndex(a => a.id === att.id);
                                                         setImageViewerState({
                                                             open: true,
@@ -659,9 +804,25 @@ export default function TeamChatPage() {
                           rows={1} 
                           className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-base min-h-0" 
                         />
-                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0" onClick={handleAttachmentClick}>
-                          <Paperclip className="h-5 w-5 text-muted-foreground" />
-                        </Button>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                              <Paperclip className="h-5 w-5 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 mb-2">
+                            <div className="space-y-1">
+                              <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
+                                <ImageIcon className="h-4 w-4 mr-2" />
+                                Photos & Videos
+                              </Button>
+                              <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Document
+                              </Button>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
                       <Button 
                         onClick={sendMessage} 

@@ -73,8 +73,11 @@ export interface AppNotification {
 
 export interface Attachment {
   id: string;
-  type: 'image';
+  type: 'image' | 'video' | 'document';
   url: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
   previewUrl?: string;
   status?: 'uploading' | 'sent' | 'failed';
 }
