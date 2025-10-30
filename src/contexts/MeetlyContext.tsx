@@ -158,56 +158,37 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
         throw new Error("Could not start native recorder. Check microphone permissions.");
       }
     } else {
-      // --- WEB RECORDING (System + Mic mix) ---
-      let systemStream: MediaStream | null = null;
-      let micStream: MediaStream | null = null;
+      // --- WEB RECORDING (Microphone only) ---
+      let micStream: MediaStream | null = null; // Keep this for cleanup
 
       try {
-        if (!navigator.mediaDevices.getDisplayMedia) {
-          throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
-        }
-        systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        const systemAudioTracks = systemStream.getAudioTracks();
-        
-        if (systemAudioTracks.length === 0 || !systemAudioTracks[0].enabled || systemAudioTracks[0].muted) {
-          throw new Error("System audio track missing. To record meeting audio, you MUST select the 'Chrome Tab' option in the sharing prompt and check the 'Share tab audio' box.");
-        }
-
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-
-        const audioContext = new AudioContext();
-        const systemSource = audioContext.createMediaStreamSource(systemStream);
-        const micSource = audioContext.createMediaStreamSource(micStream);
-        const destination = audioContext.createMediaStreamDestination();
-        systemSource.connect(destination);
-        micSource.connect(destination);
-        
-        const mixedStream = destination.stream;
-        mixedStream.addTrack(systemStream.getVideoTracks()[0]);
-        streamRef.current = mixedStream;
+        // CRITICAL FIX: Use getUserMedia to request microphone directly
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true } 
+        });
+        streamRef.current = micStream;
 
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-        const recorder = new MediaRecorder(mixedStream, { mimeType });
+        const recorder = new MediaRecorder(micStream, { mimeType }); // Use micStream directly
         const chunks: Blob[] = [];
         recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
         recorder.onstop = () => {
           const audioBlob = new Blob(chunks, { type: mimeType });
           setRecordedAudio(audioBlob);
-          systemStream?.getTracks().forEach(track => track.stop());
-          micStream?.getTracks().forEach(track => track.stop());
+          micStream?.getTracks().forEach(track => track.stop()); // Stop tracks on finish
           streamRef.current = null;
         };
+        
         recorder.start(1000);
         setMediaRecorder(recorder);
         setIsRecording(true);
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
-        setupAudioAnalyser(mixedStream);
-        toast({ title: "Recording Started 🎙️", description: "Capturing both system and microphone audio." });
+        setupAudioAnalyser(micStream);
+        toast({ title: "Recording Started 🎙️", description: "Capturing microphone audio only." });
 
       } catch (error: any) {
-        systemStream?.getTracks().forEach(track => track.stop());
-        micStream?.getTracks().forEach(track => track.stop());
+        micStream?.getTracks().forEach(track => track.stop()); // Clean up on error
         console.error("Web recording failed:", error);
         throw error;
       }
