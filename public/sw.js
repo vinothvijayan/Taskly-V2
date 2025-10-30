@@ -13,13 +13,6 @@ const STATIC_ASSETS = [
   '/sounds/ting.mp3'
 ];
 
-// Dynamic assets to cache on first request
-const CACHE_STRATEGIES = {
-  images: 'cache-first',
-  api: 'network-first',
-  static: 'cache-first'
-};
-
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
@@ -53,7 +46,7 @@ self.addEventListener('activate', (event) => {
         manageSession(SUBTASK_TIMER_SESSION_KEY, 'get')
       ]);
       if ((session && !session.isPaused) || (subtaskSession && !subtaskSession.isPaused)) {
-        runTimer();
+        startTimerLoop();
       }
     })()
   );
@@ -102,7 +95,7 @@ if (typeof firebase !== 'undefined') {
 
 // --- BACKGROUND TIME TRACKING LOGIC ---
 
-let timerTimeout = null;
+let timerInterval = null;
 const TIMER_SESSION_KEY = 'currentSession';
 const SUBTASK_TIMER_SESSION_KEY = 'currentSubtaskSession';
 
@@ -138,10 +131,17 @@ async function manageSession(key, action, data = null) {
   });
 }
 
-function runTimer() {
-  if (timerTimeout) return;
+function stopTimerLoop() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
 
-  const tick = async () => {
+function startTimerLoop() {
+  stopTimerLoop(); // Ensure no multiple loops are running
+
+  timerInterval = setInterval(async () => {
     const [session, subtaskSession] = await Promise.all([
       manageSession(TIMER_SESSION_KEY, 'get'),
       manageSession(SUBTASK_TIMER_SESSION_KEY, 'get')
@@ -187,15 +187,10 @@ function runTimer() {
       });
     }
 
-    if (isAnyTimerActive) {
-      timerTimeout = setTimeout(tick, 1000);
-    } else {
-      clearTimeout(timerTimeout);
-      timerTimeout = null;
+    if (!isAnyTimerActive) {
+      stopTimerLoop(); // Stop the interval if no timers are active
     }
-  };
-
-  tick();
+  }, 1000);
 }
 
 async function handleTimeTrackingMessage(data) {
@@ -206,7 +201,7 @@ async function handleTimeTrackingMessage(data) {
     case 'START_TIME_TRACKING':
     case 'START_SUBTASK_TIME_TRACKING':
       await manageSession(key, 'set', session);
-      runTimer();
+      startTimerLoop();
       break;
     
     case 'PAUSE_TIME_TRACKING':
@@ -234,7 +229,7 @@ async function handleTimeTrackingMessage(data) {
           startTime: Date.now(),
           pausedAt: null
         });
-        runTimer();
+        startTimerLoop();
       }
       break;
     }
