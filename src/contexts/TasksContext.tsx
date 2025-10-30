@@ -468,12 +468,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
             if (updatedTask.teamId) {
                 const { logActivity } = await import('@/lib/activityLogger');
                 const sanitizedSubtasks = updatedTask.subtasks?.map(sub => ({
-                    id: sub.id,
-                    title: sub.title,
-                    isCompleted: sub.isCompleted,
-                    createdAt: sub.createdAt,
+                    ...sub,
                     completedAt: sub.completedAt || null,
-                    timeSpent: sub.timeSpent || 0,
                 }));
                 const activityTaskPayload = {
                     id: updatedTask.id,
@@ -556,10 +552,41 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const addSubtask = useCallback(async (taskId: string, title: string) => {
+    if (!user || !userProfile) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
     const newSubtask: Subtask = { id: `sub-${Date.now()}`, title, isCompleted: false, createdAt: new Date().toISOString() };
-    await updateTask(taskId, { subtasks: [...(tasks.find(t => t.id === taskId)?.subtasks || []), newSubtask] });
-    toast({ title: "Subtask added!" });
-  }, [updateTask, tasks, toast]);
+    const updatedSubtasks = [...(task.subtasks || []), newSubtask];
+
+    // Optimistic update
+    setTasks(prev => sortTasks(prev.map(t => t.id === taskId ? { ...t, subtasks: updatedSubtasks } : t)));
+
+    try {
+      const taskRefPath = task.teamId ? `teams/${task.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
+      await updateDoc(doc(db, taskRefPath), { subtasks: updatedSubtasks });
+
+      if (task.teamId) {
+        const { logActivity } = await import('@/lib/activityLogger');
+        logActivity(
+          task.teamId,
+          'SUBTASK_CREATED',
+          { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+          {
+            task: { id: task.id, title: task.title },
+            subtask: { id: newSubtask.id, title: newSubtask.title }
+          }
+        );
+      }
+      toast({ title: "Subtask added!" });
+    } catch (error) {
+      // Revert on error
+      setTasks(prev => sortTasks(prev.map(t => t.id === taskId ? task : t)));
+      console.error("Error adding subtask:", error);
+      toast({ title: "Failed to add subtask", variant: "destructive" });
+    }
+  }, [tasks, user, userProfile, toast]);
 
   const toggleSubtaskStatus = useCallback(async (taskId: string, subtaskId: string, autoSaveTimeFromTracker?: { stopTracking: () => Promise<void> }) => {
     const task = tasks.find(t => t.id === taskId);

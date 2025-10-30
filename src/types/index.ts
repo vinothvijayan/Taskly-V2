@@ -154,7 +154,7 @@ export interface Opportunity {
   meetingStatus?: 'scheduled' | 'done';
 }
 
-export type ActivityType = 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED' | 'SUBTASK_COMPLETED';
+export type ActivityType = 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED' | 'SUBTASK_COMPLETED' | 'SUBTASK_CREATED';
 
 export interface Activity {
   id: string;
