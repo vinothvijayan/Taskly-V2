@@ -27,7 +27,7 @@ import { UserProfile, Team } from "@/types";
 import { useNotifications } from "@/contexts/NotificationsContext";
 import { hasUnreadComments } from '@/lib/viewedTimestamps';
 import { useConfetti } from '@/contexts/ConfettiContext';
-import { startOfDay, isSameDay, endOfDay } from "date-fns";
+import { startOfDay, isSameDay, endOfDay, addMinutes, addDays } from "date-fns";
 import { Capacitor } from '@capacitor/core';
 import { capacitorNotifications } from '@/lib/capacitorNotifications';
 
@@ -223,6 +223,34 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
     };
   }, [user, userProfile, toast]);
+
+  useEffect(() => {
+    const handleSnooze = (event: CustomEvent) => {
+        const { taskId, minutes } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addMinutes(new Date(task.dueDate), minutes);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    const handleReschedule = (event: CustomEvent) => {
+        const { taskId, days } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addDays(new Date(task.dueDate), days);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    window.addEventListener('snooze-task', handleSnooze as EventListener);
+    window.addEventListener('reschedule-task', handleReschedule as EventListener);
+
+    return () => {
+        window.removeEventListener('snooze-task', handleSnooze as EventListener);
+        window.removeEventListener('reschedule-task', handleReschedule as EventListener);
+    };
+  }, [tasks, updateTask]);
 
   const addTask = useCallback(async (taskData: Omit<Task, "id" | "createdAt">) => {
     if (!user || !userProfile) return;

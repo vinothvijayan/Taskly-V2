@@ -1,3 +1,6 @@
+import { toast } from 'sonner';
+import { addMinutes, addDays } from 'date-fns';
+
 export type AssignmentNotificationType = 'single' | 'bulk' | 'none';
 
 // Global reference to addNotification function
@@ -152,6 +155,27 @@ export class NotificationService {
     }
   }
 
+  public showActionableTaskReminder(task: any, minutesBefore: number) {
+    toast.message(`📋 Reminder: ${task.title}`, {
+        description: `This task is due in ${minutesBefore} minutes.`,
+        duration: 30000, // 30 seconds before auto-dismiss
+        action: {
+            label: "Snooze (30m)",
+            onClick: () => {
+                window.dispatchEvent(new CustomEvent('snooze-task', { detail: { taskId: task.id, minutes: 30 } }));
+                toast.info(`Task "${task.title}" snoozed for 30 minutes.`);
+            }
+        },
+        secondaryAction: {
+            label: "Reschedule (Next Day)",
+            onClick: () => {
+                window.dispatchEvent(new CustomEvent('reschedule-task', { detail: { taskId: task.id, days: 1 } }));
+                toast.info(`Task "${task.title}" rescheduled for tomorrow.`);
+            }
+        }
+    });
+  }
+
   public scheduleTaskReminder(task: any, minutesBefore: number = 15) {
     if (!task.dueDate) return;
 
@@ -168,16 +192,7 @@ export class NotificationService {
     this.clearScheduledNotification(notificationId);
 
     const timeoutId = setTimeout(() => {
-      this.showNotification(`📋 Task Reminder: ${task.title}`, {
-        body: `Due in ${minutesBefore} minutes: ${task.description || 'No description'}`,
-        icon: '/favicon.ico',
-        tag: notificationId,
-        data: { taskId: task.id, type: 'reminder' },
-        ...(('serviceWorker' in navigator) && { actions: [
-          { action: 'start', title: '▶️ Start Now' },
-          { action: 'snooze', title: '⏰ Snooze 5min' }
-        ] })
-      } as any);
+      this.showActionableTaskReminder(task, minutesBefore);
       
       this.scheduledNotifications.delete(notificationId);
     }, timeUntilReminder);
