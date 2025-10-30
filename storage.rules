@@ -2,26 +2,36 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow reads and writes for chat attachments if the user is a participant in the chat
-    match /chat_attachments/{chatRoomId}/{fileName} {
+    
+    // NEW: Rule for chat attachments
+    // Allows read/write if the user is one of the two participants in the chat room.
+    match /chat_attachments/{chatRoomId}/{allPaths=**} {
       allow read, write: if request.auth != null && 
                            (request.auth.uid == chatRoomId.split('_')[0] || 
                             request.auth.uid == chatRoomId.split('_')[1]);
     }
-    
-    // Allow reads and writes for meetly audio if the user is the owner
-    match /meetly-audio/{userId}/{fileName} {
+
+    // Rule for the AI Wellness Coach feature
+    match /journal-audio/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow reads and writes for journal audio if the user is the owner
-    match /journal-audio/{userId}/{fileName} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Allow reads for journal exports if the user is the owner
-    match /journal-exports/{userId}/{fileName} {
+    // Rule for journal PDF exports
+    match /journal-exports/{userId}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Your existing rule for Meetly
+    match /meetly-audio/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Your other existing rules
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /teams/{teamId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
