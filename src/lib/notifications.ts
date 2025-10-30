@@ -188,10 +188,15 @@ export class NotificationService {
     const timeUntilReminder = reminderTime.getTime() - now.getTime();
     const notificationId = `task-reminder-${task.id}`;
 
+    console.log(`[Reminder] Scheduling reminder for task "${task.title}"`);
+    console.log(`[Reminder] Due at: ${dueDate.toLocaleString()}`);
+    console.log(`[Reminder] Reminder will fire at: ${reminderTime.toLocaleString()} (in ${Math.round(timeUntilReminder / 60000)} minutes)`);
+
     // Clear existing reminder if any
     this.clearScheduledNotification(notificationId);
 
     const timeoutId = setTimeout(() => {
+      console.log(`[Reminder] FIRING reminder for task "${task.title}"`);
       this.showActionableTaskReminder(task, minutesBefore);
       
       this.scheduledNotifications.delete(notificationId);
@@ -211,10 +216,14 @@ export class NotificationService {
     const timeUntilDue = dueDate.getTime() - now.getTime();
     const notificationId = `task-due-${task.id}`;
 
+    console.log(`[Reminder] Scheduling DUE notification for task "${task.title}"`);
+    console.log(`[Reminder] Will fire at due time: ${dueDate.toLocaleString()} (in ${Math.round(timeUntilDue / 60000)} minutes)`);
+
     // Clear existing notification if any
     this.clearScheduledNotification(notificationId);
 
     const timeoutId = setTimeout(() => {
+      console.log(`[Reminder] FIRING DUE notification for task "${task.title}"`);
       this.showNotification(`🚨 Task Due Now: ${task.title}`, {
         body: `This task is now due: ${task.description || 'No description'}`,
         icon: '/favicon.ico',

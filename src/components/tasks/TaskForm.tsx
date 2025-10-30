@@ -17,6 +17,17 @@ interface TaskFormProps {
   teamMembers: UserProfile[]
 }
 
+// Helper function to format date for datetime-local input
+const formatDueDateForInput = (dateString?: string): string => {
+  if (!dateString) return "";
+  // If it's a date-only string (e.g., "2025-10-30"), append a default time.
+  if (dateString.length === 10 && dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return `${dateString}T09:00`; 
+  }
+  // If it's a full ISO string, slice it to the required "yyyy-MM-ddTHH:mm" format.
+  return dateString.slice(0, 16);
+};
+
 export function TaskForm({ task, onSubmit, onCancel, teamMembers }: TaskFormProps) {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -25,7 +36,7 @@ export function TaskForm({ task, onSubmit, onCancel, teamMembers }: TaskFormProp
     priority: task?.priority || "medium" as Task["priority"],
     status: task?.status || "todo" as Task["status"],
     estimatedTime: task?.estimatedTime?.toString() || "",
-    dueDate: task?.dueDate || "",
+    dueDate: formatDueDateForInput(task?.dueDate),
     assignedTo: task?.assignedTo || [],
   })
 
