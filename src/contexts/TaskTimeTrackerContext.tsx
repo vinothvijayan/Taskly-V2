@@ -84,12 +84,22 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     };
   }, [getTaskById, trackingTask, trackingSubtask, updateTaskTimeSpent, updateSubtaskTimeSpent, toast, getFormattedTime]);
 
-  const postToServiceWorker = (type: string, session: any) => {
-    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({ type, session });
+  const postToServiceWorker = async (type: string, session: any) => {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        if (registration.active) {
+          registration.active.postMessage({ type, session });
+        } else {
+          throw new Error("Service worker is ready but not active.");
+        }
+      } catch (error) {
+        console.error('Service worker communication failed:', error);
+        toast({ title: "Offline Timer Unavailable", description: "Could not connect to background service.", variant: "destructive" });
+      }
     } else {
       console.warn('Service worker not available to handle time tracking.');
-      toast({ title: "Offline Timer Unavailable", description: "Could not connect to background service.", variant: "destructive" });
+      toast({ title: "Offline Timer Unavailable", description: "Background services are not supported in this browser.", variant: "destructive" });
     }
   };
 
@@ -104,7 +114,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       isPaused: false,
       accumulatedSeconds: 0,
     };
-    postToServiceWorker('START_TIME_TRACKING', session);
+    await postToServiceWorker('START_TIME_TRACKING', session);
     
     setTrackingTask(task);
     setCurrentSessionElapsedSeconds(0);
@@ -112,16 +122,16 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     toast({ title: "Time tracking started", description: `Now tracking time for "${task.title}"` });
   };
 
-  const pauseTracking = () => {
+  const pauseTracking = async () => {
     if (!trackingTask) return;
-    postToServiceWorker('PAUSE_TIME_TRACKING', { taskId: trackingTask.id });
+    await postToServiceWorker('PAUSE_TIME_TRACKING', { taskId: trackingTask.id });
     setIsTracking(false);
     toast({ title: "Time tracking paused" });
   };
 
-  const resumeTracking = () => {
+  const resumeTracking = async () => {
     if (!trackingTask) return;
-    postToServiceWorker('RESUME_TIME_TRACKING', { taskId: trackingTask.id });
+    await postToServiceWorker('RESUME_TIME_TRACKING', { taskId: trackingTask.id });
     setIsTracking(true);
     toast({ title: "Time tracking resumed" });
   };
@@ -129,7 +139,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const stopTracking = async () => {
     if (!trackingTask) return;
     
-    postToServiceWorker('STOP_TIME_TRACKING', { taskId: trackingTask.id });
+    await postToServiceWorker('STOP_TIME_TRACKING', { taskId: trackingTask.id });
 
     setTrackingTask(null);
     setCurrentSessionElapsedSeconds(0);
@@ -148,7 +158,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       isPaused: false,
       accumulatedSeconds: 0,
     };
-    postToServiceWorker('START_SUBTASK_TIME_TRACKING', session);
+    await postToServiceWorker('START_SUBTASK_TIME_TRACKING', session);
 
     setTrackingSubtask({ taskId, subtaskId, subtaskTitle });
     setCurrentSubtaskElapsedSeconds(0);
@@ -156,22 +166,22 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     toast({ title: "Subtask tracking started", description: `Now tracking "${subtaskTitle}"` });
   };
 
-  const pauseSubtaskTracking = () => {
+  const pauseSubtaskTracking = async () => {
     if (!trackingSubtask) return;
-    postToServiceWorker('PAUSE_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+    await postToServiceWorker('PAUSE_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
     setIsTrackingSubtask(false);
   };
 
-  const resumeSubtaskTracking = () => {
+  const resumeSubtaskTracking = async () => {
     if (!trackingSubtask) return;
-    postToServiceWorker('RESUME_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+    await postToServiceWorker('RESUME_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
     setIsTrackingSubtask(true);
   };
 
   const stopSubtaskTracking = async () => {
     if (!trackingSubtask) return;
 
-    postToServiceWorker('STOP_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
+    await postToServiceWorker('STOP_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
 
     setTrackingSubtask(null);
     setCurrentSubtaskElapsedSeconds(0);
