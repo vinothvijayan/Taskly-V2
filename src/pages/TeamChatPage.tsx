@@ -18,7 +18,7 @@ import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToL
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, serverTimestamp as firestoreServerTimestamp } from "firebase/firestore";
 import { notificationService } from "@/lib/notifications";
-import { ChatMessage, ChatRoom, UserProfile } from "@/types";
+import { ChatMessage, ChatRoom, UserProfile, Attachment } from "@/types";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -212,68 +212,72 @@ export default function TeamChatPage() {
   const handleSendAttachment = async (files: File[], caption: string) => {
     if (!user || !selectedUser || !userProfile || files.length === 0) return;
 
-    try {
-      const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
-      const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
+    const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
+    const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
 
-      files.forEach(async (file, index) => {
-        const isLastFile = index === files.length - 1;
-        const previewUrl = URL.createObjectURL(file);
+    const optimisticAttachments: Attachment[] = files.map(file => ({
+        id: `temp-${file.name}-${Date.now()}`,
+        type: 'image',
+        url: '',
+        previewUrl: URL.createObjectURL(file),
+        status: 'uploading',
+    }));
 
-        const placeholderData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
-          senderId: user.uid,
-          senderName: userProfile.displayName || user.email || 'Unknown',
-          senderEmail: user.email || '',
-          senderAvatar: userProfile.photoURL,
-          message: isLastFile ? caption : '',
-          timestamp: serverTimestamp(),
-          type: 'image',
-          imageUrl: '',
-          previewUrl: previewUrl,
-          status: 'uploading',
-        };
-        
-        const newMessageRef = push(messagesRef);
-        await set(newMessageRef, placeholderData);
-        const messageId = newMessageRef.key;
+    const placeholderData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
+        senderId: user.uid,
+        senderName: userProfile.displayName || user.email || 'Unknown',
+        senderEmail: user.email || '',
+        senderAvatar: userProfile.photoURL,
+        message: caption,
+        timestamp: serverTimestamp(),
+        type: 'media',
+        attachments: optimisticAttachments,
+    };
 
-        if (!messageId) {
-          console.error("Failed to get message key from Firebase push.");
-          return;
-        }
+    const newMessageRef = push(messagesRef);
+    const messageId = newMessageRef.key;
+    if (!messageId) {
+        console.error("Failed to get message key");
+        return;
+    }
+    await set(newMessageRef, placeholderData);
 
+    const uploadPromises = files.map(async (file, index) => {
         try {
-          const timestamp = Date.now();
-          const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
-          const fileRef = storageRef(storage, filePath);
-          const snapshot = await uploadBytes(fileRef, file);
-          const finalImageUrl = await getDownloadURL(snapshot.ref);
+            const timestamp = Date.now();
+            const filePath = `chat_attachments/${chatRoomId}/${timestamp}_${file.name}`;
+            const fileRef = storageRef(storage, filePath);
+            const snapshot = await uploadBytes(fileRef, file);
+            const finalImageUrl = await getDownloadURL(snapshot.ref);
 
-          const finalUpdate = {
-            imageUrl: finalImageUrl,
-            status: 'sent',
-            previewUrl: null
-          };
-          await update(ref(rtdb, `chats/${chatRoomId}/messages/${messageId}`), finalUpdate);
+            const attachmentUpdatePath = `chats/${chatRoomId}/messages/${messageId}/attachments/${index}`;
+            await update(ref(rtdb), {
+                [`${attachmentUpdatePath}/url`]: finalImageUrl,
+                [`${attachmentUpdatePath}/status`]: 'sent',
+                [`${attachmentUpdatePath}/previewUrl`]: null,
+            });
 
-          if (isLastFile) {
-            const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
-            await setDoc(chatRoomInfoRef, { 
-              participants: [user.uid, selectedUser.uid], 
-              lastActivity: firestoreServerTimestamp(),
-              lastMessage: { ...placeholderData, message: caption || '📷 Image', imageUrl: finalImageUrl, status: 'sent', previewUrl: null }
-            }, { merge: true });
-          }
-
+            return { success: true };
         } catch (uploadError) {
-          console.error("Error uploading attachment:", uploadError);
-          await update(ref(rtdb, `chats/${chatRoomId}/messages/${messageId}`), { status: 'failed' });
-        } finally {
-          URL.revokeObjectURL(previewUrl);
+            console.error("Error uploading attachment:", uploadError);
+            const attachmentUpdatePath = `chats/${chatRoomId}/messages/${messageId}/attachments/${index}`;
+            await update(ref(rtdb), {
+                [`${attachmentUpdatePath}/status`]: 'failed',
+            });
+            return { success: false };
         }
-      });
+    });
 
-      if (user.uid !== selectedUser.uid) {
+    await Promise.all(uploadPromises);
+
+    const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+    await setDoc(chatRoomInfoRef, { 
+        participants: [user.uid, selectedUser.uid], 
+        lastActivity: firestoreServerTimestamp(),
+        lastMessage: { ...placeholderData, message: caption || `📷 ${files.length} Image(s)` }
+    }, { merge: true });
+
+    if (user.uid !== selectedUser.uid) {
         const notificationBody = caption ? `Sent ${files.length} image(s): ${caption}` : `Sent ${files.length} image(s)`;
         notificationService.addInAppNotification(
             selectedUser.uid,
@@ -282,11 +286,6 @@ export default function TeamChatPage() {
             'chat',
             { chatRoomId, senderId: user.uid, senderName: userProfile.displayName || user.email || 'Unknown' }
         ).catch(e => console.warn(e));
-      }
-
-    } catch (error) {
-        console.error("Error preparing to send attachment:", error);
-        toast({ title: "Failed to send image(s)", variant: "destructive" });
     }
   };
 
@@ -429,33 +428,50 @@ export default function TeamChatPage() {
                           const isMyMessage = message.senderId === user?.uid;
                           const MessageBubble = () => {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
-                            const hasImage = message.type === 'image' && (message.imageUrl || message.previewUrl);
+                            const attachments = message.attachments || [];
+                            const attachmentCount = attachments.length;
+                            const hasAttachments = message.type === 'media' && attachmentCount > 0;
                             const hasCaption = message.message && message.message.trim().length > 0;
-                            const isUploading = message.status === 'uploading';
-                            const uploadFailed = message.status === 'failed';
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[85%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
+
+                            const renderAttachments = () => {
+                                const visibleAttachments = attachments.slice(0, 4);
+                                const remainingCount = attachmentCount - 4;
+                                return (
+                                    <div className={cn(
+                                        "grid gap-1",
+                                        attachmentCount === 1 && "grid-cols-1",
+                                        attachmentCount === 2 && "grid-cols-2",
+                                        attachmentCount === 3 && "grid-cols-2 grid-rows-2",
+                                        attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
+                                    )}>
+                                        {visibleAttachments.map((att, index) => {
+                                            const isLastVisibleWithMore = index === 3 && remainingCount > 0;
+                                            const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
+                                            return (
+                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)}>
+                                                    <img src={att.status === 'uploading' ? att.previewUrl : att.url} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
+                                                    {isLastVisibleWithMore && (<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white text-2xl font-bold">+{remainingCount}</span></div>)}
+                                                    {att.status === 'uploading' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex items-center justify-center bg-black/30"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>)}
+                                                    {att.status === 'failed' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>)}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            };
+
+                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
                               <div className="flex flex-col">
-                                {hasImage && (
-                                  <div className="relative">
-                                    <img src={isUploading ? message.previewUrl : message.imageUrl} alt="Attachment" className={cn("rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover", isUploading && "opacity-50")} />
-                                    {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>}
-                                    {uploadFailed && <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>}
+                                {hasAttachments && renderAttachments()}
+                                {(hasCaption || !hasAttachments) && (
+                                  <div className={cn("relative", hasAttachments && hasCaption && "px-2 pt-2 pb-0.5")}>
+                                    <p className="break-words leading-relaxed whitespace-pre-wrap">{message.message}</p>
+                                    <div className="flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end">
+                                      <span>{formatMessageTime(message.timestamp)}</span>
+                                      {isMyMessage && getMessageTickIcon(message)}
+                                    </div>
                                   </div>
                                 )}
-                                <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
-                                  {(hasCaption || !hasImage) && (
-                                    <p className="break-words leading-relaxed whitespace-pre-wrap">
-                                      {message.message}
-                                    </p>
-                                  )}
-                                  <div className={cn(
-                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end",
-                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
-                                  )}>
-                                    <span>{formatMessageTime(message.timestamp)}</span>
-                                    {isMyMessage && getMessageTickIcon(message)}
-                                  </div>
-                                </div>
                               </div>
                             </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
                           };
@@ -540,33 +556,50 @@ export default function TeamChatPage() {
                           const isMyMessage = message.senderId === user?.uid;
                           const MessageBubble = () => {
                             const swipeRef = useSwipeGestures({ onSwipeRight: !isMyMessage ? () => createTaskFromMessage(message) : undefined, onSwipeLeft: isMyMessage ? () => createTaskFromMessage(message) : undefined }, { threshold: 80, velocityThreshold: 0.2 });
-                            const hasImage = message.type === 'image' && (message.imageUrl || message.previewUrl);
+                            const attachments = message.attachments || [];
+                            const attachmentCount = attachments.length;
+                            const hasAttachments = message.type === 'media' && attachmentCount > 0;
                             const hasCaption = message.message && message.message.trim().length > 0;
-                            const isUploading = message.status === 'uploading';
-                            const uploadFailed = message.status === 'failed';
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[75%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
+
+                            const renderAttachments = () => {
+                                const visibleAttachments = attachments.slice(0, 4);
+                                const remainingCount = attachmentCount - 4;
+                                return (
+                                    <div className={cn(
+                                        "grid gap-1",
+                                        attachmentCount === 1 && "grid-cols-1",
+                                        attachmentCount === 2 && "grid-cols-2",
+                                        attachmentCount === 3 && "grid-cols-2 grid-rows-2",
+                                        attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
+                                    )}>
+                                        {visibleAttachments.map((att, index) => {
+                                            const isLastVisibleWithMore = index === 3 && remainingCount > 0;
+                                            const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
+                                            return (
+                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)}>
+                                                    <img src={att.status === 'uploading' ? att.previewUrl : att.url} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
+                                                    {isLastVisibleWithMore && (<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white text-2xl font-bold">+{remainingCount}</span></div>)}
+                                                    {att.status === 'uploading' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex items-center justify-center bg-black/30"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>)}
+                                                    {att.status === 'failed' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>)}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            };
+
+                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
                               <div className="flex flex-col">
-                                {hasImage && (
-                                  <div className="relative">
-                                    <img src={isUploading ? message.previewUrl : message.imageUrl} alt="Attachment" className={cn("rounded-lg max-w-56 lg:max-w-64 max-h-72 object-cover", isUploading && "opacity-50")} />
-                                    {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>}
-                                    {uploadFailed && <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>}
+                                {hasAttachments && renderAttachments()}
+                                {(hasCaption || !hasAttachments) && (
+                                  <div className={cn("relative", hasAttachments && hasCaption && "px-2 pt-2 pb-0.5")}>
+                                    <p className="break-words leading-relaxed whitespace-pre-wrap">{message.message}</p>
+                                    <div className="flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end">
+                                      <span>{formatMessageTime(message.timestamp)}</span>
+                                      {isMyMessage && getMessageTickIcon(message)}
+                                    </div>
                                   </div>
                                 )}
-                                <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
-                                  {(hasCaption || !hasImage) && (
-                                    <p className="break-words leading-relaxed whitespace-pre-wrap">
-                                      {message.message}
-                                    </p>
-                                  )}
-                                  <div className={cn(
-                                    "flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end",
-                                    hasImage && !hasCaption && "absolute bottom-1.5 right-1.5 bg-black/30 text-white rounded-full px-1.5 py-0.5"
-                                  )}>
-                                    <span>{formatMessageTime(message.timestamp)}</span>
-                                    {isMyMessage && getMessageTickIcon(message)}
-                                  </div>
-                                </div>
                               </div>
                             </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
                           };

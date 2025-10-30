@@ -71,18 +71,24 @@ export interface AppNotification {
   };
 }
 
+export interface Attachment {
+  id: string;
+  type: 'image';
+  url: string;
+  previewUrl?: string;
+  status?: 'uploading' | 'sent' | 'failed';
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
   senderName: string;
   senderEmail: string;
   senderAvatar?: string;
-  message: string; // Used for text content or image caption
+  message: string; // Caption for attachments, or text content
   timestamp: number;
-  type: 'text' | 'system' | 'image'; // Add 'image'
-  imageUrl?: string; // URL for the image
-  status?: 'uploading' | 'sent' | 'failed'; // For optimistic UI
-  previewUrl?: string; // Local blob URL for preview
+  type: 'text' | 'system' | 'media';
+  attachments?: Attachment[];
 }
 
 export interface ChatRoom {
