@@ -467,10 +467,14 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
             if (updatedTask.teamId) {
                 const { logActivity } = await import('@/lib/activityLogger');
+                const sanitizedSubtasks = updatedTask.subtasks?.map(sub => ({
+                    ...sub,
+                    completedAt: sub.completedAt || null,
+                }));
                 const activityTaskPayload = {
                     id: updatedTask.id,
                     title: updatedTask.title,
-                    ...(updatedTask.subtasks && { subtasks: updatedTask.subtasks }),
+                    ...(sanitizedSubtasks && { subtasks: sanitizedSubtasks }),
                     ...(updatedTask.timeSpent && { timeSpent: updatedTask.timeSpent }),
                 };
                 logActivity(
@@ -592,8 +596,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       await toggleTaskStatus(taskId);
       toast({ title: "Subtask updated!", description: "All subtasks completed! Parent task marked as complete." });
     } else if (!allSubtasksCompleted && task.status === 'completed') {
-      await updateTask(taskId, { subtasks: updatedSubtasks });
-      await toggleTaskStatus(taskId);
+      await updateTask(taskId, { subtasks: updatedSubtasks, status: 'todo', completedAt: deleteField() });
       toast({ title: "Subtask updated!", description: "Parent task status reverted to 'todo'." });
     } else {
       await updateTask(taskId, { subtasks: updatedSubtasks });
