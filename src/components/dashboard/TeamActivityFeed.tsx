@@ -268,7 +268,7 @@ export function TeamActivityFeed() {
             <div className="flex items-center gap-2 pt-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(null)} className={cn(!selectedUserId && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(null)} className={cn('rounded-full', !selectedUserId && 'ring-2 ring-primary')}>
                     <Avatar className="h-8 w-8"><AvatarFallback className="bg-muted"><Users className="h-4 w-4" /></AvatarFallback></Avatar>
                   </Button>
                 </TooltipTrigger>
@@ -277,7 +277,7 @@ export function TeamActivityFeed() {
               {teamMembers.map(member => (
                 <Tooltip key={member.uid}>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(member.uid)} className={cn(selectedUserId === member.uid && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(member.uid)} className={cn('rounded-full', selectedUserId === member.uid && 'ring-2 ring-primary')}>
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={member.photoURL} />
                         <AvatarFallback>{getInitials(member.displayName || member.email)}</AvatarFallback>
