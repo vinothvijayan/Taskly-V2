@@ -36,11 +36,11 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
   }, [open, files]);
 
   const handleSend = async () => {
-    if (localFiles.length === 0) return;
+    if (localFiles.length === 0 || isSending) return;
     setIsSending(true);
-    await onSend(localFiles, caption);
-    setIsSending(false);
-    onOpenChange(false); // This will trigger the reset in handleOpenChange
+    // Fire and forget the promise. The parent component will handle the async upload.
+    onSend(localFiles, caption);
+    onOpenChange(false); // Close modal immediately
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -52,6 +52,7 @@ export function AttachmentPreviewModal({ open, onOpenChange, files, onSend }: At
         return [];
       });
       setActiveIndex(0);
+      setIsSending(false); // Reset sending state on close
     }
     onOpenChange(isOpen);
   };

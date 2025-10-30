@@ -11,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { useSwipeGestures, useHapticFeedback } from "@/hooks/useTouchGestures";
 import { rtdb, db, storage } from "@/lib/firebase";
 import { ref, push, onValue, off, serverTimestamp, query, orderByChild, limitToLast } from "firebase/database";
@@ -412,7 +412,7 @@ export default function TeamChatPage() {
                             const hasCaption = message.message && message.message.trim().length > 0;
                             return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[85%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
                               <div className="flex flex-col">
-                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
+                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-lg max-w-xs lg:max-w-sm max-h-96 object-cover" />)}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
                                     <p className="break-words leading-relaxed whitespace-pre-wrap">
@@ -515,7 +515,7 @@ export default function TeamChatPage() {
                             const hasCaption = message.message && message.message.trim().length > 0;
                             return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[75%] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasImage ? "p-1.5" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
                               <div className="flex flex-col">
-                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-md max-w-full h-auto" />)}
+                                {hasImage && (<img src={message.imageUrl} alt="Attachment" className="rounded-lg max-w-xs lg:max-w-sm max-h-96 object-cover" />)}
                                 <div className={cn("relative", hasImage && hasCaption && "px-2 pt-1 pb-0.5")}>
                                   {(hasCaption || !hasImage) && (
                                     <p className="break-words leading-relaxed whitespace-pre-wrap">
