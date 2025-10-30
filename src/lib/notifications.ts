@@ -155,9 +155,9 @@ export class NotificationService {
     }
   }
 
-  public showActionableTaskReminder(task: any, minutesBefore: number) {
+  public showActionableTaskReminder(task: any) {
     toast.message(`📋 Reminder: ${task.title}`, {
-        description: `This task is due in ${minutesBefore} minutes.`,
+        description: `This task is now due.`,
         duration: 30000, // 30 seconds before auto-dismiss
         action: {
             label: "Snooze (30m)",
@@ -176,54 +176,28 @@ export class NotificationService {
     });
   }
 
-  public async scheduleTaskReminder(task: any, minutesBefore: number = 15) {
+  public async scheduleActionableReminder(task: any) {
     if (!task.dueDate) return;
 
     const dueDate = new Date(task.dueDate);
-    const reminderTime = new Date(dueDate.getTime() - (minutesBefore * 60 * 1000));
     const now = new Date();
 
-    if (reminderTime <= now) return;
+    // Don't schedule reminders for tasks already past due
+    if (dueDate <= now) return;
 
-    const notificationId = `task-reminder-${task.id}-${minutesBefore}`;
+    const notificationId = `actionable-reminder-${task.id}`;
 
-    console.log(`[1/5] scheduleTaskReminder: Scheduling reminder via PWA scheduler for task "${task.title}"`);
-    console.log(`   - Due at: ${dueDate.toLocaleString()}`);
-    console.log(`   - Reminder will fire at: ${reminderTime.toLocaleString()}`);
+    console.log(`[1/5] scheduleActionableReminder: Scheduling toast reminder for task "${task.title}"`);
+    console.log(`   - Reminder will fire at due time: ${dueDate.toLocaleString()}`);
 
     await pwaNotificationScheduler.cancelNotification(notificationId);
 
     await pwaNotificationScheduler.scheduleNotification({
         id: notificationId,
         title: `Reminder: ${task.title}`,
-        body: `Due in ${minutesBefore} minutes.`,
-        scheduledTime: reminderTime.getTime(),
-        data: { type: 'actionable-task-reminder', task, minutesBefore }
-    });
-  }
-
-  public async scheduleTaskDueNotification(task: any) {
-    if (!task.dueDate) return;
-
-    const dueDate = new Date(task.dueDate);
-    const now = new Date();
-
-    if (dueDate <= now) return;
-
-    const notificationId = `task-due-${task.id}`;
-    
-    console.log(`[Reminder] Scheduling system notification for task "${task.title}"`);
-    console.log(`[Reminder] Notification will fire at due time: ${dueDate.toLocaleString()}`);
-
-    await pwaNotificationScheduler.cancelNotification(notificationId);
-
-    await pwaNotificationScheduler.scheduleNotification({
-      id: notificationId,
-      title: `🚨 Task Due: ${task.title}`,
-      body: task.description || 'This task is now due.',
-      scheduledTime: dueDate.getTime(),
-      data: { type: 'due', taskId: task.id },
-      requireInteraction: true,
+        body: `This task is now due.`,
+        scheduledTime: dueDate.getTime(),
+        data: { type: 'actionable-task-reminder', task }
     });
   }
 
@@ -431,18 +405,6 @@ export class NotificationService {
       body: randomMessage,
       tag: 'daily-motivation'
     });
-  }
-
-  public async scheduleRecurringReminders(tasks: any[]) {
-    await this.clearAllScheduledNotifications();
-
-    for (const task of tasks) {
-      if (task.dueDate && task.status !== 'completed') {
-        await this.scheduleTaskReminder(task, 15);
-        await this.scheduleTaskReminder(task, 60);
-        await this.scheduleTaskDueNotification(task);
-      }
-    }
   }
 
   public async clearScheduledNotification(notificationId: string) {

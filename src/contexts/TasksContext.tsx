@@ -269,8 +269,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         if (Capacitor.isNativePlatform()) {
           capacitorNotifications.scheduleTaskReminder(finalTask.id, finalTask.title, `Your task is due now.`, new Date(finalTask.dueDate));
         } else {
-          await notificationService.scheduleTaskReminder(finalTask, 15);
-          await notificationService.scheduleTaskDueNotification(finalTask);
+          await notificationService.scheduleActionableReminder(finalTask);
         }
       }
 
@@ -377,9 +376,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         if (Capacitor.isNativePlatform()) {
           await capacitorNotifications.cancelTaskReminder(taskId);
         } else {
-          await notificationService.clearScheduledNotification(`task-reminder-${taskId}-15`);
-          await notificationService.clearScheduledNotification(`task-reminder-${taskId}-60`);
-          await notificationService.clearScheduledNotification(`task-due-${taskId}`);
+          await notificationService.clearScheduledNotification(`actionable-reminder-${taskId}`);
         }
       }
 
@@ -387,8 +384,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         if (Capacitor.isNativePlatform()) {
           await capacitorNotifications.scheduleTaskReminder(taskId, updatedTaskForState.title, 'Your task is due now.', new Date(updatedTaskForState.dueDate));
         } else {
-          await notificationService.scheduleTaskReminder(updatedTaskForState, 15);
-          await notificationService.scheduleTaskDueNotification(updatedTaskForState);
+          await notificationService.scheduleActionableReminder(updatedTaskForState);
         }
       }
 
@@ -418,9 +414,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (Capacitor.isNativePlatform()) {
         await capacitorNotifications.cancelTaskReminder(taskId);
       } else {
-        await notificationService.clearScheduledNotification(`task-reminder-${taskId}-15`);
-        await notificationService.clearScheduledNotification(`task-reminder-${taskId}-60`);
-        await notificationService.clearScheduledNotification(`task-due-${taskId}`);
+        await notificationService.clearScheduledNotification(`actionable-reminder-${taskId}`);
       }
       
       toast({ title: "Task deleted", variant: "destructive" });
@@ -629,9 +623,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleShowReminder = (event: CustomEvent) => {
-        const { task, minutesBefore } = event.detail;
+        const { task } = event.detail;
         console.log(`[5/5] TasksContext: Event listener caught "show-actionable-reminder"! Showing toast.`, event.detail);
-        notificationService.showActionableTaskReminder(task, minutesBefore);
+        notificationService.showActionableTaskReminder(task);
     };
 
     window.addEventListener('show-actionable-reminder', handleShowReminder as EventListener);
@@ -639,13 +633,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         window.removeEventListener('show-actionable-reminder', handleShowReminder as EventListener);
     };
   }, []);
-
-  useEffect(() => {
-    if (!loading && tasks.length > 0) {
-      console.log('[Reminder] Initializing reminders for existing tasks...');
-      notificationService.scheduleRecurringReminders(tasks);
-    }
-  }, [loading, tasks]);
 
   const getTasksByDateRange = (startDate: Date, endDate: Date): Task[] => tasks.filter(task => {
     const taskDate = new Date(task.createdAt);
