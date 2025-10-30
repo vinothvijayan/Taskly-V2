@@ -1,6 +1,8 @@
 import { toast } from 'sonner';
 import { addMinutes, addDays } from 'date-fns';
 import { pwaNotificationScheduler } from './notificationScheduler';
+import { TaskReminderToast } from '@/components/ui/TaskReminderToast';
+import { Task } from '@/types';
 
 export type AssignmentNotificationType = 'single' | 'bulk' | 'none';
 
@@ -155,24 +157,24 @@ export class NotificationService {
     }
   }
 
-  public showActionableTaskReminder(task: any) {
-    toast.message(`📋 Reminder: ${task.title}`, {
-        description: `This task is now due.`,
-        duration: 30000, // 30 seconds before auto-dismiss
-        action: {
-            label: "Snooze (30m)",
-            onClick: () => {
-                window.dispatchEvent(new CustomEvent('snooze-task', { detail: { taskId: task.id, minutes: 30 } }));
-                toast.info(`Task "${task.title}" snoozed for 30 minutes.`);
-            }
-        },
-        secondaryAction: {
-            label: "Reschedule (Next Day)",
-            onClick: () => {
-                window.dispatchEvent(new CustomEvent('reschedule-task', { detail: { taskId: task.id, days: 1 } }));
-                toast.info(`Task "${task.title}" rescheduled for tomorrow.`);
-            }
-        }
+  public showActionableTaskReminder(task: Task) {
+    toast.custom((t) => (
+      <TaskReminderToast
+        task={task}
+        onSnooze={() => {
+          window.dispatchEvent(new CustomEvent('snooze-task', { detail: { taskId: task.id, minutes: 15 } }));
+          toast.info(`Task "${task.title}" snoozed for 15 minutes.`);
+          toast.dismiss(t);
+        }}
+        onComplete={() => {
+          window.dispatchEvent(new CustomEvent('complete-task-from-toast', { detail: { taskId: task.id } }));
+          toast.success(`Task "${task.title}" marked as complete.`);
+          toast.dismiss(t);
+        }}
+        onDismiss={() => toast.dismiss(t)}
+      />
+    ), {
+      duration: 60000, // 1 minute
     });
   }
 

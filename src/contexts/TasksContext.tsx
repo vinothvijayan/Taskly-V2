@@ -612,14 +612,24 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const handleCompleteFromToast = (event: CustomEvent) => {
+        const { taskId } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.status !== 'completed') {
+            toggleTaskStatus(taskId);
+        }
+    };
+
     window.addEventListener('snooze-task', handleSnooze as EventListener);
     window.addEventListener('reschedule-task', handleReschedule as EventListener);
+    window.addEventListener('complete-task-from-toast', handleCompleteFromToast as EventListener);
 
     return () => {
         window.removeEventListener('snooze-task', handleSnooze as EventListener);
         window.removeEventListener('reschedule-task', handleReschedule as EventListener);
+        window.removeEventListener('complete-task-from-toast', handleCompleteFromToast as EventListener);
     };
-  }, [tasks, updateTask]);
+  }, [tasks, updateTask, toggleTaskStatus]);
 
   useEffect(() => {
     const handleShowReminder = (event: CustomEvent) => {
