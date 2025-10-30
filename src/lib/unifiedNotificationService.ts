@@ -3,7 +3,6 @@ import { notificationService } from '@/lib/notifications';
 import { fcmService } from '@/lib/fcmService';
 import { capacitorNotifications } from '@/lib/capacitorNotifications';
 import { unifiedNotifications } from '@/lib/unifiedNotifications';
-import { alexaNotifications } from '@/lib/alexaNotifications';
 import { Capacitor } from '@capacitor/core';
 
 export interface NotificationPayload {
@@ -43,7 +42,6 @@ class UnifiedNotificationService {
         await Promise.all([
           fcmService.init(),
           unifiedNotifications.init(),
-          alexaNotifications.init()
         ]);
         console.log('Web notifications initialized for PWA');
       }
@@ -72,15 +70,6 @@ class UnifiedNotificationService {
         console.log('Sent web notification:', payload.title);
       }
 
-      // Also announce via Alexa if enabled
-      alexaNotifications.send({
-        title: payload.title,
-        body: payload.body,
-        type: payload.type as any,
-        userId: payload.userId,
-        data: payload.data
-      });
-
       // Also send via FCM for background notifications (web only)
       if (!Capacitor.isNativePlatform() && (payload.type === 'chat' || payload.type === 'task')) {
         await this.sendBackgroundNotification(payload);
@@ -93,15 +82,6 @@ class UnifiedNotificationService {
   async scheduleNotification(payload: NotificationPayload, scheduledTime: number) {
     const notificationId = await unifiedNotifications.scheduleNotification({
       ...payload,
-      scheduledTime
-    });
-    // Mirror schedule to Alexa if enabled
-    alexaNotifications.schedule({
-      title: payload.title,
-      body: payload.body,
-      type: (payload.type === 'task' ? 'reminder' : payload.type) as any,
-      userId: payload.userId,
-      data: payload.data,
       scheduledTime
     });
     return notificationId;

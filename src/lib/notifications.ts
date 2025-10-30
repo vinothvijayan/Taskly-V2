@@ -180,16 +180,6 @@ export class NotificationService {
       } as any);
       
       this.scheduledNotifications.delete(notificationId);
-
-      // Alexa mirror for reminder
-      import('./alexaNotifications').then(({ alexaNotifications }) => {
-        alexaNotifications.send({
-          title: 'Task Reminder',
-          body: `${task.title} is due in ${minutesBefore} minutes`,
-          type: 'reminder',
-          data: { taskId: task.id }
-        });
-      });
     }, timeUntilReminder);
 
     this.scheduledNotifications.set(notificationId, timeoutId);
@@ -223,16 +213,6 @@ export class NotificationService {
       } as any);
       
       this.scheduledNotifications.delete(notificationId);
-
-      // Alexa mirror for due
-      import('./alexaNotifications').then(({ alexaNotifications }) => {
-        alexaNotifications.send({
-          title: 'Task Due Now',
-          body: `${task.title} is due now`,
-          type: 'reminder',
-          data: { taskId: task.id }
-        });
-      });
     }, timeUntilDue);
 
     this.scheduledNotifications.set(notificationId, timeoutId);
@@ -319,16 +299,6 @@ export class NotificationService {
         assignerName: assignerName
       }
     } as any);
-
-    // Alexa mirror (speech/webhook)
-    import('./alexaNotifications').then(({ alexaNotifications }) => {
-      alexaNotifications.send({
-        title: 'New Task Assignment',
-        body: `${assignerName} assigned ${task.title} to you${dueDateText ? ', due ' + new Date(task.dueDate).toLocaleString() : ''}`,
-        type: 'assignment',
-        data: { taskId: task.id, priority: task.priority }
-      });
-    });
   }
 
   public showBulkAssignmentNotification(taskCount: number, assignerName: string) {
