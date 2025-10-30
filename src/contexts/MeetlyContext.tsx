@@ -207,45 +207,45 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
 
         systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         
-        if (systemStream.getAudioTracks().length === 0 || !systemStream.getAudioTracks()[0].enabled || systemStream.getAudioTracks()[0].muted) {
-          systemStream.getTracks().forEach(track => track.stop()); // Clean up
-          throw new Error("No usable audio track found in screen share.");
+        const audioTracks = systemStream.getAudioTracks();
+        if (audioTracks.length === 0 || !audioTracks[0].enabled || audioTracks[0].muted) {
+          // Clean up the stream immediately as it's not useful
+          systemStream.getTracks().forEach(track => track.stop());
+          // Throw a specific, user-facing error to be caught below
+          throw new Error("To record system audio, you must select a browser TAB and check 'Share tab audio'.");
         }
         
         dismissToast(systemAudioToastId);
-        await startRecorderWithStream(systemStream, true); // Try to record with system audio
+        await startRecorderWithStream(systemStream, true); // This will proceed if audio is found
 
       } catch (systemError: any) {
-        // This block catches failures from getDisplayMedia OR startRecorderWithStream
         dismissToast(systemAudioToastId);
-        console.warn(`System audio attempt failed: ${systemError.message}. Falling back to microphone.`);
-        
         if (systemStream) systemStream.getTracks().forEach(track => track.stop());
 
-        // --- ATTEMPT 2: MICROPHONE FALLBACK ---
-        try {
-          const micStream = await navigator.mediaDevices.getUserMedia({
-              audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
-          });
-          
-          if (systemError.name === 'NotAllowedError') {
-            // User cancelled the screen share prompt, no extra toast needed, just start mic.
-          } else {
-            // System audio failed for another reason (like NotSupportedError)
+        // If the user explicitly cancelled the prompt, we can try the microphone as a fallback.
+        if (systemError.name === 'NotAllowedError') {
+          console.warn("Screen share prompt cancelled by user. Falling back to microphone.");
+          try {
+            const micStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+            });
+            await startRecorderWithStream(micStream, false);
+          } catch (micError: any) {
+            console.error("Microphone fallback also failed:", micError);
             toast({
-              title: "System Audio Failed",
-              description: "Falling back to microphone. For best results, share a single browser tab with audio enabled.",
+                title: "Recording Failed",
+                description: "Could not access microphone. Please check permissions.",
+                variant: "destructive"
             });
           }
-
-          await startRecorderWithStream(micStream, false); // This will now show its own success toast
-
-        } catch (micError: any) {
-          console.error("Microphone fallback also failed:", micError);
+        } else {
+          // For any other error (including our custom one about missing audio),
+          // show a clear error toast and STOP. Do not fall back to the microphone.
           toast({
-              title: "Recording Failed",
-              description: "Could not access microphone. Please check permissions.",
-              variant: "destructive"
+              title: "System Audio Recording Failed",
+              description: systemError.message,
+              variant: "destructive",
+              duration: 10000 // Give user time to read it
           });
         }
       }
