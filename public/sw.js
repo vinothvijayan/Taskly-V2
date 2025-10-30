@@ -101,7 +101,23 @@ const SUBTASK_TIMER_SESSION_KEY = 'currentSubtaskSession';
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('TasklyOfflineDB', 1);
+    const request = indexedDB.open('TasklyOfflineDB', 1); // Version must match main app
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      if (!db.objectStoreNames.contains('scheduledNotifications')) {
+        const notificationStore = db.createObjectStore('scheduledNotifications', { keyPath: 'id' });
+        notificationStore.createIndex('status', 'status', { unique: false });
+        notificationStore.createIndex('scheduledTime', 'scheduledTime', { unique: false });
+        notificationStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      
+      if (!db.objectStoreNames.contains('activeTimerSession')) {
+        db.createObjectStore('activeTimerSession', { keyPath: 'id' });
+      }
+    };
+    
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });

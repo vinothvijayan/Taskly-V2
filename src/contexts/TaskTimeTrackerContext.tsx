@@ -107,17 +107,18 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     if (trackingTask) await stopTracking();
     if (trackingSubtask) await stopSubtaskTracking();
 
+    const initialTime = task.timeSpent || 0;
     const session = {
       taskId: task.id,
       taskTitle: task.title,
       startTime: Date.now(),
       isPaused: false,
-      accumulatedSeconds: 0,
+      accumulatedSeconds: initialTime,
     };
     await postToServiceWorker('START_TIME_TRACKING', session);
     
     setTrackingTask(task);
-    setCurrentSessionElapsedSeconds(0);
+    setCurrentSessionElapsedSeconds(initialTime);
     setIsTracking(true);
     toast({ title: "Time tracking started", description: `Now tracking time for "${task.title}"` });
   };
@@ -150,18 +151,22 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     if (trackingTask) await stopTracking();
     if (trackingSubtask) await stopSubtaskTracking();
 
+    const parentTask = getTaskById(taskId);
+    const subtask = parentTask?.subtasks?.find(s => s.id === subtaskId);
+    const initialTime = subtask?.timeSpent || 0;
+
     const session = {
       taskId,
       subtaskId,
       subtaskTitle,
       startTime: Date.now(),
       isPaused: false,
-      accumulatedSeconds: 0,
+      accumulatedSeconds: initialTime,
     };
     await postToServiceWorker('START_SUBTASK_TIME_TRACKING', session);
 
     setTrackingSubtask({ taskId, subtaskId, subtaskTitle });
-    setCurrentSubtaskElapsedSeconds(0);
+    setCurrentSubtaskElapsedSeconds(initialTime);
     setIsTrackingSubtask(true);
     toast({ title: "Subtask tracking started", description: `Now tracking "${subtaskTitle}"` });
   };
