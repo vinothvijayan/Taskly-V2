@@ -21,11 +21,11 @@ import { notificationService } from "@/lib/notifications";
 import { ChatMessage, ChatRoom, UserProfile, Attachment } from "@/types";
 import { cn } from "@/lib/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   MessageSquare,
@@ -468,7 +468,7 @@ export default function TeamChatPage() {
                                 );
                             };
 
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
+                            return <ContextMenu><ContextMenuTrigger><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#DCF8C6] text-black dark:bg-emerald-900/50 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-lg" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-lg rounded-bl-lg rounded-br-md" : "rounded-t-lg rounded-br-lg rounded-bl-md") : message.isLastInGroup ? (isMyMessage ? "rounded-b-lg rounded-tl-lg rounded-tr-md" : "rounded-b-lg rounded-tr-lg rounded-tl-md") : (isMyMessage ? "rounded-l-lg rounded-tr-md rounded-br-md" : "rounded-r-lg rounded-tl-md rounded-bl-md"))}>
                               <div className="flex flex-col">
                                 {hasAttachments && renderAttachments()}
                                 {(hasCaption || !hasAttachments) && (
@@ -481,7 +481,7 @@ export default function TeamChatPage() {
                                   </div>
                                 )}
                               </div>
-                            </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+                            </div></ContextMenuTrigger><ContextMenuContent className="w-48 bg-background border shadow-lg z-50"><ContextMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</ContextMenuItem><ContextMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</ContextMenuItem><ContextMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</ContextMenuItem></ContextMenuContent></ContextMenu>;
                           };
                           return <div key={message.id} className={cn("flex mb-1", isMyMessage ? "justify-end" : "justify-start")}><MessageBubble /></div>;
                         }))}
@@ -554,7 +554,7 @@ export default function TeamChatPage() {
             <div className="flex-1 flex flex-col min-h-0">
               {selectedUser ? (
                 <>
-                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(selectedUser.uid))}`}</p></div></div>
+                  <div className="bg-card px-4 py-3 flex items-center gap-3 shadow-sm z-20 border-b"><Avatar className="h-10 w-10"><AvatarImage src={selectedUser.photoURL || ""} /><AvatarFallback className="bg-primary/10 text-primary font-semibold">{getInitials(selectedUser.displayName, selectedUser.email)}</AvatarFallback></Avatar><div className="flex-1"><p className="font-semibold">{selectedUser.uid === user?.uid ? "Message yourself" : selectedUser.displayName || "Team Member"}</p><p className="text-sm text-muted-foreground">{selectedUser.uid === user?.uid ? "Personal notes" : isUserOnline(selectedUser.uid) ? "Online" : `Last seen ${formatLastSeen(getUserLastSeen(member.uid))}`}</p></div></div>
                   <div className="flex-1 whatsapp-wallpaper overflow-hidden">
                     <ScrollArea className="h-full">
                       <div className="p-6 space-y-1">
@@ -597,7 +597,7 @@ export default function TeamChatPage() {
                                 );
                             };
 
-                            return <DropdownMenu><DropdownMenuTrigger asChild><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
+                            return <ContextMenu><ContextMenuTrigger><div ref={swipeRef as React.RefObject<HTMLDivElement>} className={cn("max-w-[320px] text-sm break-words shadow-sm cursor-pointer relative", isMyMessage ? "bg-[#e7ffdb] text-black dark:bg-emerald-900/60 dark:text-white" : "bg-white text-black dark:bg-muted dark:text-foreground", hasAttachments ? "p-1.5 rounded-xl" : "px-3 py-2", message.isFirstInGroup && message.isLastInGroup ? "rounded-xl" : message.isFirstInGroup ? (isMyMessage ? "rounded-t-xl rounded-bl-xl rounded-br-sm" : "rounded-t-xl rounded-br-xl rounded-bl-sm") : message.isLastInGroup ? (isMyMessage ? "rounded-b-xl rounded-tl-xl rounded-tr-sm" : "rounded-b-xl rounded-tr-xl rounded-tl-sm") : (isMyMessage ? "rounded-l-xl rounded-r-sm" : "rounded-r-xl rounded-l-sm"))}>
                               <div className="flex flex-col">
                                 {hasAttachments && renderAttachments()}
                                 {(hasCaption || !hasAttachments) && (
@@ -610,7 +610,7 @@ export default function TeamChatPage() {
                                   </div>
                                 )}
                               </div>
-                            </div></DropdownMenuTrigger><DropdownMenuContent className="w-48 bg-background border shadow-lg z-50"><DropdownMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</DropdownMenuItem><DropdownMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</DropdownMenuItem><DropdownMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</DropdownMenuItem></DropdownMenuContent></DropdownMenu>;
+                            </div></ContextMenuTrigger><ContextMenuContent className="w-48 bg-background border shadow-lg z-50"><ContextMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</ContextMenuItem><ContextMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</ContextMenuItem><ContextMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</ContextMenuItem></ContextMenuContent></ContextMenu>;
                           };
                           return <div key={message.id} className={cn("flex mb-1", isMyMessage ? "justify-end" : "justify-start")}><MessageBubble /></div>;
                         }))}
