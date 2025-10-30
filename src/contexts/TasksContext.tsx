@@ -269,8 +269,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         if (Capacitor.isNativePlatform()) {
           capacitorNotifications.scheduleTaskReminder(finalTask.id, finalTask.title, `Your task is due now.`, new Date(finalTask.dueDate));
         } else {
-          notificationService.scheduleTaskReminder(finalTask, 15);
-          notificationService.scheduleTaskDueNotification(finalTask);
+          await notificationService.scheduleTaskReminder(finalTask, 15);
+          await notificationService.scheduleTaskDueNotification(finalTask);
         }
       }
 
@@ -372,13 +372,13 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const dueDateChanged = 'dueDate' in taskData && originalTask.dueDate !== taskData.dueDate;
       const statusChangedToCompleted = 'status' in taskData && taskData.status === 'completed';
 
-      // Universal reminder handling
       if (dueDateChanged || statusChangedToCompleted) {
         if (Capacitor.isNativePlatform()) {
           await capacitorNotifications.cancelTaskReminder(taskId);
         } else {
-          notificationService.clearScheduledNotification(`task-reminder-${taskId}`);
-          notificationService.clearScheduledNotification(`task-due-${taskId}`);
+          await notificationService.clearScheduledNotification(`task-reminder-${taskId}-15`);
+          await notificationService.clearScheduledNotification(`task-reminder-${taskId}-60`);
+          await notificationService.clearScheduledNotification(`task-due-${taskId}`);
         }
       }
 
@@ -386,8 +386,8 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         if (Capacitor.isNativePlatform()) {
           await capacitorNotifications.scheduleTaskReminder(taskId, updatedTaskForState.title, 'Your task is due now.', new Date(updatedTaskForState.dueDate));
         } else {
-          notificationService.scheduleTaskReminder(updatedTaskForState, 15);
-          notificationService.scheduleTaskDueNotification(updatedTaskForState);
+          await notificationService.scheduleTaskReminder(updatedTaskForState, 15);
+          await notificationService.scheduleTaskDueNotification(updatedTaskForState);
         }
       }
 
@@ -417,8 +417,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       if (Capacitor.isNativePlatform()) {
         await capacitorNotifications.cancelTaskReminder(taskId);
       } else {
-        notificationService.clearScheduledNotification(`task-reminder-${taskId}`);
-        notificationService.clearScheduledNotification(`task-due-${taskId}`);
+        await notificationService.clearScheduledNotification(`task-reminder-${taskId}-15`);
+        await notificationService.clearScheduledNotification(`task-reminder-${taskId}-60`);
+        await notificationService.clearScheduledNotification(`task-due-${taskId}`);
       }
       
       toast({ title: "Task deleted", variant: "destructive" });
@@ -597,6 +598,54 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     }
   }, [tasks, updateTask]);
 
+  useEffect(() => {
+    const handleSnooze = (event: CustomEvent) => {
+        const { taskId, minutes } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addMinutes(new Date(task.dueDate), minutes);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    const handleReschedule = (event: CustomEvent) => {
+        const { taskId, days } = event.detail;
+        const task = tasks.find(t => t.id === taskId);
+        if (task && task.dueDate) {
+            const newDueDate = addDays(new Date(task.dueDate), days);
+            updateTask(taskId, { dueDate: newDueDate.toISOString() });
+        }
+    };
+
+    window.addEventListener('snooze-task', handleSnooze as EventListener);
+    window.addEventListener('reschedule-task', handleReschedule as EventListener);
+
+    return () => {
+        window.removeEventListener('snooze-task', handleSnooze as EventListener);
+        window.removeEventListener('reschedule-task', handleReschedule as EventListener);
+    };
+  }, [tasks, updateTask]);
+
+  useEffect(() => {
+    const handleShowReminder = (event: CustomEvent) => {
+        const { task, minutesBefore } = event.detail;
+        console.log(`[Reminder] Event listener caught reminder for task "${task.title}"`);
+        notificationService.showActionableTaskReminder(task, minutesBefore);
+    };
+
+    window.addEventListener('show-actionable-reminder', handleShowReminder as EventListener);
+    return () => {
+        window.removeEventListener('show-actionable-reminder', handleShowReminder as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!loading && tasks.length > 0) {
+      console.log('[Reminder] Initializing reminders for existing tasks...');
+      notificationService.scheduleRecurringReminders(tasks);
+    }
+  }, [loading, tasks]);
+
   const getTasksByDateRange = (startDate: Date, endDate: Date): Task[] => tasks.filter(task => {
     const taskDate = new Date(task.createdAt);
     return taskDate >= startDate && taskDate <= endDate;
@@ -650,43 +699,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     return Math.max(longestStreak, currentStreak);
   };
   
-  // This useEffect hook is now placed after updateTask is defined.
-  useEffect(() => {
-    const handleSnooze = (event: CustomEvent) => {
-        const { taskId, minutes } = event.detail;
-        const task = tasks.find(t => t.id === taskId);
-        if (task && task.dueDate) {
-            const newDueDate = addMinutes(new Date(task.dueDate), minutes);
-            updateTask(taskId, { dueDate: newDueDate.toISOString() });
-        }
-    };
-
-    const handleReschedule = (event: CustomEvent) => {
-        const { taskId, days } = event.detail;
-        const task = tasks.find(t => t.id === taskId);
-        if (task && task.dueDate) {
-            const newDueDate = addDays(new Date(task.dueDate), days);
-            updateTask(taskId, { dueDate: newDueDate.toISOString() });
-        }
-    };
-
-    window.addEventListener('snooze-task', handleSnooze as EventListener);
-    window.addEventListener('reschedule-task', handleReschedule as EventListener);
-
-    return () => {
-        window.removeEventListener('snooze-task', handleSnooze as EventListener);
-        window.removeEventListener('reschedule-task', handleReschedule as EventListener);
-    };
-  }, [tasks, updateTask]);
-
-  // Effect to schedule reminders for existing tasks on initial load
-  useEffect(() => {
-    if (!loading && tasks.length > 0) {
-      console.log('[Reminder] Initializing reminders for existing tasks...');
-      notificationService.scheduleRecurringReminders(tasks);
-    }
-  }, [loading, tasks]); // Run when loading is finished and tasks are available
-
   const value = {
     tasks,
     teamMembers,

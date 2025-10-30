@@ -38,10 +38,9 @@ class PwaNotificationScheduler {
     console.log("PWA Notification Scheduler Initialized.");
   }
 
-  async scheduleNotification(notification: Omit<ScheduledNotification, 'id' | 'createdAt' | 'status'>): Promise<string> {
+  async scheduleNotification(notification: Omit<ScheduledNotification, 'id' | 'createdAt' | 'status'> & { id: string }): Promise<string> {
     const scheduledNotification: ScheduledNotification = {
       ...notification,
-      id: crypto.randomUUID(),
       createdAt: Date.now(),
       status: 'pending'
     };
@@ -79,7 +78,7 @@ class PwaNotificationScheduler {
     });
   }
 
-  private async getAllPendingNotifications(): Promise<ScheduledNotification[]> {
+  public async getAllPendingNotifications(): Promise<ScheduledNotification[]> {
     const store = await indexedDBManager.getStore('scheduledNotifications');
     const index = store.index('status');
     return new Promise((resolve, reject) => {
@@ -143,7 +142,15 @@ class PwaNotificationScheduler {
         return;
       }
       
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      if (notification.data?.type === 'actionable-task-reminder') {
+        console.log(`[Scheduler] Delivering actionable toast reminder for task: "${notification.data.task.title}"`);
+        window.dispatchEvent(new CustomEvent('show-actionable-reminder', {
+            detail: {
+                task: notification.data.task,
+                minutesBefore: notification.data.minutesBefore
+            }
+        }));
+      } else if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ type: 'SHOW_NOTIFICATION', options: { ...notification } });
       } else if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(notification.title, { ...notification });
