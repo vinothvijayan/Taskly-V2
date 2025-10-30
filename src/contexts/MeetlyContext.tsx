@@ -60,6 +60,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const mediaRef = React.useRef<any>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
+  const nativeFilePathRef = useRef<string | null>(null); // To store the native file path
   
   const [audioLevel, setAudioLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -130,75 +131,125 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error("Authentication required.");
     if (recordedAudio) setRecordedAudio(null);
 
-    let systemStream: MediaStream | null = null;
-    let micStream: MediaStream | null = null;
+    if (Capacitor.isNativePlatform()) {
+      // --- NATIVE CAPACITOR RECORDING (Microphone only for background) ---
+      try {
+        // Use a temporary file path in the application's data directory
+        const fileName = `meetly_${Date.now()}.wav`;
+        nativeFilePathRef.current = fileName;
 
-    try {
-      // 1. Get System Audio (from tab)
-      if (!navigator.mediaDevices.getDisplayMedia) {
-        throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
+        // The Media object expects a path relative to the app's root or a full path.
+        // We use the filename directly, which the plugin often resolves to a temporary location.
+        mediaRef.current = new Media(fileName, 
+          () => console.log('Native recording success.'), 
+          (err: any) => {
+            console.error('Native recording error:', err);
+            toast({ title: "Recording Error", description: `Code: ${err.code}`, variant: "destructive" });
+          }
+        );
+        
+        mediaRef.current.startRecord();
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
+        toast({ title: "Recording started 🎙️", description: "Recording will continue in the background." });
+      } catch (error) {
+        console.error("Native recording failed to start:", error);
+        throw new Error("Could not start native recorder. Check microphone permissions.");
       }
-      systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      const systemAudioTracks = systemStream.getAudioTracks();
-      
-      // Check if system audio was successfully captured
-      if (systemAudioTracks.length === 0 || !systemAudioTracks[0].enabled || systemAudioTracks[0].muted) {
-        throw new Error("System audio track missing. To record meeting audio, you MUST select the 'Chrome Tab' option in the sharing prompt and check the 'Share tab audio' box.");
-      }
+    } else {
+      // --- WEB RECORDING (System + Mic mix) ---
+      let systemStream: MediaStream | null = null;
+      let micStream: MediaStream | null = null;
 
-      // 2. Get Microphone Audio
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      try {
+        if (!navigator.mediaDevices.getDisplayMedia) {
+          throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
+        }
+        systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const systemAudioTracks = systemStream.getAudioTracks();
+        
+        if (systemAudioTracks.length === 0 || !systemAudioTracks[0].enabled || systemAudioTracks[0].muted) {
+          throw new Error("System audio track missing. To record meeting audio, you MUST select the 'Chrome Tab' option in the sharing prompt and check the 'Share tab audio' box.");
+        }
 
-      // 3. Mix Audio Streams
-      const audioContext = new AudioContext();
-      const systemSource = audioContext.createMediaStreamSource(systemStream);
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      const destination = audioContext.createMediaStreamDestination();
-      systemSource.connect(destination);
-      micSource.connect(destination);
-      
-      const mixedStream = destination.stream;
-      // Add video track to keep screen share active, but it won't be recorded
-      mixedStream.addTrack(systemStream.getVideoTracks()[0]);
-      streamRef.current = mixedStream;
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
 
-      // 4. Start Recording the Mixed Stream
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      const recorder = new MediaRecorder(mixedStream, { mimeType });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
-      recorder.onstop = () => {
-        const audioBlob = new Blob(chunks, { type: mimeType });
-        setRecordedAudio(audioBlob);
-        // Stop all original tracks
+        const audioContext = new AudioContext();
+        const systemSource = audioContext.createMediaStreamSource(systemStream);
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        const destination = audioContext.createMediaStreamDestination();
+        systemSource.connect(destination);
+        micSource.connect(destination);
+        
+        const mixedStream = destination.stream;
+        mixedStream.addTrack(systemStream.getVideoTracks()[0]);
+        streamRef.current = mixedStream;
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        const recorder = new MediaRecorder(mixedStream, { mimeType });
+        const chunks: Blob[] = [];
+        recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
+        recorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: mimeType });
+          setRecordedAudio(audioBlob);
+          systemStream?.getTracks().forEach(track => track.stop());
+          micStream?.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        };
+        recorder.start(1000);
+        setMediaRecorder(recorder);
+        setIsRecording(true);
+        setRecordingStartTime(Date.now());
+        setRecordingDuration(0);
+        setupAudioAnalyser(mixedStream);
+        toast({ title: "Recording Started 🎙️", description: "Capturing both system and microphone audio." });
+
+      } catch (error: any) {
         systemStream?.getTracks().forEach(track => track.stop());
         micStream?.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      };
-      recorder.start(1000);
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-      setRecordingStartTime(Date.now());
-      setRecordingDuration(0);
-      setupAudioAnalyser(mixedStream);
-      toast({ title: "Recording Started 🎙️", description: "Capturing both system and microphone audio." });
-
-    } catch (error: any) {
-      // Cleanup streams if any part fails
-      systemStream?.getTracks().forEach(track => track.stop());
-      micStream?.getTracks().forEach(track => track.stop());
-      console.error("Recording failed:", error);
-      throw error; // Re-throw for the UI to catch and display
+        console.error("Web recording failed:", error);
+        throw error;
+      }
     }
   };
 
   const stopRecording = async () => {
     if (!isRecording) return;
-    if (mediaRecorder) {
-      mediaRecorder.stop();
-      setMediaRecorder(null);
+
+    if (Capacitor.isNativePlatform()) {
+      // --- NATIVE CAPACITOR STOP ---
+      if (mediaRef.current) {
+        mediaRef.current.stopRecord();
+        mediaRef.current.release();
+        
+        // Read the recorded file from the native path
+        if (nativeFilePathRef.current) {
+          try {
+            const result = await Filesystem.readFile({ 
+              path: nativeFilePathRef.current,
+              directory: Directory.Data, // Assuming the plugin saves to the Data directory
+            });
+            
+            // Convert base64 to Blob
+            const blob = await (await fetch(`data:audio/wav;base64,${result.data}`)).blob();
+            setRecordedAudio(blob);
+          } catch (e) {
+            console.error("Error reading native recorded file:", e);
+            toast({ title: "Error saving recording", description: "Could not read the recorded file.", variant: "destructive" });
+          }
+        }
+        mediaRef.current = null;
+        nativeFilePathRef.current = null;
+      }
+    } else {
+      // --- WEB STOP ---
+      if (mediaRecorder) {
+        mediaRecorder.stop();
+        setMediaRecorder(null);
+      }
     }
-    // The onstop event handler for MediaRecorder will handle stopping the stream tracks.
+    
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (audioContextRef.current) {
       audioContextRef.current.close();

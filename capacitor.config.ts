@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
       requestPermissions: true,
       createDefaultChannel: true,
       channelImportance: 4,
-      allowWhileIdle: true,
+      allowWhileIdle: true, // Crucial for background/locked screen
       scheduleExact: true
     },
     GoogleAuth: {

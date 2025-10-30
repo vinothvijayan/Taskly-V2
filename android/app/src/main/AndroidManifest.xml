@@ -54,16 +54,16 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
-
+    
+    <!-- REQUIRED FOR BACKGROUND RECORDING -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" /> 
 
     <!-- Local & Push Notifications Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
     
     <!-- Exact Alarm Permissions for timely notifications -->
-    <!-- NOTE: USE_EXACT_ALARM is deprecated on API 33+. SCHEDULE_EXACT_ALARM is the modern equivalent. You only need the latter. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     
 </manifest>
