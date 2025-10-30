@@ -31,13 +31,17 @@ import { showLoading, dismissToast } from "@/utils/toast";
 // Declare the global Media object from cordova-plugin-media
 declare var Media: any;
 
+interface StartRecordingOptions {
+  recordSystemAudio: boolean;
+}
+
 interface MeetlyContextType {
   recordings: MeetingRecording[];
   loading: boolean;
   isRecording: boolean;
   recordingDuration: number;
   recordedAudio: Blob | null;
-  startRecording: () => Promise<void>;
+  startRecording: (options: StartRecordingOptions) => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteRecording: (recordingId: string) => Promise<void>;
   uploadRecording: (audioBlob: Blob, title: string, duration: number) => Promise<void>;
@@ -159,36 +163,45 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const startRecording = async () => {
-    if (!user) { toast({ title: "Authentication required", variant: "destructive" }); return; }
+  const startRecording = async (options: StartRecordingOptions) => {
+    if (!user) {
+      throw new Error("Authentication required.");
+    }
     if (recordedAudio) setRecordedAudio(null);
-    
+
     if (Capacitor.isNativePlatform()) {
-      // Native logic remains the same
+      // Native platform logic remains microphone-only
     } else {
-      let systemStream: MediaStream | null = null;
-      try {
-        if (!navigator.mediaDevices.getDisplayMedia) throw new Error("getDisplayMedia not supported.");
-        systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        const audioTracks = systemStream.getAudioTracks();
-        if (audioTracks.length === 0 || !audioTracks[0].enabled || audioTracks[0].muted) {
-          systemStream.getTracks().forEach(track => track.stop());
-          throw new Error("To record system audio, you must select a browser TAB and check 'Share tab audio'.");
-        }
-        await startRecorderWithStream(systemStream, true);
-      } catch (systemError: any) {
-        if (systemStream) systemStream.getTracks().forEach(track => track.stop());
-        if (systemError.name === 'NotAllowedError') {
-          console.warn("Screen share prompt cancelled. Falling back to microphone.");
-          try {
-            const micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 } });
-            await startRecorderWithStream(micStream, false);
-          } catch (micError: any) {
-            console.error("Microphone fallback failed:", micError);
-            throw new Error("Could not access microphone. Please check permissions.");
+      // Web platform logic
+      if (options.recordSystemAudio) {
+        // --- ATTEMPT SYSTEM AUDIO ---
+        let systemStream: MediaStream | null = null;
+        try {
+          if (!navigator.mediaDevices.getDisplayMedia) {
+            throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
           }
-        } else {
-          throw systemError;
+          systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+          const audioTracks = systemStream.getAudioTracks();
+          if (audioTracks.length === 0 || !audioTracks[0].enabled || audioTracks[0].muted) {
+            systemStream.getTracks().forEach(track => track.stop());
+            throw new Error("To record system audio, you must select a browser TAB and check 'Share tab audio'. Sharing an entire screen or a window will not work.");
+          }
+          await startRecorderWithStream(systemStream, true);
+        } catch (error: any) {
+          if (systemStream) systemStream.getTracks().forEach(track => track.stop());
+          // Don't fall back. Just re-throw the error for the UI to handle.
+          throw error;
+        }
+      } else {
+        // --- ATTEMPT MICROPHONE AUDIO ---
+        try {
+          const micStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+          });
+          await startRecorderWithStream(micStream, false);
+        } catch (micError: any) {
+          console.error("Microphone access failed:", micError);
+          throw new Error("Could not access your microphone. Please check your browser's permissions.");
         }
       }
     }

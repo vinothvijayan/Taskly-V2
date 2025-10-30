@@ -17,7 +17,8 @@ import {
   Clock,
   Volume2,
   VolumeX,
-  AlertCircle
+  AlertCircle,
+  Monitor // Added Monitor icon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Capacitor } from "@capacitor/core";
@@ -62,9 +63,9 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
     }
   }, [recordedAudio]);
 
-  const handleStartRecording = async () => {
+  const handleStartRecording = async (recordSystemAudio: boolean) => {
     try {
-      await startRecording();
+      await startRecording({ recordSystemAudio });
     } catch (error: any) {
       console.error("Failed to start recording:", error);
       setErrorMessage(error.message || "An unknown recording error occurred.");
@@ -169,32 +170,51 @@ export function AudioRecorder({ className }: AudioRecorderProps) {
               </div>
             )}
 
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-4">
               {!isRecording ? (
-                <Button 
-                  onClick={handleStartRecording} 
-                  size="lg" 
-                  className="rounded-full h-16 w-16 bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-                >
-                  <Mic className="h-6 w-6" />
-                </Button>
+                <>
+                  <div className="flex flex-col items-center gap-2">
+                    <Button 
+                      onClick={() => handleStartRecording(true)} 
+                      size="lg" 
+                      variant="outline"
+                      className="rounded-full h-16 w-16 border-primary text-primary hover:bg-primary/10 shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Monitor className="h-6 w-6" />
+                    </Button>
+                    <p className="text-xs text-muted-foreground">System Audio</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <Button 
+                      onClick={() => handleStartRecording(false)} 
+                      size="lg" 
+                      className="rounded-full h-16 w-16 bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Mic className="h-6 w-6" />
+                    </Button>
+                    <p className="text-xs text-muted-foreground">Microphone</p>
+                  </div>
+                </>
               ) : (
-                <Button 
-                  onClick={handleStopRecording} 
-                  size="lg" 
-                  variant="outline" 
-                  className="rounded-full h-16 w-16 border-red-500 text-red-500 hover:bg-red-50 shadow-lg hover:shadow-xl transition-all"
-                >
-                  <Square className="h-6 w-6" />
-                </Button>
+                <div className="flex flex-col items-center gap-2">
+                  <Button 
+                    onClick={handleStopRecording} 
+                    size="lg" 
+                    variant="outline" 
+                    className="rounded-full h-16 w-16 border-red-500 text-red-500 hover:bg-red-50 shadow-lg hover:shadow-xl transition-all"
+                  >
+                    <Square className="h-6 w-6" />
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Stop Recording</p>
+                </div>
               )}
             </div>
 
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground text-center">
               {!isRecording ? (
-                <p>Click the microphone to start recording your meeting</p>
+                <p>Choose your audio source to begin</p>
               ) : (
-                <p>Click the stop button when your meeting is finished</p>
+                <p>Recording in progress...</p>
               )}
             </div>
           </div>
