@@ -84,7 +84,7 @@ export default function CalendarPage() {
       setInitializing(true);
       const initialized = await googleCalendarService.initialize();
       if (initialized) {
-        const signedIn = googleCalendarService.isUserSignedIn();
+        const signedIn = await googleCalendarService.signIn(false); // Silent sign-in check
         setIsConnected(signedIn);
         if (signedIn) {
           await loadTodaysEvents();
@@ -102,7 +102,7 @@ export default function CalendarPage() {
     try {
       setLoading(true);
       
-      const success = await googleCalendarService.signIn();
+      const success = await googleCalendarService.signIn(true); // Interactive sign-in
       if (success) {
         setIsConnected(true);
         await loadTodaysEvents();

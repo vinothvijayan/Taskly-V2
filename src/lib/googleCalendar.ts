@@ -74,14 +74,10 @@ export class GoogleCalendarService {
             this.tokenClient = window.google.accounts.oauth2.initTokenClient({
               client_id: this.config.clientId,
               scope: this.config.scopes,
-              callback: (tokenResponse: any) => {
-                this.gapi.client.setToken(tokenResponse);
-                this.isSignedIn = true;
-              }
+              callback: '' // Callback will be overridden in signIn method
             });
 
             this.isInitialized = true;
-            this.isSignedIn = !!this.gapi.client.getToken()?.access_token;
             resolve(true);
           } catch (error) {
             console.warn('Google Calendar API initialization failed. This may be due to missing API credentials or unauthorized origins.');
@@ -116,30 +112,38 @@ export class GoogleCalendarService {
     });
   }
 
-  public async signIn(): Promise<boolean> {
+  public async signIn(interactive = true): Promise<boolean> {
     if (!this.isInitialized) {
       console.warn('Google Calendar API not initialized. Please check your configuration.');
       return false;
     }
 
-    try {
-      return new Promise((resolve) => {
-        this.tokenClient.callback = (tokenResponse: any) => {
-          if (tokenResponse.error) {
+    return new Promise((resolve) => {
+      this.tokenClient.callback = (tokenResponse: any) => {
+        if (tokenResponse.error) {
+          if (interactive) {
             console.error('Google Calendar sign-in failed:', tokenResponse.error);
-            resolve(false);
           } else {
-            this.gapi.client.setToken(tokenResponse);
-            this.isSignedIn = true;
-            resolve(true);
+            console.log('No active Google session found silently.');
           }
-        };
-        this.tokenClient.requestAccessToken();
-      });
-    } catch (error) {
-      console.error('Google Calendar sign-in failed. This may be due to a blocked popup.', error);
-      return false;
-    }
+          this.isSignedIn = false;
+          resolve(false);
+        } else {
+          this.gapi.client.setToken(tokenResponse);
+          this.isSignedIn = true;
+          resolve(true);
+        }
+      };
+      
+      if (this.gapi.client.getToken() === null) {
+        // If there's no token, request one
+        this.tokenClient.requestAccessToken({ prompt: interactive ? '' : 'none' });
+      } else {
+        // If there's already a token, we are signed in
+        this.isSignedIn = true;
+        resolve(true);
+      }
+    });
   }
 
   public async signOut(): Promise<void> {
