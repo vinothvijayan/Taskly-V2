@@ -8,7 +8,7 @@
  */
 
 // A simple flag to control logging. Set to `false` to disable all logs.
-const LOGGING_ENABLED = false;
+const LOGGING_ENABLED = true;
 
 if (!LOGGING_ENABLED) {
   console.log = () => {};
