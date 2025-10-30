@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { doc, setDoc, getDoc, deleteDoc, onSnapshot, Unsubscribe, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { nativeTimerService } from '@/lib/nativeTimerService';
 
 interface TaskTimeTrackerContextType {
   trackingTask: Task | null;
@@ -187,6 +188,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       setCurrentSessionElapsedSeconds(0);
       setIsTracking(true);
       setStartTime(now);
+      nativeTimerService.start(task, 0);
 
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
@@ -223,6 +225,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
       setIsTracking(false);
       setStartTime(null);
+      nativeTimerService.pause();
 
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
@@ -258,6 +261,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
 
       setIsTracking(true);
       setStartTime(now);
+      nativeTimerService.resume();
 
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({
@@ -302,6 +306,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
       }
 
       await deleteDoc(sessionRef);
+      nativeTimerService.stop();
 
       if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({

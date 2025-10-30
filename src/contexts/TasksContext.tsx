@@ -28,6 +28,8 @@ import { useNotifications } from "@/contexts/NotificationsContext";
 import { hasUnreadComments } from '@/lib/viewedTimestamps';
 import { useConfetti } from '@/contexts/ConfettiContext';
 import { startOfDay, isSameDay, endOfDay } from "date-fns";
+import { Capacitor } from '@capacitor/core';
+import { capacitorNotifications } from '@/lib/capacitorNotifications';
 
 interface TasksContextType {
   tasks: Task[];
@@ -264,8 +266,12 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       }
 
       if (finalTask.dueDate) {
-        notificationService.scheduleTaskReminder(finalTask, 15);
-        notificationService.scheduleTaskDueNotification(finalTask);
+        if (Capacitor.isNativePlatform()) {
+          capacitorNotifications.scheduleTaskReminder(finalTask.id, finalTask.title, `Your task is due now.`, new Date(finalTask.dueDate));
+        } else {
+          notificationService.scheduleTaskReminder(finalTask, 15);
+          notificationService.scheduleTaskDueNotification(finalTask);
+        }
       }
 
       if (finalTask.assignedTo && finalTask.assignedTo.length > 0) {
@@ -339,8 +345,6 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
         dataForFirestore.dueDate = deleteField();
       }
 
-      // If completedAt is explicitly passed as undefined (e.g., from a Kanban drag),
-      // and the new status is not 'completed', we should remove the field from Firestore.
       if ('completedAt' in taskData && taskData.completedAt === undefined && taskData.status !== 'completed') {
         dataForFirestore.completedAt = deleteField();
       }
@@ -363,6 +367,17 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       } else {
         const taskRef = doc(db, originalTask.teamId ? `teams/${originalTask.teamId}/tasks` : `users/${user.uid}/tasks`, taskId);
         await updateDoc(taskRef, dataForFirestore);
+      }
+
+      if (Capacitor.isNativePlatform()) {
+        const dueDateChanged = 'dueDate' in taskData && originalTask.dueDate !== taskData.dueDate;
+        const statusChangedToCompleted = 'status' in taskData && taskData.status === 'completed';
+        if (dueDateChanged || statusChangedToCompleted) {
+            await capacitorNotifications.cancelTaskReminder(taskId);
+        }
+        if (dueDateChanged && !statusChangedToCompleted && updatedTaskForState.dueDate) {
+            await capacitorNotifications.scheduleTaskReminder(taskId, updatedTaskForState.title, 'Your task is due now.', new Date(updatedTaskForState.dueDate));
+        }
       }
 
       toast({ title: "Task updated", description: "Your changes have been saved." });
@@ -388,8 +403,12 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const taskRefPath = taskToDelete.teamId ? `teams/${taskToDelete.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
       await deleteDoc(doc(db, taskRefPath));
       
-      notificationService.clearScheduledNotification(`task-reminder-${taskId}`);
-      notificationService.clearScheduledNotification(`task-due-${taskId}`);
+      if (Capacitor.isNativePlatform()) {
+        await capacitorNotifications.cancelTaskReminder(taskId);
+      } else {
+        notificationService.clearScheduledNotification(`task-reminder-${taskId}`);
+        notificationService.clearScheduledNotification(`task-due-${taskId}`);
+      }
       
       toast({ title: "Task deleted", variant: "destructive" });
     } catch (error) {
@@ -439,6 +458,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
             { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
             { task: { id: originalTask.id, title: originalTask.title } }
           );
+        }
+        if (Capacitor.isNativePlatform()) {
+          await capacitorNotifications.cancelTaskReminder(taskId);
         }
       }
 
