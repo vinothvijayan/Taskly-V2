@@ -722,50 +722,75 @@ export default function TeamChatPage() {
                     </ScrollArea>
                   </div>
                   <div className="bg-background border-t px-2 py-2 shadow-lg z-10">
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-full p-1">
-                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
-                          <Smile className="h-5 w-5 text-muted-foreground" />
+                    {recordedAudio ? (
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 flex-shrink-0" onClick={handleDiscardRecording}>
+                          <Trash2 className="h-5 w-5 text-destructive" />
                         </Button>
-                        <Textarea 
-                          value={newMessage} 
-                          onChange={(e) => setNewMessage(e.target.value)} 
-                          onKeyDown={handleKeyDown} 
-                          ref={inputRef} 
-                          placeholder="Type a message" 
-                          autoFocus 
-                          rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-1.5 px-2 text-base min-h-0" 
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
-                              <Paperclip className="h-5 w-5 text-muted-foreground" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 mb-2">
-                            <div className="space-y-1">
-                              <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
-                                <ImageIcon className="h-4 w-4 mr-2" />
-                                Photos & Videos
-                              </Button>
-                              <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
-                                <FileText className="h-4 w-4 mr-2" />
-                                Document
-                              </Button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                        <div className="flex-1 bg-muted/50 rounded-full flex items-center px-4 h-10">
+                          <Play className="h-5 w-5 mr-2" />
+                          <span className="font-mono text-sm">{new Date(recordingDuration * 1000).toISOString().substr(14, 5)}</span>
+                        </div>
+                        <Button onClick={handleSendVoiceMessage} disabled={sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md h-10 w-10 flex-shrink-0">
+                          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        </Button>
                       </div>
-                      <Button 
-                        onClick={sendMessage} 
-                        disabled={!newMessage.trim() || sending} 
-                        size="icon" 
-                        className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md h-10 w-10 flex-shrink-0"
-                      >
-                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    ) : isRecording ? (
+                      <div className="flex items-center gap-2 h-10">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        <span className="font-mono text-sm">{new Date(recordingDuration * 1000).toISOString().substr(14, 5)}</span>
+                        <div className="flex-1" />
+                        <Button onClick={handleStopRecording} size="icon" className="rounded-full bg-destructive hover:bg-destructive/90 text-white shadow-md h-10 w-10 flex-shrink-0">
+                          <Square className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1 flex items-center bg-muted/50 rounded-full p-1">
+                          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                            <Smile className="h-5 w-5 text-muted-foreground" />
+                          </Button>
+                          <Textarea 
+                            value={newMessage} 
+                            onChange={(e) => setNewMessage(e.target.value)} 
+                            onKeyDown={handleKeyDown} 
+                            ref={inputRef} 
+                            placeholder="Type a message" 
+                            autoFocus 
+                            rows={1} 
+                            className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 py-1.5 px-2 text-base min-h-0" 
+                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                                <Paperclip className="h-5 w-5 text-muted-foreground" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2 mb-2">
+                              <div className="space-y-1">
+                                <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
+                                  <ImageIcon className="h-4 w-4 mr-2" />
+                                  Photos & Videos
+                                </Button>
+                                <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Document
+                                </Button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {newMessage.trim() ? (
+                          <Button onClick={sendMessage} disabled={sending} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md h-10 w-10 flex-shrink-0">
+                            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        ) : (
+                          <Button onClick={handleStartRecording} size="icon" className="rounded-full bg-[#25D366] hover:bg-[#20B358] text-white shadow-md h-10 w-10 flex-shrink-0">
+                            <Mic className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -896,50 +921,75 @@ export default function TeamChatPage() {
                     </ScrollArea>
                   </div>
                   <div className="bg-background border-t px-4 py-2 shadow-lg z-10">
-                    <div className="flex items-end gap-3">
-                      <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
-                        <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
-                          <Smile className="h-5 w-5 text-muted-foreground" />
+                    {recordedAudio ? (
+                      <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 flex-shrink-0" onClick={handleDiscardRecording}>
+                          <Trash2 className="h-5 w-5 text-destructive" />
                         </Button>
-                        <Textarea 
-                          value={newMessage} 
-                          onChange={(e) => setNewMessage(e.target.value)} 
-                          onKeyDown={handleKeyDown} 
-                          ref={inputRef} 
-                          placeholder="Type a message" 
-                          autoFocus 
-                          rows={1} 
-                          className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-base min-h-0" 
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
-                              <Paperclip className="h-5 w-5 text-muted-foreground" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 mb-2">
-                            <div className="space-y-1">
-                              <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
-                                <ImageIcon className="h-4 w-4 mr-2" />
-                                Photos & Videos
-                              </Button>
-                              <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
-                                <FileText className="h-4 w-4 mr-2" />
-                                Document
-                              </Button>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                        <div className="flex-1 bg-muted/50 rounded-full flex items-center px-4 h-10">
+                          <Play className="h-5 w-5 mr-2" />
+                          <span className="font-mono text-sm">{new Date(recordingDuration * 1000).toISOString().substr(14, 5)}</span>
+                        </div>
+                        <Button onClick={handleSendVoiceMessage} disabled={sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-10 w-10 flex-shrink-0">
+                          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        </Button>
                       </div>
-                      <Button 
-                        onClick={sendMessage} 
-                        disabled={!newMessage.trim() || sending} 
-                        size="icon" 
-                        className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-10 w-10 flex-shrink-0"
-                      >
-                        {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                    ) : isRecording ? (
+                      <div className="flex items-center gap-2 h-10">
+                        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                        <span className="font-mono text-sm">{new Date(recordingDuration * 1000).toISOString().substr(14, 5)}</span>
+                        <div className="flex-1" />
+                        <Button onClick={handleStopRecording} size="icon" className="rounded-full bg-destructive hover:bg-destructive/90 text-white shadow-md h-10 w-10 flex-shrink-0">
+                          <Square className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-end gap-3">
+                        <div className="flex-1 flex items-center bg-muted/50 rounded-2xl p-1">
+                          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                            <Smile className="h-5 w-5 text-muted-foreground" />
+                          </Button>
+                          <Textarea 
+                            value={newMessage} 
+                            onChange={(e) => setNewMessage(e.target.value)} 
+                            onKeyDown={handleKeyDown} 
+                            ref={inputRef} 
+                            placeholder="Type a message" 
+                            autoFocus 
+                            rows={1} 
+                            className="flex-1 border-0 bg-transparent resize-none focus-visible:ring-0 focus-visible:ring-offset-0 px-2 text-base min-h-0" 
+                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 flex-shrink-0">
+                                <Paperclip className="h-5 w-5 text-muted-foreground" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-48 p-2 mb-2">
+                              <div className="space-y-1">
+                                <Button variant="ghost" className="w-full justify-start" onClick={() => imageVideoInputRef.current?.click()}>
+                                  <ImageIcon className="h-4 w-4 mr-2" />
+                                  Photos & Videos
+                                </Button>
+                                <Button variant="ghost" className="w-full justify-start" onClick={() => documentInputRef.current?.click()}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Document
+                                </Button>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {newMessage.trim() ? (
+                          <Button onClick={sendMessage} disabled={sending} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-10 w-10 flex-shrink-0">
+                            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        ) : (
+                          <Button onClick={handleStartRecording} size="icon" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-10 w-10 flex-shrink-0">
+                            <Mic className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
