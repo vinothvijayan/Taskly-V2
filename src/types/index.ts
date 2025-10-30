@@ -154,10 +154,12 @@ export interface Opportunity {
   meetingStatus?: 'scheduled' | 'done';
 }
 
+export type ActivityType = 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED' | 'SUBTASK_COMPLETED';
+
 export interface Activity {
   id: string;
   teamId: string;
-  type: 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED';
+  type: ActivityType;
   timestamp: any; // Firebase Timestamp
   actor: {
     uid: string;
@@ -169,6 +171,10 @@ export interface Activity {
     title: string;
     subtasks?: Subtask[];
     timeSpent?: number;
+  };
+  subtask?: {
+    id: string;
+    title: string;
   };
   comment?: {
     contentPreview: string;

@@ -562,6 +562,9 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       await autoSaveTimeFromTracker.stopTracking();
     }
 
+    const subtaskThatWasToggled = task.subtasks.find(sub => sub.id === subtaskId);
+    const wasCompleted = subtaskThatWasToggled && !subtaskThatWasToggled.isCompleted;
+
     const updatedSubtasks = task.subtasks.map(sub => {
       if (sub.id === subtaskId) {
         const isCompleting = !sub.isCompleted;
@@ -570,6 +573,19 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       }
       return sub;
     });
+
+    if (wasCompleted && subtaskThatWasToggled && task.teamId && user && userProfile) {
+      const { logActivity } = await import('@/lib/activityLogger');
+      logActivity(
+        task.teamId,
+        'SUBTASK_COMPLETED',
+        { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+        {
+          task: { id: task.id, title: task.title },
+          subtask: { id: subtaskThatWasToggled.id, title: subtaskThatWasToggled.title }
+        }
+      );
+    }
 
     const allSubtasksCompleted = updatedSubtasks.every(sub => sub.isCompleted);
     if (allSubtasksCompleted && task.status !== 'completed') {
@@ -584,7 +600,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       await updateTask(taskId, { subtasks: updatedSubtasks });
       toast({ title: "Subtask updated!" });
     }
-  }, [tasks, updateTask, toggleTaskStatus, playSound, toast]);
+  }, [tasks, updateTask, toggleTaskStatus, playSound, toast, user, userProfile]);
 
   const deleteSubtask = useCallback(async (taskId: string, subtaskId: string) => {
     const task = tasks.find(t => t.id === taskId);
