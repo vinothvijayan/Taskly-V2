@@ -1,8 +1,6 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
-import { Task } from '@/types';
-
-type ActivityType = 'TASK_CREATED' | 'TASK_COMPLETED' | 'COMMENT_ADDED';
+import { ActivityType, Task, Subtask } from '@/types';
 
 interface Actor {
   uid: string;
@@ -15,7 +13,8 @@ export const logActivity = async (
   type: ActivityType,
   actor: Actor,
   data: {
-    task?: { id: string; title: string };
+    task?: { id: string; title: string; subtasks?: Subtask[]; timeSpent?: number; };
+    subtask?: { id: string; title: string };
     comment?: { contentPreview: string };
   }
 ) => {

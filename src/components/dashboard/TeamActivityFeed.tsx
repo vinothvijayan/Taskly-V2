@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus, Clock, CheckCircle2 } from 'lucide-react';
+import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus, Clock, CheckCircle2, Plus } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -177,7 +177,7 @@ const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolea
     switch (activity.type) {
       case 'TASK_CREATED': return <PlusSquare className="h-4 w-4 text-blue-500" />;
       case 'TASK_COMPLETED': return <CheckSquare className="h-4 w-4 text-green-500" />;
-      case 'SUBTASK_CREATED': return <PlusSquare className="h-4 w-4 text-blue-500" />;
+      case 'SUBTASK_CREATED': return <Plus className="h-4 w-4 text-blue-500" />;
       case 'SUBTASK_COMPLETED': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'COMMENT_ADDED': return <MessageSquare className="h-4 w-4 text-purple-500" />;
       default: return <Users className="h-4 w-4 text-muted-foreground" />;
