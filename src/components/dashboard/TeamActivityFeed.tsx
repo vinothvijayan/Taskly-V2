@@ -50,7 +50,6 @@ const useActivities = (
         newActivities.push({ id: doc.id, ...doc.data() } as Activity);
       });
 
-      // Detect new reactions
       if (prevActivitiesRef.current.length > 0) {
         newActivities.forEach(newActivity => {
           const oldActivity = prevActivitiesRef.current.find(a => a.id === newActivity.id);
@@ -60,24 +59,19 @@ const useActivities = (
               const newReactors = newActivity.reactions?.[emoji] || [];
               
               newReactors.forEach(reactorId => {
-                if (!oldReactors.has(reactorId)) { // This is a new reaction
+                if (!oldReactors.has(reactorId)) {
                   const reactor = teamMembers.find(m => m.uid === reactorId);
                   const activityAuthorId = newActivity.actor.uid;
 
                   if (reactor && newActivity.task?.title) {
-                    // 1. Show the toast for everyone
                     onNewReaction(reactor, newActivity.task.title, emoji);
 
-                    // 2. Send a system notification ONLY to the author
                     if (currentUserId === activityAuthorId && reactorId !== currentUserId) {
                       unifiedNotificationService.sendNotification({
                         title: `${emoji} New Reaction`,
                         body: `${reactor.displayName || 'Someone'} reacted to your activity on "${newActivity.task.title}"`,
                         type: 'general',
-                        data: {
-                          taskId: newActivity.task.id,
-                          type: 'reaction'
-                        }
+                        data: { taskId: newActivity.task.id, type: 'reaction' }
                       });
                     }
                   }
@@ -101,7 +95,7 @@ const useActivities = (
 
 const getInitials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
 
-const ActivityItem = ({ activity }: { activity: Activity }) => {
+const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolean }) => {
   const { user, userProfile } = useAuth();
 
   const toggleReaction = async (emoji: string) => {
@@ -117,21 +111,21 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
   };
 
   const renderContent = () => {
-    const actorName = <strong>{activity.actor.displayName}</strong>;
+    const actorName = <strong className="font-semibold text-foreground">{activity.actor.displayName}</strong>;
     const taskLink = <span className="font-semibold text-primary truncate">"{activity.task?.title}"</span>;
 
     switch (activity.type) {
       case 'TASK_CREATED':
-        return <p>{actorName} created task {taskLink}</p>;
+        return <p className="text-sm text-muted-foreground">{actorName} created task {taskLink}</p>;
       case 'TASK_COMPLETED':
-        return <p>{actorName} completed task {taskLink}</p>;
+        return <p className="text-sm text-muted-foreground">{actorName} completed task {taskLink}</p>;
       case 'COMMENT_ADDED':
         return (
           <div>
-            <p>{actorName} commented on {taskLink}</p>
-            <p className="text-xs text-muted-foreground italic mt-1 border-l-2 pl-2">
-              "{activity.comment?.contentPreview}"
-            </p>
+            <p className="text-sm text-muted-foreground">{actorName} commented on {taskLink}</p>
+            <blockquote className="mt-2 border-l-2 pl-3 text-sm italic text-foreground/80">
+              {activity.comment?.contentPreview}
+            </blockquote>
           </div>
         );
       default:
@@ -144,7 +138,7 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
       case 'TASK_CREATED': return <PlusSquare className="h-4 w-4 text-blue-500" />;
       case 'TASK_COMPLETED': return <CheckSquare className="h-4 w-4 text-green-500" />;
       case 'COMMENT_ADDED': return <MessageSquare className="h-4 w-4 text-purple-500" />;
-      default: return null;
+      default: return <Users className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -154,12 +148,19 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="flex items-start gap-4 p-3"
+      className="relative pl-12 py-4"
     >
-      <div className="mt-1">{getIcon()}</div>
-      <div className="flex-1 space-y-2">
-        <div className="flex items-start justify-between">
-          <div className="text-sm">{renderContent()}</div>
+      {!isLast && <div className="absolute left-5 top-5 -ml-px mt-1 h-full w-0.5 bg-border" />}
+      
+      <div className="absolute left-0 top-4 flex items-center justify-center">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background border">
+          {getIcon()}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">{renderContent()}</div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground flex-shrink-0 ml-4">
             <Avatar className="h-5 w-5">
               <AvatarImage src={activity.actor.photoURL} />
@@ -168,7 +169,7 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
             <span>{activity.timestamp ? formatDistanceToNow(activity.timestamp.toDate(), { addSuffix: true }) : ''}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 flex-wrap pt-1">
           {Object.entries(activity.reactions || {}).map(([emoji, reactors]) => {
             if (reactors.length > 0) {
               const hasReacted = user ? reactors.includes(user.uid) : false;
@@ -177,10 +178,10 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
                   key={emoji}
                   variant={hasReacted ? "secondary" : "outline"}
                   size="sm"
-                  className="h-7 px-2 gap-1 border-primary/20"
+                  className="h-6 px-2 gap-1 rounded-full border-border/50"
                   onClick={() => toggleReaction(emoji)}
                 >
-                  <span className={cn("text-base transition-transform", hasReacted && "scale-110")}>{emoji}</span>
+                  <span className={cn("text-sm transition-transform", hasReacted && "scale-110")}>{emoji}</span>
                   <span className={cn("text-xs", hasReacted ? "text-primary font-semibold" : "text-muted-foreground")}>
                     {reactors.length}
                   </span>
@@ -192,8 +193,8 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
 
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
-                <SmilePlus className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full text-muted-foreground">
+                <SmilePlus className="h-3.5 w-3.5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-1">
@@ -203,7 +204,7 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
                     key={emoji}
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-xl rounded-full"
+                    className="h-8 w-8 text-lg rounded-full"
                     onClick={() => toggleReaction(emoji)}
                   >
                     {emoji}
@@ -295,7 +296,7 @@ export function TeamActivityFeed() {
         <ScrollArea className="h-full">
           {loading ? (
             <div className="space-y-4 p-4">
-              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+              {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
             </div>
           ) : filteredActivities.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-16">
@@ -308,9 +309,11 @@ export function TeamActivityFeed() {
               </p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="p-4">
               <AnimatePresence>
-                {filteredActivities.map(activity => <ActivityItem key={activity.id} activity={activity} />)}
+                {filteredActivities.map((activity, index) => (
+                  <ActivityItem key={activity.id} activity={activity} isLast={index === filteredActivities.length - 1} />
+                ))}
               </AnimatePresence>
             </div>
           )}
