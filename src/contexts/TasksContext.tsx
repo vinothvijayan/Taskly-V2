@@ -42,7 +42,7 @@ interface TasksContextType {
   toggleTaskPriority: (taskId: string) => Promise<void>;
   updateTaskTimeSpent: (taskId: string, timeToAdd: number) => Promise<void>;
   addSubtask: (taskId: string, title: string) => Promise<void>; // New
-  toggleSubtaskStatus: (taskId: string, subtaskId: string, autoSaveTimeFromTracker?: { currentSeconds: number, stopTracking: () => Promise<void> }) => Promise<void>; // New
+  toggleSubtaskStatus: (taskId: string, subtaskId: string, autoSaveTimeFromTracker?: { stopTracking: () => Promise<void> }) => Promise<void>; // Modified
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>; // New
   updateSubtaskTimeSpent: (taskId: string, subtaskId: string, timeToAdd: number) => Promise<void>; // New
   updateTaskLastCommentedAt: (taskId: string, timestamp: string) => Promise<void>; // New
@@ -507,24 +507,19 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     toast({ title: "Subtask added!" });
   }, [updateTask, tasks, toast]);
 
-  const toggleSubtaskStatus = useCallback(async (taskId: string, subtaskId: string, autoSaveTimeFromTracker?: { currentSeconds: number, stopTracking: () => Promise<void> }) => {
+  const toggleSubtaskStatus = useCallback(async (taskId: string, subtaskId: string, autoSaveTimeFromTracker?: { stopTracking: () => Promise<void> }) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task || !task.subtasks) return;
 
-    let timeToAdd = 0;
     if (autoSaveTimeFromTracker) {
-      const subtask = task.subtasks.find(s => s.id === subtaskId);
-      if (subtask && !subtask.isCompleted) {
-        timeToAdd = autoSaveTimeFromTracker.currentSeconds;
-        await autoSaveTimeFromTracker.stopTracking();
-      }
+      await autoSaveTimeFromTracker.stopTracking();
     }
 
     const updatedSubtasks = task.subtasks.map(sub => {
       if (sub.id === subtaskId) {
         const isCompleting = !sub.isCompleted;
         if (isCompleting) playSound(TASK_COMPLETE_SOUND_URL);
-        return { ...sub, isCompleted: isCompleting, completedAt: isCompleting ? new Date().toISOString() : undefined, timeSpent: (sub.timeSpent || 0) + timeToAdd };
+        return { ...sub, isCompleted: isCompleting, completedAt: isCompleting ? new Date().toISOString() : undefined };
       }
       return sub;
     });

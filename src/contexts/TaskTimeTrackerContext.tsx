@@ -11,7 +11,7 @@ interface TaskTimeTrackerContextType {
   startTracking: (task: Task) => void;
   pauseTracking: () => void;
   resumeTracking: () => void;
-  stopTracking: () => void;
+  stopTracking: () => Promise<void>;
   getFormattedTime: (seconds: number) => string;
   trackingSubtask: { taskId: string; subtaskId: string; subtaskTitle: string } | null;
   currentSubtaskElapsedSeconds: number;
@@ -19,7 +19,7 @@ interface TaskTimeTrackerContextType {
   startSubtaskTracking: (taskId: string, subtaskId: string, subtaskTitle: string) => void;
   pauseSubtaskTracking: () => void;
   resumeSubtaskTracking: () => void;
-  stopSubtaskTracking: () => void;
+  stopSubtaskTracking: () => Promise<void>;
 }
 
 const TaskTimeTrackerContext = createContext<TaskTimeTrackerContextType | undefined>(undefined);
@@ -38,7 +38,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (event.data.type === 'TIME_TRACKING_UPDATE') {
         const { payload } = event.data;
         if (payload.type === 'task') {
@@ -55,6 +55,16 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
             setTrackingSubtask({ taskId: payload.taskId, subtaskId: payload.subtaskId, subtaskTitle: 'Loading...' });
           }
         }
+      } else if (event.data.type === 'TIME_TRACKING_STOPPED') {
+        const { payload } = event.data;
+        if (payload.type === 'task' && payload.finalSeconds > 0) {
+          await updateTaskTimeSpent(payload.taskId, payload.finalSeconds);
+          const task = getTaskById(payload.taskId);
+          toast({ title: "Time saved!", description: `Saved ${getFormattedTime(payload.finalSeconds)} for "${task?.title || 'task'}"` });
+        } else if (payload.type === 'subtask' && payload.finalSeconds > 0) {
+          await updateSubtaskTimeSpent(payload.taskId, payload.subtaskId, payload.finalSeconds);
+          toast({ title: "Time saved!", description: `Saved ${getFormattedTime(payload.finalSeconds)} for subtask` });
+        }
       }
     };
 
@@ -62,7 +72,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleMessage);
     };
-  }, [getTaskById, trackingTask, trackingSubtask]);
+  }, [getTaskById, trackingTask, trackingSubtask, updateTaskTimeSpent, updateSubtaskTimeSpent, toast, getFormattedTime]);
 
   const postToServiceWorker = (type: string, session: any) => {
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
@@ -109,13 +119,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const stopTracking = async () => {
     if (!trackingTask) return;
     
-    const finalSeconds = currentSessionElapsedSeconds;
     postToServiceWorker('STOP_TIME_TRACKING', { taskId: trackingTask.id });
-
-    if (finalSeconds > 0) {
-      await updateTaskTimeSpent(trackingTask.id, finalSeconds);
-      toast({ title: "Time saved!", description: `Saved ${getFormattedTime(finalSeconds)} for "${trackingTask.title}"` });
-    }
 
     setTrackingTask(null);
     setCurrentSessionElapsedSeconds(0);
@@ -157,13 +161,7 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const stopSubtaskTracking = async () => {
     if (!trackingSubtask) return;
 
-    const finalSeconds = currentSubtaskElapsedSeconds;
     postToServiceWorker('STOP_SUBTASK_TIME_TRACKING', { ...trackingSubtask });
-
-    if (finalSeconds > 0) {
-      await updateSubtaskTimeSpent(trackingSubtask.taskId, trackingSubtask.subtaskId, finalSeconds);
-      toast({ title: "Time saved!", description: `Saved ${getFormattedTime(finalSeconds)} for subtask` });
-    }
 
     setTrackingSubtask(null);
     setCurrentSubtaskElapsedSeconds(0);

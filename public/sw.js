@@ -234,9 +234,29 @@ async function handleTimeTrackingMessage(data) {
     }
       
     case 'STOP_TIME_TRACKING':
-    case 'STOP_SUBTASK_TIME_TRACKING':
-      await manageSession(key, 'delete');
+    case 'STOP_SUBTASK_TIME_TRACKING': {
+      const existingSession = await manageSession(key, 'get');
+      if (existingSession) {
+        const elapsed = existingSession.isPaused ? 0 : Math.floor((Date.now() - existingSession.startTime) / 1000);
+        const finalSeconds = existingSession.accumulatedSeconds + elapsed;
+
+        const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'TIME_TRACKING_STOPPED',
+            payload: {
+              type: session.subtaskId ? 'subtask' : 'task',
+              taskId: existingSession.taskId,
+              subtaskId: existingSession.subtaskId,
+              finalSeconds: finalSeconds
+            }
+          });
+        });
+        
+        await manageSession(key, 'delete');
+      }
       break;
+    }
   }
 }
 
