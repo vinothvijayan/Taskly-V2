@@ -468,8 +468,12 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
             if (updatedTask.teamId) {
                 const { logActivity } = await import('@/lib/activityLogger');
                 const sanitizedSubtasks = updatedTask.subtasks?.map(sub => ({
-                    ...sub,
+                    id: sub.id,
+                    title: sub.title,
+                    isCompleted: sub.isCompleted,
+                    createdAt: sub.createdAt,
                     completedAt: sub.completedAt || null,
+                    timeSpent: sub.timeSpent || 0,
                 }));
                 const activityTaskPayload = {
                     id: updatedTask.id,
