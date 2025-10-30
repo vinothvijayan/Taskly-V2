@@ -1,3 +1,4 @@
+import './lib/console'; // <-- ADD THIS LINE TO DISABLE LOGS
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
@@ -20,7 +21,6 @@ const handleServiceWorkerUpdate = (registration: ServiceWorkerRegistration) => {
         // A new service worker has been installed and is now waiting to activate.
         // This is the perfect time to prompt the user to get the new version.
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          console.log('New content is available, please refresh.');
           // You can replace this simple confirm dialog with a more elegant UI,
           // like a toast notification with a refresh button.
           if (confirm("A new version of the app is available. Reload?")) {
@@ -42,7 +42,6 @@ const initializeServices = async () => {
       window.addEventListener('load', async () => {
         try {
           const registration = await navigator.serviceWorker.register('/sw.js');
-          console.log('Service Worker registered:', registration);
           
           // --- NEW: SETUP UPDATE AND RELOAD LOGIC ---
           // 1. Listen for updates to the service worker.
@@ -52,7 +51,6 @@ const initializeServices = async () => {
           // This fires after the new worker has activated (via skipWaiting).
           // We reload the page to ensure the user gets the new assets.
           navigator.serviceWorker.oncontrollerchange = () => {
-            console.log("Controller changed. Reloading page for new content.");
             window.location.reload();
           };
           // --- END OF NEW LOGIC ---
@@ -95,7 +93,6 @@ const initializeServices = async () => {
     }
   } else {
     // Native environment initialization
-    console.log('Running in native Capacitor environment');
     // Notification initialization is handled in App.tsx to avoid conflicts
   }
 };
