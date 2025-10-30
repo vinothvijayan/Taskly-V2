@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,7 +6,7 @@ import { Activity, UserProfile } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus } from 'lucide-react';
@@ -17,6 +17,7 @@ import { ReactionToast } from '@/components/ui/ReactionToast';
 import { useTasks } from '@/contexts/TasksContext';
 import { unifiedNotificationService } from '@/lib/unifiedNotificationService';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const EMOJIS = ['👍', '🔥', '❤️'];
 
@@ -98,10 +99,10 @@ const useActivities = (
   return { activities, loading };
 };
 
+const getInitials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
+
 const ActivityItem = ({ activity }: { activity: Activity }) => {
   const { user, userProfile } = useAuth();
-
-  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
   const toggleReaction = async (emoji: string) => {
     if (!user || !userProfile?.teamId) return;
@@ -220,6 +221,7 @@ const ActivityItem = ({ activity }: { activity: Activity }) => {
 export function TeamActivityFeed() {
   const { user, userProfile } = useAuth();
   const { teamMembers } = useTasks();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const handleNewReaction = useCallback((reactor: UserProfile, taskTitle: string, emoji: string) => {
     toast.custom((t) => (
@@ -235,6 +237,11 @@ export function TeamActivityFeed() {
   }, []);
 
   const { activities, loading } = useActivities(userProfile?.teamId, user?.uid, teamMembers, handleNewReaction);
+
+  const filteredActivities = useMemo(() => {
+    if (!selectedUserId) return activities;
+    return activities.filter(activity => activity.actor.uid === selectedUserId);
+  }, [activities, selectedUserId]);
 
   if (!userProfile?.teamId) {
     return (
@@ -255,6 +262,34 @@ export function TeamActivityFeed() {
     <Card className="shadow-elegant h-[600px] flex flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Team Activity</CardTitle>
+        <TooltipProvider>
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex items-center gap-2 pt-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(null)} className={cn(!selectedUserId && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}>
+                    <Avatar className="h-8 w-8"><AvatarFallback className="bg-muted"><Users className="h-4 w-4" /></AvatarFallback></Avatar>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>All Activity</p></TooltipContent>
+              </Tooltip>
+              {teamMembers.map(member => (
+                <Tooltip key={member.uid}>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedUserId(member.uid)} className={cn(selectedUserId === member.uid && 'ring-2 ring-primary ring-offset-2 ring-offset-background')}>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.photoURL} />
+                        <AvatarFallback>{getInitials(member.displayName || member.email)}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>{member.displayName || member.email}</p></TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </TooltipProvider>
       </CardHeader>
       <CardContent className="flex-1 p-0 overflow-hidden">
         <ScrollArea className="h-full">
@@ -262,16 +297,20 @@ export function TeamActivityFeed() {
             <div className="space-y-4 p-4">
               {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
             </div>
-          ) : activities.length === 0 ? (
+          ) : filteredActivities.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-16">
               <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
-              <h3 className="font-medium text-muted-foreground mb-2">No activity yet</h3>
-              <p className="text-sm text-muted-foreground">Create or complete a task to get started.</p>
+              <h3 className="font-medium text-muted-foreground mb-2">
+                {selectedUserId ? `No activity found for ${teamMembers.find(m => m.uid === selectedUserId)?.displayName}` : "No activity yet"}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {selectedUserId ? "This team member hasn't performed any actions yet." : "Create or complete a task to get started."}
+              </p>
             </div>
           ) : (
             <div className="divide-y">
               <AnimatePresence>
-                {activities.map(activity => <ActivityItem key={activity.id} activity={activity} />)}
+                {filteredActivities.map(activity => <ActivityItem key={activity.id} activity={activity} />)}
               </AnimatePresence>
             </div>
           )}
