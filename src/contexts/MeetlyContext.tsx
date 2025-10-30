@@ -19,17 +19,24 @@ import {
   updateMetadata,
   getMetadata
 } from "firebase/storage";
-import { db, storage, functions } from "@/lib/firebase";
-import { httpsCallable } from "firebase/functions";
+import { db, storage } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { MeetingRecording } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { Capacitor } from "@capacitor/core";
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { VoiceRecorder } from 'capacitor-voice-recorder';
 import { showLoading, dismissToast } from "@/utils/toast";
 
-// Declare the global Media object from cordova-plugin-media
-declare var Media: any;
+// Helper to convert base64 to Blob
+const base64toBlob = (base64Data: string, contentType: string): Blob => {
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: contentType });
+};
 
 interface MeetlyContextType {
   recordings: MeetingRecording[];
@@ -58,9 +65,7 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
   const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const mediaRef = React.useRef<any>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
-  const nativeFilePathRef = useRef<string | null>(null); // To store the native file path
   
   const [audioLevel, setAudioLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -90,11 +95,11 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     let interval: NodeJS.Timeout;
     if (isRecording) {
       interval = setInterval(() => {
-        setRecordingDuration(Math.floor((Date.now() - recordingStartTime) / 1000));
+        setRecordingDuration(prev => prev + 1);
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isRecording, recordingStartTime]);
+  }, [isRecording]);
 
   const setupAudioAnalyser = (stream: MediaStream) => {
     try {
@@ -112,19 +117,40 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
   };
 
   const monitorAudioLevel = () => {
-    if (!analyserRef.current) return;
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    const updateLevel = () => {
-      if (!analyserRef.current || !isRecording) {
-        setAudioLevel(0);
-        return;
-      }
-      analyserRef.current.getByteFrequencyData(dataArray);
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      setAudioLevel(Math.min(100, (average / 255) * 100));
-      animationFrameRef.current = requestAnimationFrame(updateLevel);
-    };
-    updateLevel();
+    if (Capacitor.isNativePlatform()) {
+      // Native audio level monitoring
+      const updateNativeLevel = async () => {
+        if (!isRecording) {
+          setAudioLevel(0);
+          return;
+        }
+        try {
+          const { value } = await VoiceRecorder.getCurrentStatus();
+          if (value?.level) {
+            setAudioLevel(value.level);
+          }
+        } catch (error) {
+          // Ignore, might happen if status is checked before recording starts
+        }
+        animationFrameRef.current = requestAnimationFrame(updateNativeLevel);
+      };
+      updateNativeLevel();
+    } else {
+      // Web audio level monitoring
+      if (!analyserRef.current) return;
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      const updateLevel = () => {
+        if (!analyserRef.current || !isRecording) {
+          setAudioLevel(0);
+          return;
+        }
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
+        setAudioLevel(Math.min(100, (average / 255) * 100));
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
+    }
   };
 
   const startRecording = async () => {
@@ -132,63 +158,45 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     if (recordedAudio) setRecordedAudio(null);
 
     if (Capacitor.isNativePlatform()) {
-      // --- NATIVE CAPACITOR RECORDING (Microphone only for background) ---
       try {
-        // Use a temporary file path in the application's data directory
-        const fileName = `meetly_${Date.now()}.wav`;
-        nativeFilePathRef.current = fileName;
-
-        // The Media object expects a path relative to the app's root or a full path.
-        // We use the filename directly, which the plugin often resolves to a temporary location.
-        mediaRef.current = new Media(fileName, 
-          () => console.log('Native recording success.'), 
-          (err: any) => {
-            console.error('Native recording error:', err);
-            toast({ title: "Recording Error", description: `Code: ${err.code}`, variant: "destructive" });
-          }
-        );
-        
-        mediaRef.current.startRecord();
+        const permission = await VoiceRecorder.requestAudioRecordingPermission();
+        if (!permission.value) {
+          throw new Error("Microphone permission was denied.");
+        }
+        await VoiceRecorder.startRecording();
         setIsRecording(true);
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
+        monitorAudioLevel();
         toast({ title: "Recording started 🎙️", description: "Recording will continue in the background." });
       } catch (error) {
         console.error("Native recording failed to start:", error);
         throw new Error("Could not start native recorder. Check microphone permissions.");
       }
     } else {
-      // --- WEB RECORDING (Microphone only) ---
-      let micStream: MediaStream | null = null; // Keep this for cleanup
-
+      let micStream: MediaStream | null = null;
       try {
-        // CRITICAL FIX: Use getUserMedia to request microphone directly
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true } 
-        });
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         streamRef.current = micStream;
-
         const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-        const recorder = new MediaRecorder(micStream, { mimeType }); // Use micStream directly
+        const recorder = new MediaRecorder(micStream, { mimeType });
         const chunks: Blob[] = [];
         recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
         recorder.onstop = () => {
           const audioBlob = new Blob(chunks, { type: mimeType });
           setRecordedAudio(audioBlob);
-          micStream?.getTracks().forEach(track => track.stop()); // Stop tracks on finish
+          micStream?.getTracks().forEach(track => track.stop());
           streamRef.current = null;
         };
-        
-        recorder.start(1000);
+        recorder.start();
         setMediaRecorder(recorder);
         setIsRecording(true);
         setRecordingStartTime(Date.now());
         setRecordingDuration(0);
         setupAudioAnalyser(micStream);
-        toast({ title: "Recording Started 🎙️", description: "Capturing microphone audio only." });
-
+        toast({ title: "Recording Started 🎙️", description: "Capturing microphone audio." });
       } catch (error: any) {
-        micStream?.getTracks().forEach(track => track.stop()); // Clean up on error
+        micStream?.getTracks().forEach(track => track.stop());
         console.error("Web recording failed:", error);
         throw error;
       }
@@ -199,32 +207,20 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     if (!isRecording) return;
 
     if (Capacitor.isNativePlatform()) {
-      // --- NATIVE CAPACITOR STOP ---
-      if (mediaRef.current) {
-        mediaRef.current.stopRecord();
-        mediaRef.current.release();
-        
-        // Read the recorded file from the native path
-        if (nativeFilePathRef.current) {
-          try {
-            const result = await Filesystem.readFile({ 
-              path: nativeFilePathRef.current,
-              directory: Directory.Data, // Assuming the plugin saves to the Data directory
-            });
-            
-            // Convert base64 to Blob
-            const blob = await (await fetch(`data:audio/wav;base64,${result.data}`)).blob();
-            setRecordedAudio(blob);
-          } catch (e) {
-            console.error("Error reading native recorded file:", e);
-            toast({ title: "Error saving recording", description: "Could not read the recorded file.", variant: "destructive" });
-          }
+      try {
+        const result = await VoiceRecorder.stopRecording();
+        if (result.value && result.value.recordDataBase64) {
+          const blob = base64toBlob(result.value.recordDataBase64, result.value.mimeType);
+          setRecordedAudio(blob);
+          setRecordingDuration(Math.round(result.value.duration / 1000));
+        } else {
+          throw new Error("No recording data returned.");
         }
-        mediaRef.current = null;
-        nativeFilePathRef.current = null;
+      } catch (error) {
+        console.error("Error stopping native recording:", error);
+        toast({ title: "Error saving recording", variant: "destructive" });
       }
     } else {
-      // --- WEB STOP ---
       if (mediaRecorder) {
         mediaRecorder.stop();
         setMediaRecorder(null);
