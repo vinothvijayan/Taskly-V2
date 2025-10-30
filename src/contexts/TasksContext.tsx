@@ -428,61 +428,79 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   const toggleTaskStatus = useCallback(async (taskId: string, options?: { playSound?: boolean }) => {
     if (!user || !userProfile) return;
 
-    let originalTask: Task | undefined;
-    let updatedTaskForState: Task | undefined;
+    const taskToLogPromise = new Promise<Task | undefined>((resolve) => {
+        setTasks(prev => {
+            const originalTask = prev.find(t => t.id === taskId);
+            if (!originalTask) {
+                resolve(undefined);
+                return prev;
+            }
 
-    setTasks(prev => {
-      originalTask = prev.find(t => t.id === taskId);
-      if (!originalTask) return prev;
+            const newStatus: Task["status"] = originalTask.status === "completed" ? "todo" : "completed";
+            const updatedTaskForState: Task = { ...originalTask, status: newStatus };
+            if (newStatus === "completed") {
+                updatedTaskForState.completedAt = new Date().toISOString();
+            } else {
+                delete updatedTaskForState.completedAt;
+            }
+            
+            resolve(updatedTaskForState);
 
-      const newStatus: Task["status"] = originalTask.status === "completed" ? "todo" : "completed";
-      updatedTaskForState = { ...originalTask, status: newStatus };
-      if (newStatus === "completed") {
-        updatedTaskForState.completedAt = new Date().toISOString();
-      } else {
-        delete updatedTaskForState.completedAt;
-      }
-      return sortTasks(prev.map(t => (t.id === taskId ? updatedTaskForState! : t)));
+            return sortTasks(prev.map(t => (t.id === taskId ? updatedTaskForState : t)));
+        });
     });
 
-    if (!originalTask || !updatedTaskForState) return;
+    const updatedTask = await taskToLogPromise;
+    if (!updatedTask) return;
+
+    const originalTask = tasks.find(t => t.id === taskId);
 
     try {
-      if (updatedTaskForState.status === "completed") {
-        if (options?.playSound !== false) playSound(TASK_COMPLETE_SOUND_URL);
-        showConfetti();
-        notificationService.showTaskCompleteNotification(originalTask.title);
-        await addNotification(
-          { title: "Task completed! 🎯", body: `Great job completing "${originalTask.title}"!`, type: 'task-complete', read: false, data: { taskId, taskTitle: originalTask.title } },
-          user.uid
-        );
+        if (updatedTask.status === "completed") {
+            if (options?.playSound !== false) playSound(TASK_COMPLETE_SOUND_URL);
+            showConfetti();
+            notificationService.showTaskCompleteNotification(updatedTask.title);
+            await addNotification(
+                { title: "Task completed! 🎯", body: `Great job completing "${updatedTask.title}"!`, type: 'task-complete', read: false, data: { taskId, taskTitle: updatedTask.title } },
+                user.uid
+            );
 
-        if (originalTask.teamId) {
-          const { logActivity } = await import('@/lib/activityLogger');
-          logActivity(
-            originalTask.teamId,
-            'TASK_COMPLETED',
-            { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
-            { task: { id: originalTask.id, title: originalTask.title } }
-          );
+            if (updatedTask.teamId) {
+                const { logActivity } = await import('@/lib/activityLogger');
+                logActivity(
+                    updatedTask.teamId,
+                    'TASK_COMPLETED',
+                    { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
+                    { 
+                        task: { 
+                            id: updatedTask.id, 
+                            title: updatedTask.title,
+                            subtasks: updatedTask.subtasks,
+                            timeSpent: updatedTask.timeSpent
+                        } 
+                    }
+                );
+            }
+            if (Capacitor.isNativePlatform()) {
+              await capacitorNotifications.cancelTaskReminder(taskId);
+            }
         }
-        if (Capacitor.isNativePlatform()) {
-          await capacitorNotifications.cancelTaskReminder(taskId);
-        }
-      }
 
-      const taskRefPath = originalTask.teamId ? `teams/${originalTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
-      const updateData: any = { 
-        status: updatedTaskForState.status, 
-        completedAt: updatedTaskForState.status === 'completed' ? updatedTaskForState.completedAt : deleteField() 
-      };
-      await updateDoc(doc(db, taskRefPath), updateData);
+        const taskRefPath = updatedTask.teamId ? `teams/${updatedTask.teamId}/tasks/${taskId}` : `users/${user.uid}/tasks/${taskId}`;
+        const updateData: any = { 
+            status: updatedTask.status, 
+            completedAt: updatedTask.status === 'completed' ? updatedTask.completedAt : deleteField() 
+        };
+        await updateDoc(doc(db, taskRefPath), updateData);
+
     } catch (error) {
-      setTasks(prev => sortTasks(prev.map(t => (t.id === taskId ? originalTask! : t))));
-      console.error("Error toggling task status:", error);
-      toast({ title: "Failed to update task", variant: "destructive" });
+        if (originalTask) {
+            setTasks(prev => sortTasks(prev.map(t => (t.id === taskId ? originalTask : t))));
+        }
+        console.error("Error toggling task status:", error);
+        toast({ title: "Failed to update task", variant: "destructive" });
     }
-  }, [user, userProfile, playSound, showConfetti, addNotification, toast]);
+  }, [user, userProfile, tasks, playSound, showConfetti, addNotification, toast]);
 
   const toggleTaskPriority = useCallback(async (taskId: string) => {
     if (!user) return;

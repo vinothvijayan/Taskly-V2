@@ -167,6 +167,8 @@ export interface Activity {
   task?: {
     id: string;
     title: string;
+    subtasks?: Subtask[];
+    timeSpent?: number;
   };
   comment?: {
     contentPreview: string;

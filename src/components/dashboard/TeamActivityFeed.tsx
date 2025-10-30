@@ -107,12 +107,6 @@ const formatTimeSpent = (seconds: number): string => {
 
 const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolean }) => {
   const { user, userProfile } = useAuth();
-  const { tasks } = useTasks();
-
-  const taskDetails = useMemo(() => {
-    if (!activity.task?.id) return null;
-    return tasks.find(t => t.id === activity.task.id);
-  }, [tasks, activity.task?.id]);
 
   const toggleReaction = async (emoji: string) => {
     if (!user || !userProfile?.teamId) return;
@@ -134,9 +128,9 @@ const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolea
       case 'TASK_CREATED':
         return <p className="text-sm text-muted-foreground">{actorName} created task {taskLink}</p>;
       case 'TASK_COMPLETED':
-        const completedSubtasks = taskDetails?.subtasks?.filter(s => s.isCompleted).length || 0;
-        const totalSubtasks = taskDetails?.subtasks?.length || 0;
-        const timeSpent = taskDetails?.timeSpent || 0;
+        const completedSubtasks = activity.task?.subtasks?.filter(s => s.isCompleted).length || 0;
+        const totalSubtasks = activity.task?.subtasks?.length || 0;
+        const timeSpent = activity.task?.timeSpent || 0;
 
         return (
           <div>
