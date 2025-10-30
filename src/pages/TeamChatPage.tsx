@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   MessageSquare,
   Send,
@@ -71,6 +72,7 @@ export default function TeamChatPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [readByOther, setReadByOther] = useState<Record<string, boolean>>({});
   const [filesToPreview, setFilesToPreview] = useState<File[]>([]);
+  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatRoomRef = useRef<any>(null);
@@ -383,6 +385,11 @@ export default function TeamChatPage() {
         files={filesToPreview}
         onSend={handleSendAttachment}
       />
+      <Dialog open={!!lightboxImageUrl} onOpenChange={(isOpen) => !isOpen && setLightboxImageUrl(null)}>
+        <DialogContent className="p-0 bg-transparent border-0 max-w-4xl h-auto w-auto">
+          <img src={lightboxImageUrl || ''} alt="Full size preview" className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg" />
+        </DialogContent>
+      </Dialog>
       <div className="h-full w-full bg-background flex overflow-hidden min-h-0">
         {isMobile ? (
           <>
@@ -447,9 +454,10 @@ export default function TeamChatPage() {
                                         {visibleAttachments.map((att, index) => {
                                             const isLastVisibleWithMore = index === 3 && remainingCount > 0;
                                             const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
+                                            const imageUrl = att.status === 'uploading' ? att.previewUrl : att.url;
                                             return (
-                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)}>
-                                                    <img src={att.status === 'uploading' ? att.previewUrl : att.url} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
+                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)} onClick={() => imageUrl && setLightboxImageUrl(imageUrl)}>
+                                                    <img src={imageUrl} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
                                                     {isLastVisibleWithMore && (<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white text-2xl font-bold">+{remainingCount}</span></div>)}
                                                     {att.status === 'uploading' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex items-center justify-center bg-black/30"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>)}
                                                     {att.status === 'failed' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>)}
@@ -575,9 +583,10 @@ export default function TeamChatPage() {
                                         {visibleAttachments.map((att, index) => {
                                             const isLastVisibleWithMore = index === 3 && remainingCount > 0;
                                             const threeImageClass = attachmentCount === 3 && index === 0 ? "row-span-2 h-full" : "aspect-square";
+                                            const imageUrl = att.status === 'uploading' ? att.previewUrl : att.url;
                                             return (
-                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)}>
-                                                    <img src={att.status === 'uploading' ? att.previewUrl : att.url} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
+                                                <div key={att.id || index} className={cn("relative bg-black/20", threeImageClass)} onClick={() => imageUrl && setLightboxImageUrl(imageUrl)}>
+                                                    <img src={imageUrl} alt="Attachment" className={cn("w-full h-full object-cover", att.status === 'uploading' && "opacity-50")} />
                                                     {isLastVisibleWithMore && (<div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-white text-2xl font-bold">+{remainingCount}</span></div>)}
                                                     {att.status === 'uploading' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex items-center justify-center bg-black/30"><Loader2 className="h-6 w-6 animate-spin text-white" /></div>)}
                                                     {att.status === 'failed' && !isLastVisibleWithMore && (<div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white p-2 text-center"><AlertCircle className="h-6 w-6 text-destructive mb-1" /><p className="text-xs font-semibold">Upload Failed</p></div>)}
