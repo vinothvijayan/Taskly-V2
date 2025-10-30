@@ -81,6 +81,7 @@
   "share_target": {
     "action": "/tasks?shared=true",
     "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "text",
