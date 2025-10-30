@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus } from 'lucide-react';
+import { CheckSquare, MessageSquare, PlusSquare, Users, SmilePlus, Clock } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -95,8 +95,24 @@ const useActivities = (
 
 const getInitials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
 
+const formatTimeSpent = (seconds: number): string => {
+  if (!seconds || seconds < 60) return `~1m`;
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  }
+  return `${minutes}m`;
+};
+
 const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolean }) => {
   const { user, userProfile } = useAuth();
+  const { tasks } = useTasks();
+
+  const taskDetails = useMemo(() => {
+    if (!activity.task?.id) return null;
+    return tasks.find(t => t.id === activity.task.id);
+  }, [tasks, activity.task?.id]);
 
   const toggleReaction = async (emoji: string) => {
     if (!user || !userProfile?.teamId) return;
@@ -118,7 +134,31 @@ const ActivityItem = ({ activity, isLast }: { activity: Activity, isLast: boolea
       case 'TASK_CREATED':
         return <p className="text-sm text-muted-foreground">{actorName} created task {taskLink}</p>;
       case 'TASK_COMPLETED':
-        return <p className="text-sm text-muted-foreground">{actorName} completed task {taskLink}</p>;
+        const completedSubtasks = taskDetails?.subtasks?.filter(s => s.isCompleted).length || 0;
+        const totalSubtasks = taskDetails?.subtasks?.length || 0;
+        const timeSpent = taskDetails?.timeSpent || 0;
+
+        return (
+          <div>
+            <p className="text-sm text-muted-foreground">{actorName} completed task {taskLink}</p>
+            {(timeSpent > 0 || totalSubtasks > 0) && (
+              <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                {timeSpent > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    <span>{formatTimeSpent(timeSpent)}</span>
+                  </div>
+                )}
+                {totalSubtasks > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <CheckSquare className="h-3 w-3" />
+                    <span>{completedSubtasks}/{totalSubtasks} subtasks</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
       case 'COMMENT_ADDED':
         return (
           <div>
