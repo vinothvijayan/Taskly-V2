@@ -187,9 +187,9 @@ export class NotificationService {
 
     const notificationId = `task-reminder-${task.id}-${minutesBefore}`;
 
-    console.log(`[Reminder] Scheduling actionable toast for task "${task.title}"`);
-    console.log(`[Reminder] Due at: ${dueDate.toLocaleString()}`);
-    console.log(`[Reminder] Toast will trigger at: ${reminderTime.toLocaleString()}`);
+    console.log(`[1/5] scheduleTaskReminder: Scheduling reminder via PWA scheduler for task "${task.title}"`);
+    console.log(`   - Due at: ${dueDate.toLocaleString()}`);
+    console.log(`   - Reminder will fire at: ${reminderTime.toLocaleString()}`);
 
     await pwaNotificationScheduler.cancelNotification(notificationId);
 

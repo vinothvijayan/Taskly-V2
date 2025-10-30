@@ -35,7 +35,7 @@ class PwaNotificationScheduler {
     await indexedDBManager.init();
     this.startScheduleChecker();
     await this.checkMissedNotifications();
-    console.log("PWA Notification Scheduler Initialized.");
+    console.log("PWA Notification Scheduler Initializing...");
   }
 
   async scheduleNotification(notification: Omit<ScheduledNotification, 'id' | 'createdAt' | 'status'> & { id: string }): Promise<string> {
@@ -45,6 +45,7 @@ class PwaNotificationScheduler {
       status: 'pending'
     };
     await this.saveScheduledNotification(scheduledNotification);
+    console.log('[2/5] pwaNotificationScheduler: Saving notification to IndexedDB.', scheduledNotification);
     const timeDiff = notification.scheduledTime - Date.now();
     if (timeDiff <= 5 * 60 * 1000 && timeDiff > 0) {
       setTimeout(() => this.deliverNotification(scheduledNotification.id), timeDiff);
@@ -95,6 +96,7 @@ class PwaNotificationScheduler {
 
   private async checkDueNotifications(): Promise<void> {
     try {
+      console.log('[3/5] pwaNotificationScheduler: Checking for due notifications...', new Date().toLocaleTimeString());
       if (typeof indexedDBManager.getStore !== 'function') return;
       const pendingNotifications = await this.getAllPendingNotifications();
       const now = Date.now();
@@ -143,7 +145,7 @@ class PwaNotificationScheduler {
       }
       
       if (notification.data?.type === 'actionable-task-reminder') {
-        console.log(`[Scheduler] Delivering actionable toast reminder for task: "${notification.data.task.title}"`);
+        console.log(`[4/5] pwaNotificationScheduler: Delivering notification! Firing event.`, notification);
         window.dispatchEvent(new CustomEvent('show-actionable-reminder', {
             detail: {
                 task: notification.data.task,

@@ -372,6 +372,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
       const dueDateChanged = 'dueDate' in taskData && originalTask.dueDate !== taskData.dueDate;
       const statusChangedToCompleted = 'status' in taskData && taskData.status === 'completed';
 
+      // Universal reminder handling
       if (dueDateChanged || statusChangedToCompleted) {
         if (Capacitor.isNativePlatform()) {
           await capacitorNotifications.cancelTaskReminder(taskId);
@@ -629,7 +630,7 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleShowReminder = (event: CustomEvent) => {
         const { task, minutesBefore } = event.detail;
-        console.log(`[Reminder] Event listener caught reminder for task "${task.title}"`);
+        console.log(`[5/5] TasksContext: Event listener caught "show-actionable-reminder"! Showing toast.`, event.detail);
         notificationService.showActionableTaskReminder(task, minutesBefore);
     };
 
