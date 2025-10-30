@@ -611,6 +611,12 @@ export default function TeamChatPage() {
                                     </div>
                                   </div>
                                 )}
+                                {hasAttachments && !hasCaption && (
+                                  <div className="flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end">
+                                    <span>{formatMessageTime(message.timestamp)}</span>
+                                    {isMyMessage && getMessageTickIcon(message)}
+                                  </div>
+                                )}
                               </div>
                             </div></ContextMenuTrigger><ContextMenuContent className="w-48 bg-background border shadow-lg z-50"><ContextMenuItem onClick={() => createTaskFromMessage(message)}><Plus className="mr-2 h-4 w-4" />Create Task</ContextMenuItem><ContextMenuItem onClick={() => copyMessage(message)}><Copy className="mr-2 h-4 w-4" />Copy Message</ContextMenuItem><ContextMenuItem onClick={() => replyToMessage(message)}><Reply className="mr-2 h-4 w-4" />Reply</ContextMenuItem></ContextMenuContent></ContextMenu>;
                           };
@@ -777,6 +783,12 @@ export default function TeamChatPage() {
                                       <span>{formatMessageTime(message.timestamp)}</span>
                                       {isMyMessage && getMessageTickIcon(message)}
                                     </div>
+                                  </div>
+                                )}
+                                {hasAttachments && !hasCaption && (
+                                  <div className="flex items-center gap-1 text-xs opacity-70 whitespace-nowrap mt-1 w-full justify-end">
+                                    <span>{formatMessageTime(message.timestamp)}</span>
+                                    {isMyMessage && getMessageTickIcon(message)}
                                   </div>
                                 )}
                               </div>
