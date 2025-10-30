@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Attachment } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Mic } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -48,7 +48,6 @@ export function VoiceMessagePlayer({ attachment, isMyMessage, senderAvatar, send
 
     const handleEnded = () => {
       setIsPlaying(false);
-      setCurrentTime(0);
       setProgress(0);
     };
 
@@ -56,16 +55,12 @@ export function VoiceMessagePlayer({ attachment, isMyMessage, senderAvatar, send
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
 
-    if (attachment.duration) {
-      setDuration(attachment.duration);
-    }
-
     return () => {
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
     };
-  }, [attachment.duration]);
+  }, []);
 
   const togglePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -85,46 +80,45 @@ export function VoiceMessagePlayer({ attachment, isMyMessage, senderAvatar, send
     if (audio && duration) {
       const newTime = (value[0] / 100) * duration;
       audio.currentTime = newTime;
-      setCurrentTime(newTime);
     }
   };
 
   return (
-    <div className="flex items-center gap-2 w-64">
+    <div className="flex items-center gap-2 w-[250px] sm:w-[280px]">
       <audio ref={audioRef} src={attachment.url} preload="metadata" />
       
-      {!isMyMessage && (
-        <Avatar className="h-10 w-10 flex-shrink-0">
-          <AvatarImage src={senderAvatar} />
-          <AvatarFallback>{getInitials(senderName)}</AvatarFallback>
-        </Avatar>
-      )}
-
       <Button
         variant="ghost"
         size="icon"
         className={cn(
           "h-10 w-10 rounded-full flex-shrink-0",
-          isMyMessage ? "bg-white/20 hover:bg-white/30 text-black" : "bg-black/10 hover:bg-black/20 text-black"
+          isMyMessage ? "bg-green-200/50 hover:bg-green-300/50" : "bg-gray-200 hover:bg-gray-300",
+          "dark:bg-white/10 dark:hover:bg-white/20"
         )}
         onClick={togglePlayPause}
       >
-        {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-1" />}
+        {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
       </Button>
       
-      <div className="flex-1 flex flex-col justify-center gap-1">
+      <div className="flex-1 flex flex-col gap-1.5">
         <Slider
           value={[progress]}
           onValueChange={handleSliderChange}
           max={100}
           step={1}
-          className="w-full"
+          className="w-full [&>span:first-child]:h-1 [&>span:first-child>span]:h-1"
         />
-        <div className="flex justify-between items-center">
-          <span className="text-xs font-mono opacity-70">{formatTime(duration)}</span>
-          <Mic className="h-3 w-3 opacity-70" />
-        </div>
+        <span className="text-xs font-mono text-muted-foreground self-end">
+          {formatTime(duration)}
+        </span>
       </div>
+      
+      {!isMyMessage && (
+        <Avatar className="h-10 w-10 flex-shrink-0 ml-2">
+          <AvatarImage src={senderAvatar} />
+          <AvatarFallback>{getInitials(senderName)}</AvatarFallback>
+        </Avatar>
+      )}
     </div>
   );
 }

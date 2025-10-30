@@ -645,6 +645,11 @@ export default function TeamChatPage() {
                             const hasCaption = message.message && message.message.trim().length > 0;
 
                             const renderAttachments = () => {
+                                const isSingleAudio = attachmentCount === 1 && attachments[0].type === 'audio';
+                                if (isSingleAudio) {
+                                    return <VoiceMessagePlayer attachment={attachments[0]} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />;
+                                }
+
                                 const visibleAttachments = attachments.slice(0, 4);
                                 const remainingCount = attachmentCount - 4;
                                 return (
@@ -656,13 +661,6 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
-                                            if (att.type === 'audio') {
-                                                return (
-                                                    <div key={att.id || index} className="col-span-2">
-                                                        <VoiceMessagePlayer attachment={att} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />
-                                                    </div>
-                                                )
-                                            }
                                             if (att.type === 'document') {
                                                 return (
                                                     <div key={att.id || index} className="col-span-2">
@@ -851,6 +849,11 @@ export default function TeamChatPage() {
                             const hasCaption = message.message && message.message.trim().length > 0;
 
                             const renderAttachments = () => {
+                                const isSingleAudio = attachmentCount === 1 && attachments[0].type === 'audio';
+                                if (isSingleAudio) {
+                                    return <VoiceMessagePlayer attachment={attachments[0]} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />;
+                                }
+
                                 const visibleAttachments = attachments.slice(0, 4);
                                 const remainingCount = attachmentCount - 4;
                                 return (
@@ -862,13 +865,6 @@ export default function TeamChatPage() {
                                         attachmentCount >= 4 && "grid-cols-2 grid-rows-2",
                                     )}>
                                         {visibleAttachments.map((att, index) => {
-                                            if (att.type === 'audio') {
-                                                return (
-                                                    <div key={att.id || index} className="col-span-2">
-                                                        <VoiceMessagePlayer attachment={att} isMyMessage={isMyMessage} senderAvatar={message.senderAvatar} senderName={message.senderName} />
-                                                    </div>
-                                                )
-                                            }
                                             if (att.type === 'document') {
                                                 return (
                                                     <div key={att.id || index} className="col-span-2">
