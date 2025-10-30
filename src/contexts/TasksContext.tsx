@@ -467,18 +467,17 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
 
             if (updatedTask.teamId) {
                 const { logActivity } = await import('@/lib/activityLogger');
+                const activityTaskPayload = {
+                    id: updatedTask.id,
+                    title: updatedTask.title,
+                    ...(updatedTask.subtasks && { subtasks: updatedTask.subtasks }),
+                    ...(updatedTask.timeSpent && { timeSpent: updatedTask.timeSpent }),
+                };
                 logActivity(
                     updatedTask.teamId,
                     'TASK_COMPLETED',
                     { uid: user.uid, displayName: userProfile.displayName || user.email!, photoURL: userProfile.photoURL },
-                    { 
-                        task: { 
-                            id: updatedTask.id, 
-                            title: updatedTask.title,
-                            subtasks: updatedTask.subtasks,
-                            timeSpent: updatedTask.timeSpent
-                        } 
-                    }
+                    { task: activityTaskPayload }
                 );
             }
             if (Capacitor.isNativePlatform()) {
