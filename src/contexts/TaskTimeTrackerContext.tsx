@@ -37,6 +37,16 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
   const { updateTaskTimeSpent, updateSubtaskTimeSpent, getTaskById } = useTasks();
   const { toast } = useToast();
 
+  const getFormattedTime = (seconds: number): string => {
+    if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) return '0s';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    if (minutes > 0) return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
+    return `${remainingSeconds}s`;
+  };
+
   useEffect(() => {
     const handleMessage = async (event: MessageEvent) => {
       if (event.data.type === 'TIME_TRACKING_UPDATE') {
@@ -166,16 +176,6 @@ export function TaskTimeTrackerProvider({ children }: { children: ReactNode }) {
     setTrackingSubtask(null);
     setCurrentSubtaskElapsedSeconds(0);
     setIsTrackingSubtask(false);
-  };
-
-  const getFormattedTime = (seconds: number): string => {
-    if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) return '0s';
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    if (hours > 0) return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
-    if (minutes > 0) return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
-    return `${remainingSeconds}s`;
   };
 
   const value = {
