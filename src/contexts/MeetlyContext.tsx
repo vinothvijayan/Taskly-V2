@@ -31,17 +31,13 @@ import { showLoading, dismissToast } from "@/utils/toast";
 // Declare the global Media object from cordova-plugin-media
 declare var Media: any;
 
-interface StartRecordingOptions {
-  recordSystemAudio: boolean;
-}
-
 interface MeetlyContextType {
   recordings: MeetingRecording[];
   loading: boolean;
   isRecording: boolean;
   recordingDuration: number;
   recordedAudio: Blob | null;
-  startRecording: (options: StartRecordingOptions) => Promise<void>;
+  startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
   deleteRecording: (recordingId: string) => Promise<void>;
   uploadRecording: (audioBlob: Blob, title: string, duration: number) => Promise<void>;
@@ -130,17 +126,51 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
     updateLevel();
   };
 
-  const startRecorderWithStream = async (stream: MediaStream, isSystemAudio: boolean) => {
+  const startRecording = async () => {
+    if (!user) throw new Error("Authentication required.");
+    if (recordedAudio) setRecordedAudio(null);
+
+    let systemStream: MediaStream | null = null;
+    let micStream: MediaStream | null = null;
+
     try {
-      streamRef.current = stream;
+      // 1. Get System Audio (from tab)
+      if (!navigator.mediaDevices.getDisplayMedia) {
+        throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
+      }
+      systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const systemAudioTracks = systemStream.getAudioTracks();
+      if (systemAudioTracks.length === 0 || !systemAudioTracks[0].enabled || systemAudioTracks[0].muted) {
+        throw new Error("To record meeting audio, you MUST select a browser TAB and check 'Share tab audio'.");
+      }
+
+      // 2. Get Microphone Audio
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+
+      // 3. Mix Audio Streams
+      const audioContext = new AudioContext();
+      const systemSource = audioContext.createMediaStreamSource(systemStream);
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const destination = audioContext.createMediaStreamDestination();
+      systemSource.connect(destination);
+      micSource.connect(destination);
+      
+      const mixedStream = destination.stream;
+      // Add video track to keep screen share active, but it won't be recorded
+      mixedStream.addTrack(systemStream.getVideoTracks()[0]);
+      streamRef.current = mixedStream;
+
+      // 4. Start Recording the Mixed Stream
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const recorder = new MediaRecorder(mixedStream, { mimeType });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.push(event.data); };
       recorder.onstop = () => {
         const audioBlob = new Blob(chunks, { type: mimeType });
         setRecordedAudio(audioBlob);
-        streamRef.current?.getTracks().forEach(track => track.stop());
+        // Stop all original tracks
+        systemStream?.getTracks().forEach(track => track.stop());
+        micStream?.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       };
       recorder.start(1000);
@@ -148,79 +178,25 @@ export function MeetlyContextProvider({ children }: { children: ReactNode }) {
       setIsRecording(true);
       setRecordingStartTime(Date.now());
       setRecordingDuration(0);
-      if (!Capacitor.isNativePlatform()) {
-        setupAudioAnalyser(stream);
-      }
-      toast({ title: "Recording Started 🎙️", description: isSystemAudio ? "Recording system audio." : "Recording microphone." });
-    } catch (error) {
-      console.error("Error starting MediaRecorder:", error);
-      if (stream) stream.getTracks().forEach(track => track.stop());
-      if (error instanceof DOMException && error.name === 'NotSupportedError' && isSystemAudio) {
-        throw new Error("Could not record audio from the selected screen/window. Please try sharing a 'Chrome Tab' with audio enabled instead.");
-      } else {
-        throw error;
-      }
-    }
-  };
+      setupAudioAnalyser(mixedStream);
+      toast({ title: "Recording Started 🎙️", description: "Capturing both system and microphone audio." });
 
-  const startRecording = async (options: StartRecordingOptions) => {
-    if (!user) {
-      throw new Error("Authentication required.");
-    }
-    if (recordedAudio) setRecordedAudio(null);
-
-    if (Capacitor.isNativePlatform()) {
-      // Native platform logic remains microphone-only
-    } else {
-      // Web platform logic
-      if (options.recordSystemAudio) {
-        // --- ATTEMPT SYSTEM AUDIO ---
-        let systemStream: MediaStream | null = null;
-        try {
-          if (!navigator.mediaDevices.getDisplayMedia) {
-            throw new Error("Your browser does not support screen recording, which is required for system audio capture.");
-          }
-          systemStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-          const audioTracks = systemStream.getAudioTracks();
-          if (audioTracks.length === 0 || !audioTracks[0].enabled || audioTracks[0].muted) {
-            systemStream.getTracks().forEach(track => track.stop());
-            throw new Error("To record system audio, you must select a browser TAB and check 'Share tab audio'. Sharing an entire screen or a window will not work.");
-          }
-          await startRecorderWithStream(systemStream, true);
-        } catch (error: any) {
-          if (systemStream) systemStream.getTracks().forEach(track => track.stop());
-          // Don't fall back. Just re-throw the error for the UI to handle.
-          throw error;
-        }
-      } else {
-        // --- ATTEMPT MICROPHONE AUDIO ---
-        try {
-          const micStream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
-          });
-          await startRecorderWithStream(micStream, false);
-        } catch (micError: any) {
-          console.error("Microphone access failed:", micError);
-          throw new Error("Could not access your microphone. Please check your browser's permissions.");
-        }
-      }
+    } catch (error: any) {
+      // Cleanup streams if any part fails
+      systemStream?.getTracks().forEach(track => track.stop());
+      micStream?.getTracks().forEach(track => track.stop());
+      console.error("Recording failed:", error);
+      throw error; // Re-throw for the UI to catch and display
     }
   };
 
   const stopRecording = async () => {
     if (!isRecording) return;
-    if (Capacitor.isNativePlatform()) {
-      // Native logic remains the same
-    } else {
-      if (mediaRecorder) {
-        mediaRecorder.stop();
-        setMediaRecorder(null);
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+    if (mediaRecorder) {
+      mediaRecorder.stop();
+      setMediaRecorder(null);
     }
+    // The onstop event handler for MediaRecorder will handle stopping the stream tracks.
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     if (audioContextRef.current) {
       audioContextRef.current.close();
