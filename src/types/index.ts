@@ -73,13 +73,14 @@ export interface AppNotification {
 
 export interface Attachment {
   id: string;
-  type: 'image' | 'video' | 'document';
+  type: 'image' | 'video' | 'document' | 'audio';
   url: string;
   fileName?: string;
   fileSize?: number;
   fileType?: string;
   previewUrl?: string;
   status?: 'uploading' | 'sent' | 'failed';
+  duration?: number; // for audio/video
 }
 
 export interface ChatMessage {

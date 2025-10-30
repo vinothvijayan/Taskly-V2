@@ -45,7 +45,11 @@ import {
   Smile,
   AlertCircle,
   Image as ImageIcon,
-  FileText
+  FileText,
+  Mic,
+  Square,
+  Trash2,
+  Play
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { AttachmentPreviewModal } from "@/components/chat/AttachmentPreviewModal";
@@ -90,6 +94,13 @@ export default function TeamChatPage() {
     startIndex: 0,
   });
   
+  // Voice message state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [recordedAudio, setRecordedAudio] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatRoomRef = useRef<any>(null);
   const messageStatusRef = useRef<any>(null);
@@ -481,6 +492,90 @@ export default function TeamChatPage() {
   const copyMessage = (message: ChatMessage) => navigator.clipboard.writeText(message.message).then(() => toast({ title: "Copied" })).catch(() => toast({ title: "Error", variant: "destructive" }));
   const replyToMessage = (message: ChatMessage) => { setNewMessage(`@${message.senderName}: "${message.message.substring(0, 30)}..."\n\n`); inputRef.current?.focus(); };
   useEffect(() => () => { isMountedRef.current = false; }, []);
+
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      const chunks: Blob[] = [];
+      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+        setRecordedAudio(audioBlob);
+      };
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      toast({ title: "Microphone access denied", variant: "destructive" });
+    }
+  };
+
+  const handleStopRecording = () => {
+    mediaRecorderRef.current?.stop();
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+  };
+
+  const handleDiscardRecording = () => {
+    setRecordedAudio(null);
+    setRecordingDuration(0);
+  };
+
+  const handleSendVoiceMessage = async () => {
+    if (!recordedAudio || !user || !selectedUser || !userProfile) return;
+    setSending(true);
+    try {
+      const chatRoomId = generateChatRoomId(user.uid, selectedUser.uid);
+      const timestamp = Date.now();
+      const filePath = `chat_attachments/${chatRoomId}/${timestamp}_voice_message.webm`;
+      const fileRef = storageRef(storage, filePath);
+      const snapshot = await uploadBytes(fileRef, recordedAudio);
+      const finalAudioUrl = await getDownloadURL(snapshot.ref);
+
+      const attachment: Attachment = {
+        id: `audio-${timestamp}`,
+        type: 'audio',
+        url: finalAudioUrl,
+        fileName: 'Voice Message',
+        fileSize: recordedAudio.size,
+        fileType: recordedAudio.type,
+        duration: recordingDuration,
+      };
+
+      const messageData: Omit<ChatMessage, 'id' | 'timestamp'> & { timestamp: any } = {
+        senderId: user.uid,
+        senderName: userProfile.displayName || user.email || 'Unknown',
+        senderEmail: user.email || '',
+        senderAvatar: userProfile.photoURL,
+        message: '',
+        timestamp: serverTimestamp(),
+        type: 'media',
+        attachments: [attachment],
+      };
+
+      const messagesRef = ref(rtdb, `chats/${chatRoomId}/messages`);
+      await push(messagesRef, messageData);
+
+      const chatRoomInfoRef = doc(db, `chatRooms/${chatRoomId}`);
+      await setDoc(chatRoomInfoRef, { 
+        participants: [user.uid, selectedUser.uid], 
+        lastActivity: firestoreServerTimestamp(),
+        lastMessage: { ...messageData, message: '🎤 Voice Message' }
+      }, { merge: true });
+
+      handleDiscardRecording();
+    } catch (error) {
+      console.error("Error sending voice message:", error);
+      toast({ title: "Failed to send voice message", variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <>
