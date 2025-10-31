@@ -10,7 +10,7 @@ from urllib.parse import quote
 import re
 
 # --- SECURITY WARNING: Hardcoding API keys is dangerous. Use Secret Manager instead. ---
-HARDCODED_GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q"
+HARDCODED_GEMINI_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
 
 from firebase_admin import initialize_app, storage, firestore, _apps
 from firebase_functions import storage_fn, https_fn 
@@ -126,11 +126,6 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
     print(f"PDF export requested by user {user_id} for range {start_date_str} to {end_date_str}")
     
     try:
-        # --- LAZY IMPORT ---
-        # This prevents the weasyprint library from causing deployment failures
-        # for other functions if its system dependencies are not met.
-        from weasyprint import HTML
-
         db = firestore.client()
         
         entries_query = db.collection('journalEntries') \
@@ -167,6 +162,7 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
         if not pdf_days_data:
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.NOT_FOUND, message="No content available to export.")
 
+        from weasyprint import HTML
         html_content = create_html_for_pdf(pdf_days_data)
         pdf_bytes = HTML(string=html_content).write_pdf()
 
@@ -216,7 +212,7 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
     
     try:
         with open(audio_file_path, "rb") as audio_file:
@@ -244,7 +240,7 @@ def get_wellness_analysis(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
     analysis_prompt = f"""
         You are Taskly's AI Wellness Coach. Your tone is supportive, insightful, and encouraging. You are speaking directly to the user.
         Analyze the user's combined journal entries for the day based on the following transcript.
@@ -273,7 +269,7 @@ def get_detailed_narrative(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
+    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
     
     analysis_prompt = f"""
         You are an AI journaling assistant. Your task is to synthesize the following journal entries from a single day into a single, detailed, and cohesive narrative.
