@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { usePlanComments } from '@/contexts/PlanCommentsContext';
 import { PlanComment } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, MessageSquare, Send } from 'lucide-react';
+import { Loader2, MessageSquare, Send, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 
@@ -15,9 +15,12 @@ interface CommentItemProps {
   allRepliesMap: Record<string, PlanComment[]>;
   onReply: (content: string, parentId: string) => void;
   isReply?: boolean;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  hasUnseenReplies: boolean;
 }
 
-function CommentItem({ comment, replies, allRepliesMap, onReply, isReply = false }: CommentItemProps) {
+function CommentItem({ comment, replies, allRepliesMap, onReply, isReply = false, isExpanded, onToggleExpand, hasUnseenReplies }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const { user, userProfile } = useAuth();
@@ -83,17 +86,29 @@ function CommentItem({ comment, replies, allRepliesMap, onReply, isReply = false
         )}
 
         {replies.length > 0 && (
-          <div className="mt-4 space-y-4">
-            {replies.map(reply => (
-              <CommentItem
-                key={reply.id}
-                comment={reply}
-                replies={allRepliesMap[reply.id] || []}
-                allRepliesMap={allRepliesMap}
-                onReply={onReply}
-                isReply={true}
-              />
-            ))}
+          <div className="mt-2">
+            <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground" onClick={onToggleExpand}>
+              <ChevronDown className={`h-4 w-4 mr-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+              {isExpanded ? 'Hide' : `${replies.length} ${replies.length > 1 ? 'replies' : 'reply'}`}
+              {hasUnseenReplies && !isExpanded && <div className="h-2 w-2 bg-primary rounded-full ml-2" />}
+            </Button>
+            {isExpanded && (
+              <div className="mt-3 space-y-3 pl-4 border-l-2">
+                {replies.map(reply => (
+                  <CommentItem
+                    key={reply.id}
+                    comment={reply}
+                    replies={allRepliesMap[reply.id] || []}
+                    allRepliesMap={allRepliesMap}
+                    onReply={onReply}
+                    isReply={true}
+                    isExpanded={true} // Replies within replies are always expanded for simplicity
+                    onToggleExpand={() => {}}
+                    hasUnseenReplies={false}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -105,15 +120,18 @@ export function PlanComments({ planId }: { planId: string }) {
   const { comments, loading, addComment, subscribeToComments } = usePlanComments();
   const { user, userProfile } = useAuth();
   const [newComment, setNewComment] = useState('');
+  const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
+  const manuallyCollapsedThreads = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = subscribeToComments(planId);
     return () => unsubscribe();
   }, [planId, subscribeToComments]);
 
-  const { topLevelComments, repliesByParentId } = useMemo(() => {
+  const { topLevelComments, repliesByParentId, threadsWithUnseenReplies } = useMemo(() => {
     const topLevel: PlanComment[] = [];
     const repliesMap: Record<string, PlanComment[]> = {};
+    const unseenThreads = new Set<string>();
 
     comments.forEach(comment => {
       if (comment.parentId) {
@@ -121,12 +139,41 @@ export function PlanComments({ planId }: { planId: string }) {
           repliesMap[comment.parentId] = [];
         }
         repliesMap[comment.parentId].push(comment);
+        if (comment.authorId !== user?.uid) {
+          unseenThreads.add(comment.parentId);
+        }
       } else {
         topLevel.push(comment);
       }
     });
-    return { topLevelComments: topLevel, repliesByParentId: repliesMap };
-  }, [comments]);
+    return { topLevelComments: topLevel, repliesByParentId: repliesMap, threadsWithUnseenReplies: unseenThreads };
+  }, [comments, user]);
+
+  useEffect(() => {
+    setExpandedThreads(prevExpanded => {
+      const newExpanded = new Set(prevExpanded);
+      threadsWithUnseenReplies.forEach(threadId => {
+        if (!manuallyCollapsedThreads.current.has(threadId)) {
+          newExpanded.add(threadId);
+        }
+      });
+      return newExpanded;
+    });
+  }, [threadsWithUnseenReplies]);
+
+  const toggleThread = (commentId: string) => {
+    setExpandedThreads(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commentId)) {
+        newSet.delete(commentId);
+        manuallyCollapsedThreads.current.add(commentId);
+      } else {
+        newSet.add(commentId);
+        manuallyCollapsedThreads.current.delete(commentId);
+      }
+      return newSet;
+    });
+  };
 
   const handlePostComment = () => {
     if (newComment.trim()) {
@@ -184,6 +231,9 @@ export function PlanComments({ planId }: { planId: string }) {
                 replies={repliesByParentId[comment.id] || []}
                 allRepliesMap={repliesByParentId}
                 onReply={handleReply}
+                isExpanded={expandedThreads.has(comment.id)}
+                onToggleExpand={() => toggleThread(comment.id)}
+                hasUnseenReplies={threadsWithUnseenReplies.has(comment.id)}
               />
             ))
           ) : (
