@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -21,10 +21,12 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const { user, userProfile } = useAuth();
   const { addNotification } = useNotifications();
+  const isInitialLoadRef = useRef(true); // Ref to track initial data load
 
   const subscribeToComments = useCallback((planId: string) => {
     if (!userProfile?.teamId) return () => {};
     setLoading(true);
+    isInitialLoadRef.current = true; // Reset for new subscription
 
     const commentsQuery = query(
       collection(db, 'teams', userProfile.teamId, 'plans', planId, 'comments'),
@@ -32,34 +34,37 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
     );
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      // Rebuild the full list from the snapshot to prevent duplicates
       const fullCommentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PlanComment));
 
-      // Handle notifications for new comments from other users
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const newComment = change.doc.data() as PlanComment;
-          // Only show toast if the comment is new and from another user
-          if (newComment.authorId !== user?.uid && newComment.createdAt) {
-            toast.custom((t) => (
-              <CommentToast
-                authorName={newComment.authorName}
-                authorAvatar={newComment.authorAvatar}
-                commentPreview={newComment.content}
-                onDismiss={() => toast.dismiss(t)}
-              />
-            ));
-            addNotification({
-              title: `New comment from ${newComment.authorName}`,
-              body: newComment.content,
-              type: 'general',
-              read: false,
-            });
+      // Only process notifications for changes *after* the initial load
+      if (!isInitialLoadRef.current) {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const newComment = change.doc.data() as PlanComment;
+            // Only show toast if the comment is new and from another user
+            if (newComment.authorId !== user?.uid && newComment.createdAt) {
+              toast.custom((t) => (
+                <CommentToast
+                  authorName={newComment.authorName}
+                  authorAvatar={newComment.authorAvatar}
+                  commentPreview={newComment.content}
+                  onDismiss={() => toast.dismiss(t)}
+                />
+              ));
+              addNotification({
+                title: `New comment from ${newComment.authorName}`,
+                body: newComment.content,
+                type: 'general',
+                read: false,
+              });
+            }
           }
-        }
-      });
+        });
+      }
       
-      // Sort the full list, gracefully handling optimistic updates where createdAt is null
+      // After the first snapshot is processed, it's no longer the initial load.
+      isInitialLoadRef.current = false;
+      
       const sortedList = fullCommentsList.sort((a, b) => {
         const aTime = a.createdAt?.toMillis() || Date.now(); // Fallback for optimistic update
         const bTime = b.createdAt?.toMillis() || Date.now();
