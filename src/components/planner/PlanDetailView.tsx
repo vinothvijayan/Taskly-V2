@@ -68,9 +68,9 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
             <div>
               <CardTitle className="text-xl">{plan.title}</CardTitle>
               <CardDescription className="truncate">
-                {plan.description && plan.description.length > 50 
+                {plan.shortDescription || (plan.description && plan.description.length > 50 
                   ? `${plan.description.substring(0, 50)}...` 
-                  : plan.description || "No description for this plan."}
+                  : plan.description) || "No description for this plan."}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">

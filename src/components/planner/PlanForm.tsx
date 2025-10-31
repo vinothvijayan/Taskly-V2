@@ -17,16 +17,19 @@ interface PlanFormProps {
 export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
   const { addPlan, updatePlan } = usePlanner();
   const [title, setTitle] = useState("");
+  const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<Plan['status']>('Not Started');
 
   useEffect(() => {
     if (plan) {
       setTitle(plan.title);
+      setShortDescription(plan.shortDescription || "");
       setDescription(plan.description || "");
       setStatus(plan.status);
     } else {
       setTitle("");
+      setShortDescription("");
       setDescription("");
       setStatus("Not Started");
     }
@@ -36,7 +39,7 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const planData = { title, description, status };
+    const planData = { title, shortDescription, description, status };
 
     if (plan) {
       updatePlan(plan.id, planData);
@@ -59,6 +62,17 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
           <div>
             <Label htmlFor="plan-title">Title *</Label>
             <Input id="plan-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          </div>
+          <div>
+            <Label htmlFor="plan-short-description">Short Description (Optional)</Label>
+            <Textarea 
+              id="plan-short-description" 
+              value={shortDescription} 
+              onChange={(e) => setShortDescription(e.target.value)} 
+              rows={2}
+              maxLength={100}
+              placeholder="A brief summary for the plan header (max 100 characters)."
+            />
           </div>
           <div>
             <Label htmlFor="plan-description">Detailed Proposal (Markdown supported)</Label>

@@ -59,6 +59,7 @@ export interface Task {
 export interface Plan {
   id: string;
   title: string;
+  shortDescription?: string;
   description?: string;
   status: 'Not Started' | 'In Progress' | 'Completed';
   teamId: string;
