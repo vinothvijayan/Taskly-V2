@@ -95,7 +95,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     try {
       const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       const prompt = `
         You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
