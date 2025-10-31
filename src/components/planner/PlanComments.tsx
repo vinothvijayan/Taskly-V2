@@ -7,17 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, MessageSquare, Send } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
 
 interface CommentItemProps {
   comment: PlanComment;
   replies: PlanComment[];
   allRepliesMap: Record<string, PlanComment[]>;
   onReply: (content: string, parentId: string) => void;
+  isReply?: boolean;
 }
 
-function CommentItem({ comment, replies, allRepliesMap, onReply }: CommentItemProps) {
+function CommentItem({ comment, replies, allRepliesMap, onReply, isReply = false }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
+  const { user, userProfile } = useAuth();
 
   const getInitials = (name: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
 
@@ -30,42 +33,57 @@ function CommentItem({ comment, replies, allRepliesMap, onReply }: CommentItemPr
   };
 
   return (
-    <div className="flex items-start gap-3">
-      <Avatar className="h-9 w-9">
+    <div className="relative flex items-start gap-4 group">
+      {!isReply && replies.length > 0 && <div className="absolute top-10 left-5 h-[calc(100%_-_2.5rem)] w-0.5 bg-border/60" />}
+      
+      <Avatar className="h-10 w-10 flex-shrink-0">
         <AvatarImage src={comment.authorAvatar} />
         <AvatarFallback>{getInitials(comment.authorName)}</AvatarFallback>
       </Avatar>
+
       <div className="flex-1">
-        <div className="bg-muted/50 rounded-lg p-3">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <span className="font-semibold text-sm">{comment.authorName}</span>
             <span className="text-xs text-muted-foreground">
               {comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : '...'}
             </span>
           </div>
-          <p className="text-sm mt-1 whitespace-pre-wrap">{comment.content}</p>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowReplyForm(!showReplyForm)}>
+              Reply
+            </Button>
+          </div>
         </div>
-        <div className="mt-1">
-          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowReplyForm(!showReplyForm)}>
-            Reply
-          </Button>
+        
+        <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90">
+          <p className="whitespace-pre-wrap">{comment.content}</p>
         </div>
+
         {showReplyForm && (
-          <div className="mt-2 space-y-2">
-            <Textarea
-              value={replyContent}
-              onChange={(e) => setReplyContent(e.target.value)}
-              placeholder={`Reply to ${comment.authorName}...`}
-              rows={2}
-            />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowReplyForm(false)}>Cancel</Button>
-              <Button size="sm" onClick={handlePostReply}>Post</Button>
+          <div className="mt-3 flex items-start gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={userProfile?.photoURL || ''} />
+              <AvatarFallback className="text-xs">{getInitials(userProfile?.displayName || '')}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 space-y-2">
+              <Textarea
+                value={replyContent}
+                onChange={(e) => setReplyContent(e.target.value)}
+                placeholder={`Reply to ${comment.authorName}...`}
+                rows={2}
+                className="bg-background"
+              />
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowReplyForm(false)}>Cancel</Button>
+                <Button size="sm" onClick={handlePostReply}>Post Reply</Button>
+              </div>
             </div>
           </div>
         )}
+
         {replies.length > 0 && (
-          <div className="mt-3 space-y-3 pl-4 border-l-2">
+          <div className="mt-4 space-y-4">
             {replies.map(reply => (
               <CommentItem
                 key={reply.id}
@@ -73,6 +91,7 @@ function CommentItem({ comment, replies, allRepliesMap, onReply }: CommentItemPr
                 replies={allRepliesMap[reply.id] || []}
                 allRepliesMap={allRepliesMap}
                 onReply={onReply}
+                isReply={true}
               />
             ))}
           </div>
@@ -84,6 +103,7 @@ function CommentItem({ comment, replies, allRepliesMap, onReply }: CommentItemPr
 
 export function PlanComments({ planId }: { planId: string }) {
   const { comments, loading, addComment, subscribeToComments } = usePlanComments();
+  const { user, userProfile } = useAuth();
   const [newComment, setNewComment] = useState('');
 
   useEffect(() => {
@@ -119,38 +139,61 @@ export function PlanComments({ planId }: { planId: string }) {
     addComment(planId, content, parentId);
   };
 
+  const getInitials = (name?: string) => name ? name.split(' ').map(n => n[0]).join('').toUpperCase() : '';
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h3 className="font-semibold text-lg flex items-center gap-2">
         <MessageSquare className="h-5 w-5" />
-        Discussion
+        Discussion ({comments.length})
       </h3>
+      
+      <div className="flex items-start gap-4">
+        <Avatar className="h-10 w-10">
+          <AvatarImage src={userProfile?.photoURL || ''} />
+          <AvatarFallback>{getInitials(userProfile?.displayName || '')}</AvatarFallback>
+        </Avatar>
+        <div className="flex-1 space-y-2">
+          <Textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Add a comment or ask a question..."
+            rows={3}
+            className="bg-background"
+          />
+          <div className="flex justify-end">
+            <Button onClick={handlePostComment} disabled={!newComment.trim()}>
+              <Send className="h-4 w-4 mr-2" />
+              Post Comment
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
       {loading && comments.length === 0 ? (
-        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : (
-        <div className="space-y-4">
-          {topLevelComments.map(comment => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              replies={repliesByParentId[comment.id] || []}
-              allRepliesMap={repliesByParentId}
-              onReply={handleReply}
-            />
-          ))}
+        <div className="space-y-6">
+          {topLevelComments.length > 0 ? (
+            topLevelComments.map(comment => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                replies={repliesByParentId[comment.id] || []}
+                allRepliesMap={repliesByParentId}
+                onReply={handleReply}
+              />
+            ))
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p>No comments yet. Be the first to start the discussion!</p>
+            </div>
+          )}
         </div>
       )}
-      <div className="flex items-start gap-3 pt-4 border-t">
-        <Textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          placeholder="Add a comment or ask a question..."
-          rows={3}
-        />
-        <Button onClick={handlePostComment} disabled={!newComment.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </div>
     </div>
   );
 }

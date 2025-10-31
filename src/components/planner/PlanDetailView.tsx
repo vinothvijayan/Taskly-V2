@@ -341,7 +341,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
               </div>
             )}
 
-            <div className="border-t pt-6">
+            <div className="pt-6">
               <PlanComments planId={plan.id} />
             </div>
           </CardContent>
