@@ -246,8 +246,15 @@ export function TasksContextProvider({ children }: { children: ReactNode }) {
     toast({ title: "Task created", description: "Your task is being saved..." });
 
     try {
-      const { id, ...firestoreData } = newTask;
-      if (!firestoreData.teamId) delete firestoreData.teamId;
+      const { id, ...firestoreDataWithUndefined } = newTask;
+      
+      // Create a clean object for Firestore by removing undefined fields
+      const firestoreData: { [key: string]: any } = {};
+      for (const key in firestoreDataWithUndefined) {
+        if (firestoreDataWithUndefined[key as keyof typeof firestoreDataWithUndefined] !== undefined) {
+          firestoreData[key] = firestoreDataWithUndefined[key as keyof typeof firestoreDataWithUndefined];
+        }
+      }
 
       const collectionPath = isTeamTask ? `teams/${userProfile.teamId}/tasks` : `users/${user.uid}/tasks`;
       const docRef = await addDoc(collection(db, collectionPath), firestoreData);
