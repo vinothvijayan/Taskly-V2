@@ -244,7 +244,7 @@ def get_wellness_analysis(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
+    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
     analysis_prompt = f"""
         You are Taskly's AI Wellness Coach. Your tone is supportive, insightful, and encouraging. You are speaking directly to the user.
         Analyze the user's combined journal entries for the day based on the following transcript.
@@ -273,7 +273,7 @@ def get_detailed_narrative(full_transcript: str) -> str:
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
+    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
     
     analysis_prompt = f"""
         You are an AI journaling assistant. Your task is to synthesize the following journal entries from a single day into a single, detailed, and cohesive narrative.
