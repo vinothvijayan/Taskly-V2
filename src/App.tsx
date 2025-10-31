@@ -46,6 +46,7 @@ import { SalesOpportunityProvider } from "@/contexts/SalesOpportunityContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
 import { PlannerProvider } from "@/contexts/PlannerContext"; // Import PlannerProvider
 import { PlanCommentsProvider } from "@/contexts/PlanCommentsContext"; // Import PlanCommentsProvider
+import { GlobalPlanCommentNotifier } from "@/components/planner/GlobalPlanCommentNotifier"; // Import the new global notifier
 
 // Notification Services & Setup
 import { setGlobalAddNotification } from "./lib/notifications";
@@ -354,6 +355,7 @@ function AppContent() {
       <TaskAssignmentNotifier />
       <ChatMessageNotifier />
       <TeamInviteNotifier />
+      <GlobalPlanCommentNotifier />
       
       <Routes>
         <Route path="/signin" element={<SignInPage />} />

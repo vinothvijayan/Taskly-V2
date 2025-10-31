@@ -21,12 +21,10 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const { user, userProfile } = useAuth();
   const { addNotification } = useNotifications();
-  const isInitialLoadRef = useRef(true); // Ref to track initial data load
-
+  
   const subscribeToComments = useCallback((planId: string) => {
     if (!userProfile?.teamId) return () => {};
     setLoading(true);
-    isInitialLoadRef.current = true; // Reset for new subscription
 
     const commentsQuery = query(
       collection(db, 'teams', userProfile.teamId, 'plans', planId, 'comments'),
@@ -35,38 +33,9 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
       const fullCommentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PlanComment));
-
-      // Only process notifications for changes *after* the initial load
-      if (!isInitialLoadRef.current) {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            const newComment = change.doc.data() as PlanComment;
-            // Only show toast if the comment is new and from another user
-            if (newComment.authorId !== user?.uid && newComment.createdAt) {
-              toast.custom((t) => (
-                <CommentToast
-                  authorName={newComment.authorName}
-                  authorAvatar={newComment.authorAvatar}
-                  commentPreview={newComment.content}
-                  onDismiss={() => toast.dismiss(t)}
-                />
-              ));
-              addNotification({
-                title: `New comment from ${newComment.authorName}`,
-                body: newComment.content,
-                type: 'general',
-                read: false,
-              });
-            }
-          }
-        });
-      }
-      
-      // After the first snapshot is processed, it's no longer the initial load.
-      isInitialLoadRef.current = false;
       
       const sortedList = fullCommentsList.sort((a, b) => {
-        const aTime = a.createdAt?.toMillis() || Date.now(); // Fallback for optimistic update
+        const aTime = a.createdAt?.toMillis() || Date.now();
         const bTime = b.createdAt?.toMillis() || Date.now();
         return aTime - bTime;
       });
@@ -79,7 +48,7 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
     });
 
     return unsubscribe;
-  }, [user, userProfile?.teamId, addNotification]);
+  }, [user, userProfile?.teamId]);
 
   const addComment = async (planId: string, content: string, parentId?: string) => {
     if (!user || !userProfile?.teamId) return;
@@ -87,6 +56,7 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
     try {
       await addDoc(collection(db, 'teams', userProfile.teamId, 'plans', planId, 'comments'), {
         planId,
+        teamId: userProfile.teamId, // Add teamId for global queries
         parentId: parentId || null,
         authorId: user.uid,
         authorName: userProfile.displayName || user.email,
