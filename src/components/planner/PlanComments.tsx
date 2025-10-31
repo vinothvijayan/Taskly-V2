@@ -45,22 +45,21 @@ function CommentItem({ comment, replies, allRepliesMap, onReply, isReply = false
       </Avatar>
 
       <div className="flex-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">{comment.authorName}</span>
-            <span className="text-xs text-muted-foreground">
-              {comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : '...'}
-            </span>
-          </div>
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowReplyForm(!showReplyForm)}>
-              Reply
-            </Button>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">{comment.authorName}</span>
+          <span className="text-xs text-muted-foreground">
+            {comment.createdAt ? formatDistanceToNow(comment.createdAt.toDate(), { addSuffix: true }) : '...'}
+          </span>
         </div>
         
         <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90">
           <p className="whitespace-pre-wrap">{comment.content}</p>
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setShowReplyForm(!showReplyForm)}>
+            Reply
+          </Button>
         </div>
 
         {showReplyForm && (
