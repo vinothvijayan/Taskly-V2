@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PlanForm } from "./PlanForm";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { usePlanner } from "@/contexts/PlannerContext";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -65,7 +67,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl">{plan.title}</CardTitle>
-              <CardDescription>{plan.description || "No description for this plan."}</CardDescription>
+              <CardDescription className="truncate">{plan.description?.substring(0, 100) || "No description for this plan."}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="capitalize">{plan.status}</Badge>
@@ -77,6 +79,17 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
         </CardHeader>
         <ScrollArea className="flex-1">
           <CardContent className="p-4 space-y-6">
+            <div>
+              <h3 className="font-semibold mb-2 text-lg">Plan Proposal</h3>
+              <div className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20">
+                {plan.description ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                ) : (
+                  <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
+                )}
+              </div>
+            </div>
+
             {tasks.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
                 <h3 className="text-lg font-semibold">No tasks in this plan yet.</h3>

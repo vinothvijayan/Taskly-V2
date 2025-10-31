@@ -48,7 +48,7 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{plan ? "Edit Plan" : "Create New Plan"}</DialogTitle>
           <DialogDescription>
@@ -61,8 +61,14 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
             <Input id="plan-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           </div>
           <div>
-            <Label htmlFor="plan-description">Description</Label>
-            <Textarea id="plan-description" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Label htmlFor="plan-description">Detailed Proposal (Markdown supported)</Label>
+            <Textarea 
+              id="plan-description" 
+              value={description} 
+              onChange={(e) => setDescription(e.target.value)} 
+              rows={10}
+              placeholder="You can use markdown for formatting, like headings (#), lists (* or -), and bold text (**text**)."
+            />
           </div>
           <div>
             <Label htmlFor="plan-status">Status</Label>
