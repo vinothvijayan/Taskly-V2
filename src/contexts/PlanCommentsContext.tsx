@@ -32,14 +32,15 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
     );
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      const commentsList: PlanComment[] = [];
+      // Rebuild the full list from the snapshot to prevent duplicates
+      const fullCommentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PlanComment));
+
+      // Handle notifications for new comments from other users
       snapshot.docChanges().forEach(change => {
         if (change.type === 'added') {
-          const newComment = { id: change.doc.id, ...change.doc.data() } as PlanComment;
-          commentsList.push(newComment);
-
-          // Trigger notifications for other users
-          if (newComment.authorId !== user?.uid) {
+          const newComment = change.doc.data() as PlanComment;
+          // Only show toast if the comment is new and from another user
+          if (newComment.authorId !== user?.uid && newComment.createdAt) {
             toast.custom((t) => (
               <CommentToast
                 authorName={newComment.authorName}
@@ -58,7 +59,14 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
         }
       });
       
-      setComments(prev => [...prev, ...commentsList].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis()));
+      // Sort the full list, gracefully handling optimistic updates where createdAt is null
+      const sortedList = fullCommentsList.sort((a, b) => {
+        const aTime = a.createdAt?.toMillis() || Date.now(); // Fallback for optimistic update
+        const bTime = b.createdAt?.toMillis() || Date.now();
+        return aTime - bTime;
+      });
+
+      setComments(sortedList);
       setLoading(false);
     }, (error) => {
       console.error("Error fetching plan comments:", error);
