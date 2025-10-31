@@ -115,6 +115,10 @@ export function PlanComments({ planId }: { planId: string }) {
     }
   };
 
+  const handleReply = (content: string, parentId: string) => {
+    addComment(planId, content, parentId);
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="font-semibold text-lg flex items-center gap-2">
@@ -131,7 +135,7 @@ export function PlanComments({ planId }: { planId: string }) {
               comment={comment}
               replies={repliesByParentId[comment.id] || []}
               allRepliesMap={repliesByParentId}
-              onReply={addComment}
+              onReply={handleReply}
             />
           ))}
         </div>
