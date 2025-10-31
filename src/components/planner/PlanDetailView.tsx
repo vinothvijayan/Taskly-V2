@@ -95,7 +95,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     try {
       const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
@@ -116,6 +116,45 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
       setEditedDescription(text);
 
       toast({ title: "Text Enhanced!", description: "Your proposal has been improved by AI." });
+    } catch (error: any) {
+      console.error("Error enhancing text with Gemini:", error);
+      toast({ title: "Enhancement Failed", description: error.message || "An error occurred while contacting the AI.", variant: "destructive" });
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const handleEnhanceAndSave = async () => {
+    if (!plan.description?.trim()) {
+      toast({ title: "Nothing to enhance", description: "The proposal is empty.", variant: "destructive" });
+      return;
+    }
+    setIsEnhancing(true);
+    try {
+      const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `
+        You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
+        - Ensure the output is clean, professional Markdown.
+        - Correct any spelling or grammatical errors.
+        - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
+        - Do not add any new information or change the core meaning of the text.
+        - Return only the enhanced text, with no introductory phrases like "Here is the enhanced text:".
+
+        Here is the text to enhance:
+        ---
+        ${plan.description}
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const enhancedText = response.text();
+      
+      await updatePlan(plan.id, { description: enhancedText });
+
+      toast({ title: "Proposal Enhanced!", description: "The proposal has been improved by AI." });
     } catch (error: any) {
       console.error("Error enhancing text with Gemini:", error);
       toast({ title: "Enhancement Failed", description: error.message || "An error occurred while contacting the AI.", variant: "destructive" });
@@ -199,10 +238,24 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                   </div>
                 </CollapsibleTrigger>
                 {!isEditingDescription && (
-                  <Button variant="ghost" size="sm" onClick={handleEditDescriptionClick}>
-                    <Edit className="h-3 w-3 mr-2" />
-                    Edit
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" onClick={handleEnhanceAndSave} disabled={isEnhancing}>
+                            {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-purple-500" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Enhance with AI</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Button variant="ghost" size="sm" onClick={handleEditDescriptionClick}>
+                      <Edit className="h-3 w-3 mr-2" />
+                      Edit
+                    </Button>
+                  </div>
                 )}
               </div>
               <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
