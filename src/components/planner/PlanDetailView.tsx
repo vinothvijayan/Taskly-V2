@@ -91,7 +91,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
-                <div className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20 mt-2">
+                <div className="prose dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20 mt-2">
                   {plan.description ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
                   ) : (
