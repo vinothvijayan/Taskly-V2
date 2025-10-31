@@ -40,20 +40,20 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
     const clipboardData = e.clipboardData;
     let pastedText = '';
 
-    // Attempt to get the raw text content from the clipboard's HTML format.
-    // This often preserves characters like bullet points that are stripped in 'text/plain'.
+    // Prioritize HTML content to get rich text formatting
     const html = clipboardData.getData('text/html');
     if (html) {
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = html;
-      pastedText = tempDiv.textContent || tempDiv.innerText || '';
+      // Use innerText to approximate rendered text, which preserves line breaks
+      pastedText = tempDiv.innerText;
     } else {
-      // Fallback for environments where HTML is not available
+      // Fallback to plain text if no HTML is available
       pastedText = clipboardData.getData('text/plain');
     }
     
-    // Automatically convert common bullet point characters (like •) into Markdown list syntax (-).
-    // The 'gm' flags ensure this works for multiple lines in the pasted text.
+    // Sanitize the extracted text to convert bullet points to Markdown
+    // This regex handles various bullet characters at the beginning of lines
     const sanitizedText = pastedText.replace(/^[\s\t]*[•◦▪·*-]\s*/gm, '- ');
 
     // Insert the sanitized text at the current cursor position

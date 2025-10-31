@@ -15,7 +15,6 @@ import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmation
 import { usePlanner } from "@/contexts/PlannerContext";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +93,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
               <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
                 <div className="prose dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20 mt-2">
                   {plan.description ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{plan.description}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
                   ) : (
                     <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
                   )}
