@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { usePlanner } from "@/contexts/PlannerContext";
 import { useTasks } from "@/contexts/TasksContext";
 import { PlanList } from "@/components/planner/PlanList";
@@ -11,6 +11,21 @@ export default function TeamPlannerPage() {
   const { plans, loading: plansLoading } = usePlanner();
   const { tasks, loading: tasksLoading } = useTasks();
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+
+  useEffect(() => {
+    if (selectedPlan) {
+      const updatedSelectedPlan = plans.find(p => p.id === selectedPlan.id);
+      if (updatedSelectedPlan) {
+        // Simple stringify check to avoid infinite loops if objects are structurally same but different instances
+        if (JSON.stringify(selectedPlan) !== JSON.stringify(updatedSelectedPlan)) {
+          setSelectedPlan(updatedSelectedPlan);
+        }
+      } else {
+        // The selected plan was deleted, so deselect it
+        setSelectedPlan(null);
+      }
+    }
+  }, [plans, selectedPlan]);
 
   const tasksForSelectedPlan = useMemo(() => {
     if (!selectedPlan) return [];
