@@ -8,7 +8,7 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { Plan, Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Edit, Trash2, ChevronDown, Bold, Heading2, Heading3, Heading4, List as ListIcon } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronDown, Bold, Heading2, Heading3, Heading4, List as ListIcon, Sparkles, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlanForm } from "./PlanForm";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
@@ -19,6 +19,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
+import { useToast } from "@/hooks/use-toast";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -33,10 +36,12 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
   const [isDeletePlanOpen, setIsDeletePlanOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const { toast } = useToast();
   
   // State for inline editing the description
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(plan.description || "");
+  const [isEnhancing, setIsEnhancing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'completed');
@@ -80,6 +85,25 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   const handleEditDescriptionClick = () => {
     setEditedDescription(plan.description || "");
     setIsEditingDescription(true);
+  };
+
+  const handleEnhanceText = async () => {
+    if (!editedDescription.trim()) {
+      toast({ title: "Nothing to enhance", description: "Please write some text first.", variant: "destructive" });
+      return;
+    }
+    setIsEnhancing(true);
+    try {
+      const enhanceText = httpsCallable(functions, 'enhance_text_with_gemini');
+      const result: any = await enhanceText({ text: editedDescription });
+      setEditedDescription(result.data.enhancedText);
+      toast({ title: "Text Enhanced!", description: "Your proposal has been improved by AI." });
+    } catch (error: any) {
+      console.error("Error enhancing text:", error);
+      toast({ title: "Enhancement Failed", description: error.message, variant: "destructive" });
+    } finally {
+      setIsEnhancing(false);
+    }
   };
 
   const applyMarkdown = (syntax: 'bold' | 'h2' | 'h3' | 'h4' | 'list') => {
@@ -173,6 +197,8 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                         <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('h3')}><Heading3 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Heading 3</p></TooltipContent></Tooltip>
                         <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('h4')}><Heading4 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Heading 4</p></TooltipContent></Tooltip>
                         <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('list')}><ListIcon className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Bullet List</p></TooltipContent></Tooltip>
+                        <div className="border-l h-6 mx-2" />
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={handleEnhanceText} disabled={isEnhancing}>{isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4 text-purple-500" />}</Button></TooltipTrigger><TooltipContent><p>Enhance with AI</p></TooltipContent></Tooltip>
                       </div>
                     </TooltipProvider>
                     <Textarea
