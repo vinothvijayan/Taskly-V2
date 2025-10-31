@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { 
   collection, 
   addDoc, 
@@ -8,11 +8,11 @@ import {
   query,
   orderBy,
   onSnapshot,
-  Unsubscribe,
   where,
-  writeBatch
+  writeBatch,
+  getDocs
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { AppNotification } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -36,60 +36,39 @@ export function NotificationsContextProvider({ children }: { children: ReactNode
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Set up real-time listener when user changes
   useEffect(() => {
     if (user) {
-      setupRealtimeListener();
+      const notificationsQuery = query(
+        collection(db, 'users', user.uid, 'notifications'),
+        orderBy('timestamp', 'desc')
+      );
+      
+      const unsubscribe = onSnapshot(
+        notificationsQuery,
+        (snapshot) => {
+          const notificationsList: AppNotification[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification));
+          setNotifications(notificationsList);
+          setLoading(false);
+        },
+        (error) => {
+          console.error("Error in notifications listener:", error);
+          toast({
+            title: "Connection error",
+            description: "Lost connection to notifications. Retrying...",
+            variant: "destructive"
+          });
+          setLoading(false);
+        }
+      );
+      
+      return () => unsubscribe();
     } else {
       setNotifications([]);
     }
-  }, [user]);
+  }, [user, toast]);
 
-  const setupRealtimeListener = () => {
-    if (!user) return;
-
-    console.log("Setting up notifications real-time listener for user:", user.uid);
-    
-    setLoading(true);
-    
-    const notificationsQuery = query(
-      collection(db, 'users', user.uid, 'notifications'),
-      orderBy('timestamp', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(
-      notificationsQuery,
-      (snapshot) => {
-        console.log("Notifications snapshot received, size:", snapshot.size);
-        const notificationsList: AppNotification[] = [];
-        snapshot.forEach(doc => {
-          notificationsList.push({ id: doc.id, ...doc.data() } as AppNotification);
-        });
-        
-        setNotifications(notificationsList);
-        setLoading(false);
-      },
-      (error) => {
-        console.error("Error in notifications listener:", error);
-        toast({
-          title: "Connection error",
-          description: "Lost connection to notifications. Retrying...",
-          variant: "destructive"
-        });
-        setLoading(false);
-      }
-    );
-    
-    // Cleanup function
-    return () => {
-      console.log("Cleaning up notifications listener");
-      unsubscribe();
-    };
-  };
-
-  const addNotification = async (notificationData: Omit<AppNotification, "id" | "userId" | "timestamp">, targetUserId?: string) => {
-    // Use targetUserId if provided, otherwise use current user
-    const userId = targetUserId || user?.uid;
+  const addNotification = useCallback(async (notificationData: Omit<AppNotification, "id" | "userId" | "timestamp">, targetUserId?: string) => {
+    const userId = targetUserId || auth.currentUser?.uid;
     
     if (!userId) {
       console.warn("Cannot add notification: no target user specified and current user not authenticated");
@@ -103,10 +82,7 @@ export function NotificationsContextProvider({ children }: { children: ReactNode
         userId: userId,
         timestamp: new Date().toISOString()
       };
-
-      console.log("Adding notification for user:", userId, newNotification);
       await addDoc(notificationsRef, newNotification);
-      console.log("Notification added successfully");
     } catch (error) {
       console.error("Error adding notification:", error);
       toast({
@@ -115,93 +91,58 @@ export function NotificationsContextProvider({ children }: { children: ReactNode
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
-  const markAsRead = async (notificationId: string) => {
-    if (!user) return;
-
+  const markAsRead = useCallback(async (notificationId: string) => {
+    if (!auth.currentUser) return;
     try {
-      const notificationRef = doc(db, 'users', user.uid, 'notifications', notificationId);
+      const notificationRef = doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId);
       await updateDoc(notificationRef, { read: true });
-      console.log("Notification marked as read:", notificationId);
     } catch (error) {
       console.error("Error marking notification as read:", error);
     }
-  };
+  }, []);
 
-  const markAllAsRead = async () => {
-    if (!user) return;
-
+  const markAllAsRead = useCallback(async () => {
+    if (!auth.currentUser) return;
     try {
       const batch = writeBatch(db);
-      const unreadNotifications = notifications.filter(n => !n.read);
-      
-      unreadNotifications.forEach(notification => {
-        const notificationRef = doc(db, 'users', user.uid, 'notifications', notification.id);
-        batch.update(notificationRef, { read: true });
-      });
-
+      const unreadQuery = query(collection(db, 'users', auth.currentUser.uid, 'notifications'), where('read', '==', false));
+      const snapshot = await getDocs(unreadQuery);
+      snapshot.forEach(doc => batch.update(doc.ref, { read: true }));
       await batch.commit();
-      console.log("All notifications marked as read");
-      
-      toast({
-        title: "All notifications marked as read",
-        description: "Your notification list has been cleared.",
-      });
+      toast({ title: "All notifications marked as read" });
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      toast({
-        title: "Failed to mark notifications as read",
-        description: "Could not update notifications.",
-        variant: "destructive"
-      });
+      console.error("Error marking all as read:", error);
+      toast({ title: "Failed to mark all as read", variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const deleteNotification = async (notificationId: string) => {
-    if (!user) return;
-
+  const deleteNotification = useCallback(async (notificationId: string) => {
+    if (!auth.currentUser) return;
     try {
-      const notificationRef = doc(db, 'users', user.uid, 'notifications', notificationId);
+      const notificationRef = doc(db, 'users', auth.currentUser.uid, 'notifications', notificationId);
       await deleteDoc(notificationRef);
-      console.log("Notification deleted:", notificationId);
     } catch (error) {
       console.error("Error deleting notification:", error);
-      toast({
-        title: "Failed to delete notification",
-        description: "Could not delete the notification.",
-        variant: "destructive"
-      });
+      toast({ title: "Failed to delete notification", variant: "destructive" });
     }
-  };
+  }, [toast]);
 
-  const clearAllNotifications = async () => {
-    if (!user) return;
-
+  const clearAllNotifications = useCallback(async () => {
+    if (!auth.currentUser) return;
     try {
       const batch = writeBatch(db);
-      
-      notifications.forEach(notification => {
-        const notificationRef = doc(db, 'users', user.uid, 'notifications', notification.id);
-        batch.delete(notificationRef);
-      });
-
+      const allQuery = query(collection(db, 'users', auth.currentUser.uid, 'notifications'));
+      const snapshot = await getDocs(allQuery);
+      snapshot.forEach(doc => batch.delete(doc.ref));
       await batch.commit();
-      console.log("All notifications cleared");
-      
-      toast({
-        title: "All notifications cleared",
-        description: "Your notification history has been cleared.",
-      });
+      toast({ title: "All notifications cleared" });
     } catch (error) {
-      console.error("Error clearing all notifications:", error);
-      toast({
-        title: "Failed to clear notifications",
-        description: "Could not clear notifications.",
-        variant: "destructive"
-      });
+      console.error("Error clearing notifications:", error);
+      toast({ title: "Failed to clear notifications", variant: "destructive" });
     }
-  };
+  }, [toast]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
