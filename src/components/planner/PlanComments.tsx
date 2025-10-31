@@ -11,10 +11,11 @@ import { formatDistanceToNow } from 'date-fns';
 interface CommentItemProps {
   comment: PlanComment;
   replies: PlanComment[];
+  allRepliesMap: Record<string, PlanComment[]>;
   onReply: (content: string, parentId: string) => void;
 }
 
-function CommentItem({ comment, replies, onReply }: CommentItemProps) {
+function CommentItem({ comment, replies, allRepliesMap, onReply }: CommentItemProps) {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
 
@@ -66,7 +67,13 @@ function CommentItem({ comment, replies, onReply }: CommentItemProps) {
         {replies.length > 0 && (
           <div className="mt-3 space-y-3 pl-4 border-l-2">
             {replies.map(reply => (
-              <CommentItem key={reply.id} comment={reply} replies={[]} onReply={onReply} />
+              <CommentItem
+                key={reply.id}
+                comment={reply}
+                replies={allRepliesMap[reply.id] || []}
+                allRepliesMap={allRepliesMap}
+                onReply={onReply}
+              />
             ))}
           </div>
         )}
@@ -123,6 +130,7 @@ export function PlanComments({ planId }: { planId: string }) {
               key={comment.id}
               comment={comment}
               replies={repliesByParentId[comment.id] || []}
+              allRepliesMap={repliesByParentId}
               onReply={addComment}
             />
           ))}
