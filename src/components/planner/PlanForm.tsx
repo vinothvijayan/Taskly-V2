@@ -35,6 +35,20 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
     }
   }, [plan, open]);
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text/plain');
+    
+    // Regex to find common bullet point characters (•, *, -, etc.) at the start of a line
+    const sanitizedText = pastedText.replace(/^[\s\t]*[•◦▪·*-]\s*/gm, '- ');
+
+    const start = e.currentTarget.selectionStart;
+    const end = e.currentTarget.selectionEnd;
+    const newText = description.substring(0, start) + sanitizedText + description.substring(end);
+    
+    setDescription(newText);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -80,6 +94,7 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
               id="plan-description" 
               value={description} 
               onChange={(e) => setDescription(e.target.value)} 
+              onPaste={handlePaste}
               rows={10}
               placeholder="You can use markdown for formatting, like headings (#), lists (* or -), and bold text (**text**)."
             />
