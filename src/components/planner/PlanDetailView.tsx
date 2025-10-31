@@ -67,7 +67,11 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-xl">{plan.title}</CardTitle>
-              <CardDescription className="truncate">{plan.description?.substring(0, 100) || "No description for this plan."}</CardDescription>
+              <CardDescription className="truncate">
+                {plan.description && plan.description.length > 50 
+                  ? `${plan.description.substring(0, 50)}...` 
+                  : plan.description || "No description for this plan."}
+              </CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="capitalize">{plan.status}</Badge>
