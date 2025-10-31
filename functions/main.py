@@ -8,7 +8,6 @@ sys.path.append(os.path.dirname(__file__))
 from process_journal import process_journal_entry, exportJournalToPdf
 from sales_tools import get_google_business_data
 from meetly_processor import process_meetly_recording
-from text_enhancer import enhance_text_with_gemini
 
 # Export ALL functions so Firebase can discover them.
 # This list is the single source of truth for what functions should be deployed.
@@ -17,5 +16,4 @@ __all__ = [
     'exportJournalToPdf',
     'get_google_business_data',
     'process_meetly_recording',
-    'enhance_text_with_gemini',
 ]

@@ -19,9 +19,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { functions } from "@/lib/firebase";
-import { httpsCallable } from "firebase/functions";
 import { useToast } from "@/hooks/use-toast";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -94,13 +93,32 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     }
     setIsEnhancing(true);
     try {
-      const enhanceText = httpsCallable(functions, 'enhance_text_with_gemini');
-      const result: any = await enhanceText({ text: editedDescription });
-      setEditedDescription(result.data.enhancedText);
+      const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `
+        You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
+        - Ensure the output is clean, professional Markdown.
+        - Correct any spelling or grammatical errors.
+        - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
+        - Do not add any new information or change the core meaning of the text.
+        - Return only the enhanced text, with no introductory phrases like "Here is the enhanced text:".
+
+        Here is the text to enhance:
+        ---
+        ${editedDescription}
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+      setEditedDescription(text);
+
       toast({ title: "Text Enhanced!", description: "Your proposal has been improved by AI." });
     } catch (error: any) {
-      console.error("Error enhancing text:", error);
-      toast({ title: "Enhancement Failed", description: error.message, variant: "destructive" });
+      console.error("Error enhancing text with Gemini:", error);
+      toast({ title: "Enhancement Failed", description: error.message || "An error occurred while contacting the AI.", variant: "destructive" });
     } finally {
       setIsEnhancing(false);
     }
