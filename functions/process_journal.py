@@ -10,7 +10,7 @@ from urllib.parse import quote
 import re
 
 # --- SECURITY WARNING: Hardcoding API keys is dangerous. Use Secret Manager instead. ---
-HARDCODED_GEMINI_API_KEY = "AIzaSyC6Hqk6_uxrL7UcHOb4d47ECw83JCJW7Uk"
+HARDCODED_GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q"
 
 from firebase_admin import initialize_app, storage, firestore, _apps
 from firebase_functions import storage_fn, https_fn 
