@@ -216,7 +216,7 @@ def transcribe_and_translate_with_gemini(audio_file_path: str) -> Dict[str, str]
         raise ValueError("API key is missing.")
 
     genai.configure(api_key=HARDCODED_GEMINI_API_KEY)
-    model = genai.GenerativeModel(model_name='models/gemini-1.5-flash-latest')
+    model = genai.GenerativeModel(model_name='models/gemini-2.5-flash')
     
     try:
         with open(audio_file_path, "rb") as audio_file:
