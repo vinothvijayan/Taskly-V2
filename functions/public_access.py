@@ -1,12 +1,15 @@
-from firebase_functions import https_fn
+from firebase_functions import https_fn, options
 from firebase_admin import firestore, initialize_app, _apps
 
 # Initialize Firebase Admin SDK if it hasn't been already.
-# This prevents crashes on cold starts and resolves the CORS issue.
 if not _apps:
     initialize_app()
 
-@https_fn.on_call()
+@https_fn.on_call(
+    # Explicitly set CORS policy to allow all origins for this public function.
+    # This resolves the preflight request issue from different domains.
+    cors=options.CorsOptions(cors_origins="*")
+)
 def getPublicPlanData(req: https_fn.CallableRequest):
     """
     A callable function to securely fetch data for a single plan for public viewing.
