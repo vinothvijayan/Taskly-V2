@@ -8,13 +8,15 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { Plan, Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlanForm } from "./PlanForm";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
 import { usePlanner } from "@/contexts/PlannerContext";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -54,8 +56,6 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   };
 
   const handleDeletePlan = () => {
-    // Note: This only deletes the plan, not the associated tasks.
-    // A more robust implementation might cascade delete or un-assign tasks.
     deletePlan(plan.id);
     setIsDeletePlanOpen(false);
   };
@@ -79,16 +79,23 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
         </CardHeader>
         <ScrollArea className="flex-1">
           <CardContent className="p-4 space-y-6">
-            <div>
-              <h3 className="font-semibold mb-2 text-lg">Plan Proposal</h3>
-              <div className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20">
-                {plan.description ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
-                ) : (
-                  <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
-                )}
-              </div>
-            </div>
+            <Collapsible defaultOpen={true}>
+              <CollapsibleTrigger className="w-full p-2 rounded-lg hover:bg-muted/50 group">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Plan Proposal</h3>
+                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
+                <div className="prose prose-sm dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20 mt-2">
+                  {plan.description ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                  ) : (
+                    <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {tasks.length === 0 && (
               <div className="text-center py-16 text-muted-foreground">
