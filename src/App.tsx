@@ -67,6 +67,7 @@ const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const TeamPlannerPage = lazy(() => import("./pages/TeamPlannerPage")); // Import TeamPlannerPage
+const PublicPlanPage = lazy(() => import("./pages/PublicPlanPage")); // Import PublicPlanPage
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create QueryClient instance outside component
@@ -357,6 +358,7 @@ function AppContent() {
       <Routes>
         <Route path="/signin" element={<SignInPage />} />
         <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/share/plan/:teamId/:planId" element={<Suspense fallback={<PageLoading />}><PublicPlanPage /></Suspense>} />
         <Route path="/*" element={
           <ProtectedRoute>
             <ErrorBoundary>

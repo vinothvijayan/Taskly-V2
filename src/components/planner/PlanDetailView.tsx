@@ -8,7 +8,7 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { Plan, Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Edit, Trash2, ChevronDown, Bold, Heading2, Heading3, Heading4, List as ListIcon, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronDown, Bold, Heading2, Heading3, Heading4, List as ListIcon, Sparkles, Loader2, Share2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlanForm } from "./PlanForm";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
@@ -21,7 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { PlanComments } from "./PlanComments"; // Import the new component
+import { PlanComments } from "./PlanComments";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -38,7 +38,6 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const { toast } = useToast();
   
-  // State for inline editing the description
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(plan.description || "");
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -126,7 +125,8 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   };
 
   const handleEnhanceAndSave = async () => {
-    if (!plan.description?.trim()) {
+    const originalDescription = plan.description?.trim() || "";
+    if (!originalDescription) {
       toast({ title: "Nothing to enhance", description: "The proposal is empty.", variant: "destructive" });
       return;
     }
@@ -136,18 +136,37 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-      const prompt = `
-        You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
-        - Ensure the output is clean, professional Markdown.
-        - Correct any spelling or grammatical errors.
-        - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
-        - Do not add any new information or change the core meaning of the text.
-        - Return only the enhanced text, with no introductory phrases like "Here is the enhanced text:".
+      let prompt;
+      // If the description is short, treat it as a prompt to generate a full plan.
+      if (originalDescription.length < 150) {
+        prompt = `
+          You are a professional project manager. Based on the following idea, generate a detailed project plan proposal in Markdown format.
+          The plan should be comprehensive and well-structured, including sections for:
+          - ## 🎯 Objectives
+          - ## 🔑 Key Milestones
+          - ##  timeline (provide a sample timeline in a list format)
+          - ## 🛠️ Resources Needed
+          - ## 📈 Success Metrics
 
-        Here is the text to enhance:
-        ---
-        ${plan.description}
-      `;
+          Here is the idea:
+          ---
+          ${originalDescription}
+        `;
+      } else {
+        // Otherwise, just enhance the existing text.
+        prompt = `
+          You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
+          - Ensure the output is clean, professional Markdown.
+          - Correct any spelling or grammatical errors.
+          - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
+          - Do not add any new information or change the core meaning of the text.
+          - Return only the enhanced text, with no introductory phrases.
+
+          Here is the text to enhance:
+          ---
+          ${originalDescription}
+        `;
+      }
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
@@ -162,6 +181,19 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     } finally {
       setIsEnhancing(false);
     }
+  };
+
+  const handleSharePlan = () => {
+    if (!plan.teamId) {
+      toast({ title: "Cannot Share", description: "This plan is not associated with a team.", variant: "destructive" });
+      return;
+    }
+    const shareUrl = `${window.location.origin}/share/plan/${plan.teamId}/${plan.id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      toast({ title: "Link Copied!", description: "A shareable link has been copied to your clipboard." });
+    }).catch(() => {
+      toast({ title: "Copy Failed", description: "Could not copy the link.", variant: "destructive" });
+    });
   };
 
   const applyMarkdown = (syntax: 'bold' | 'h2' | 'h3' | 'h4' | 'list') => {
@@ -222,6 +254,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="capitalize">{plan.status}</Badge>
+              <Button variant="outline" size="sm" onClick={handleSharePlan}><Share2 className="h-3 w-3 mr-2" /> Share</Button>
               <Button variant="outline" size="sm" onClick={() => setIsPlanFormOpen(true)}><Edit className="h-3 w-3 mr-2" /> Edit</Button>
               <Button variant="destructive-outline" size="sm" onClick={() => setIsDeletePlanOpen(true)}><Trash2 className="h-3 w-3 mr-2" /> Delete</Button>
               <Button onClick={() => setIsTaskFormOpen(true)}><Plus className="h-4 w-4 mr-2" /> Add Task</Button>
