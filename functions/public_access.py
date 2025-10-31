@@ -1,5 +1,6 @@
 from firebase_functions import https_fn, options
 from firebase_admin import firestore, initialize_app, _apps
+import traceback # For better error logging
 
 # Initialize Firebase Admin SDK if it hasn't been already.
 if not _apps:
@@ -7,7 +8,6 @@ if not _apps:
 
 @https_fn.on_call(
     # Explicitly set CORS policy to allow all origins for this public function.
-    # This resolves the preflight request issue from different domains.
     cors=options.CorsOptions(cors_origins="*")
 )
 def getPublicPlanData(req: https_fn.CallableRequest):
@@ -18,17 +18,20 @@ def getPublicPlanData(req: https_fn.CallableRequest):
     plan_id = req.data.get("planId")
 
     if not team_id or not plan_id:
+        print("Error: Missing teamId or planId in request.")
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT,
             message="Missing required parameters: teamId and planId."
         )
 
     try:
+        print(f"Fetching plan: teamId={team_id}, planId={plan_id}")
         db = firestore.client()
         plan_ref = db.collection('teams').document(team_id).collection('plans').document(plan_id)
         plan_doc = plan_ref.get()
 
         if not plan_doc.exists:
+            print(f"Plan not found: {plan_id}")
             raise https_fn.HttpsError(
                 code=https_fn.FunctionsErrorCode.NOT_FOUND,
                 message="The requested plan could not be found."
@@ -36,18 +39,29 @@ def getPublicPlanData(req: https_fn.CallableRequest):
         
         plan_data = plan_doc.to_dict()
         
+        # Explicitly handle potential datetime objects for createdAt to prevent serialization errors
+        created_at = plan_data.get("createdAt")
+        if hasattr(created_at, 'isoformat'): # Check if it's a datetime object
+            created_at_str = created_at.isoformat()
+        else:
+            created_at_str = str(created_at) # Fallback to string conversion
+
         # Return only the fields that are safe for public viewing
-        return {
+        public_data = {
             "title": plan_data.get("title"),
             "description": plan_data.get("description"),
             "status": plan_data.get("status"),
             "shortDescription": plan_data.get("shortDescription"),
-            "createdAt": plan_data.get("createdAt")
+            "createdAt": created_at_str
         }
+        print(f"Successfully fetched and returning data for plan {plan_id}")
+        return public_data
 
     except Exception as e:
-        print(f"Error fetching public plan data for plan {plan_id}: {e}")
+        print(f"CRITICAL Error fetching public plan data for plan {plan_id}: {e}")
+        # Print the full stack trace for debugging in the Firebase logs
+        traceback.print_exc()
         raise https_fn.HttpsError(
             code=https_fn.FunctionsErrorCode.INTERNAL,
-            message="An unexpected error occurred while fetching the plan."
+            message="An unexpected server error occurred while fetching the plan."
         )
