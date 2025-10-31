@@ -126,6 +126,11 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
     print(f"PDF export requested by user {user_id} for range {start_date_str} to {end_date_str}")
     
     try:
+        # --- LAZY IMPORT ---
+        # This prevents the weasyprint library from causing deployment failures
+        # for other functions if its system dependencies are not met.
+        from weasyprint import HTML
+
         db = firestore.client()
         
         entries_query = db.collection('journalEntries') \
@@ -162,7 +167,6 @@ def exportJournalToPdf(req: https_fn.CallableRequest) -> Dict:
         if not pdf_days_data:
             raise https_fn.HttpsError(code=https_fn.FunctionsErrorCode.NOT_FOUND, message="No content available to export.")
 
-        from weasyprint import HTML
         html_content = create_html_for_pdf(pdf_days_data)
         pdf_bytes = HTML(string=html_content).write_pdf()
 
