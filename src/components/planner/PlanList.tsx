@@ -57,9 +57,9 @@ export function PlanList({ plans, selectedPlan, onSelectPlan }: PlanListProps) {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
-                              <Avatar className="h-6 w-6">
+                              <Avatar className="h-8 w-8">
                                 <AvatarImage src={creator.photoURL} />
-                                <AvatarFallback className="text-[10px]">{getInitials(creator.displayName)}</AvatarFallback>
+                                <AvatarFallback className="text-xs">{getInitials(creator.displayName)}</AvatarFallback>
                               </Avatar>
                             </TooltipTrigger>
                             <TooltipContent>
