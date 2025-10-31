@@ -1,5 +1,10 @@
 from firebase_functions import https_fn
-from firebase_admin import firestore
+from firebase_admin import firestore, initialize_app, _apps
+
+# Initialize Firebase Admin SDK if it hasn't been already.
+# This prevents crashes on cold starts and resolves the CORS issue.
+if not _apps:
+    initialize_app()
 
 @https_fn.on_call()
 def getPublicPlanData(req: https_fn.CallableRequest):
