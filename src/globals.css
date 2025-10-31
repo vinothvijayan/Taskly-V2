@@ -118,3 +118,51 @@
     background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   }
 }
+
+@layer components {
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    @apply font-bold mb-4 mt-6 text-foreground;
+  }
+  .prose h1 { @apply text-3xl; }
+  .prose h2 { @apply text-2xl; }
+  .prose h3 { @apply text-xl; }
+  .prose h4 { @apply text-lg; }
+
+  .prose p {
+    @apply mb-4 text-foreground/90;
+  }
+
+  .prose ul, .prose ol {
+    @apply pl-6 mb-4 text-foreground/90;
+  }
+  .prose ul {
+    @apply list-disc;
+  }
+  .prose ol {
+    @apply list-decimal;
+  }
+  .prose li {
+    @apply mb-2;
+  }
+  .prose li > p {
+    @apply mb-0;
+  }
+  .prose blockquote {
+    @apply border-l-4 border-border pl-4 italic text-muted-foreground;
+  }
+  .prose table {
+    @apply w-full my-6 border-collapse border border-border;
+  }
+  .prose thead {
+    @apply border-b border-border bg-muted/50;
+  }
+  .prose th {
+    @apply text-left font-semibold p-2;
+  }
+  .prose tbody tr {
+    @apply border-b border-border;
+  }
+  .prose td {
+    @apply p-2;
+  }
+}
