@@ -45,6 +45,7 @@ import { ConfettiProvider } from "@/contexts/ConfettiContext";
 import { SalesOpportunityProvider } from "@/contexts/SalesOpportunityContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
 import { PlannerProvider } from "@/contexts/PlannerContext"; // Import PlannerProvider
+import { PlanCommentsProvider } from "@/contexts/PlanCommentsContext"; // Import PlanCommentsProvider
 
 // Notification Services & Setup
 import { setGlobalAddNotification } from "./lib/notifications";
@@ -420,17 +421,19 @@ export default function App() {
                     <TeamChatProvider>
                       <CommentsContextProvider>
                         <PlannerProvider>
-                          <TaskTimeTrackerProvider>
-                            <MeetlyContextProvider>
-                              <SalesOpportunityProvider>
-                                <ContactsProvider>
-                                  <BrowserRouter>
-                                    <AppContent />
-                                  </BrowserRouter>
-                                </ContactsProvider>
-                              </SalesOpportunityProvider>
-                            </MeetlyContextProvider>
-                          </TaskTimeTrackerProvider>
+                          <PlanCommentsProvider>
+                            <TaskTimeTrackerProvider>
+                              <MeetlyContextProvider>
+                                <SalesOpportunityProvider>
+                                  <ContactsProvider>
+                                    <BrowserRouter>
+                                      <AppContent />
+                                    </BrowserRouter>
+                                  </ContactsProvider>
+                                </SalesOpportunityProvider>
+                              </MeetlyContextProvider>
+                            </TaskTimeTrackerProvider>
+                          </PlanCommentsProvider>
                         </PlannerProvider>
                       </CommentsContextProvider>
                     </TeamChatProvider>

@@ -128,6 +128,18 @@ export interface TaskComment {
   isEdited: boolean;
 }
 
+export interface PlanComment {
+  id: string;
+  planId: string;
+  parentId?: string | null;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  content: string;
+  createdAt: any; // Firebase Timestamp
+  updatedAt?: any;
+}
+
 export interface MeetingRecording {
   id: string;
   title: string;

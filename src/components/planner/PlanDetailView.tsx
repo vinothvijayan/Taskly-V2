@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { PlanComments } from "./PlanComments"; // Import the new component
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -95,7 +96,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     try {
       const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
@@ -133,7 +134,7 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     try {
       const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
       const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
         You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
@@ -339,6 +340,10 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                 </div>
               </div>
             )}
+
+            <div className="border-t pt-6">
+              <PlanComments planId={plan.id} />
+            </div>
           </CardContent>
         </ScrollArea>
       </div>
