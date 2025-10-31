@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { TaskForm } from "@/components/tasks/TaskForm";
 import { Plan, Task } from "@/types";
 import { useTasks } from "@/contexts/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Edit, Trash2, ChevronDown } from "lucide-react";
+import { Plus, Edit, Trash2, ChevronDown, Bold, Heading2, Heading3, Heading4, List as ListIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlanForm } from "./PlanForm";
 import { DeleteConfirmationDialog } from "@/components/common/DeleteConfirmationDialog";
@@ -17,6 +17,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -25,12 +27,17 @@ interface PlanDetailViewProps {
 
 export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
   const { addTask, updateTask, deleteTask, teamMembers } = useTasks();
-  const { deletePlan } = usePlanner();
+  const { deletePlan, updatePlan } = usePlanner();
   const { user } = useAuth();
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
   const [isPlanFormOpen, setIsPlanFormOpen] = useState(false);
   const [isDeletePlanOpen, setIsDeletePlanOpen] = useState(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  
+  // State for inline editing the description
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(plan.description || "");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const highPriorityTasks = tasks.filter(t => t.priority === 'high' && t.status !== 'completed');
   const mediumPriorityTasks = tasks.filter(t => t.priority === 'medium' && t.status !== 'completed');
@@ -60,6 +67,64 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     setIsDeletePlanOpen(false);
   };
 
+  const handleSaveDescription = () => {
+    updatePlan(plan.id, { description: editedDescription });
+    setIsEditingDescription(false);
+  };
+
+  const handleCancelEditDescription = () => {
+    setEditedDescription(plan.description || "");
+    setIsEditingDescription(false);
+  };
+
+  const handleEditDescriptionClick = () => {
+    setEditedDescription(plan.description || "");
+    setIsEditingDescription(true);
+  };
+
+  const applyMarkdown = (syntax: 'bold' | 'h2' | 'h3' | 'h4' | 'list') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = editedDescription.substring(start, end);
+    let newText = '';
+    let cursorOffset = 0;
+
+    switch (syntax) {
+      case 'bold':
+        newText = `**${selectedText}**`;
+        cursorOffset = 2;
+        break;
+      case 'h2':
+        newText = `## ${selectedText}`;
+        break;
+      case 'h3':
+        newText = `### ${selectedText}`;
+        break;
+      case 'h4':
+        newText = `#### ${selectedText}`;
+        break;
+      case 'list':
+        const lines = selectedText.split('\n');
+        newText = lines.map(line => `- ${line}`).join('\n');
+        break;
+    }
+
+    const updatedDescription = 
+        editedDescription.substring(0, start) + 
+        newText + 
+        editedDescription.substring(end);
+    
+    setEditedDescription(updatedDescription);
+
+    textarea.focus();
+    setTimeout(() => {
+      textarea.setSelectionRange(start + cursorOffset, end + cursorOffset + (newText.length - selectedText.length - (cursorOffset * 2)));
+    }, 0);
+  };
+
   return (
     <>
       <div className="h-full flex flex-col">
@@ -84,20 +149,54 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
         <ScrollArea className="flex-1">
           <CardContent className="p-4 space-y-6">
             <Collapsible defaultOpen={true}>
-              <CollapsibleTrigger className="w-full p-2 rounded-lg hover:bg-muted/50 group">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Plan Proposal</h3>
-                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                </div>
-              </CollapsibleTrigger>
+              <div className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 group">
+                <CollapsibleTrigger className="flex-1 text-left">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-lg">Plan Proposal</h3>
+                    <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                  </div>
+                </CollapsibleTrigger>
+                {!isEditingDescription && (
+                  <Button variant="ghost" size="sm" onClick={handleEditDescriptionClick}>
+                    <Edit className="h-3 w-3 mr-2" />
+                    Edit
+                  </Button>
+                )}
+              </div>
               <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
-                <div className="prose dark:prose-invert max-w-none p-4 border rounded-lg bg-muted/20 mt-2">
-                  {plan.description ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
-                  ) : (
-                    <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
-                  )}
-                </div>
+                {isEditingDescription ? (
+                  <div className="p-4 border-t space-y-2">
+                    <TooltipProvider>
+                      <div className="flex items-center gap-1 border rounded-md p-1 bg-background">
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('bold')}><Bold className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Bold</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('h2')}><Heading2 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Heading 2</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('h3')}><Heading3 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Heading 3</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('h4')}><Heading4 className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Heading 4</p></TooltipContent></Tooltip>
+                        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" onClick={() => applyMarkdown('list')}><ListIcon className="h-4 w-4" /></Button></TooltipTrigger><TooltipContent><p>Bullet List</p></TooltipContent></Tooltip>
+                      </div>
+                    </TooltipProvider>
+                    <Textarea
+                      ref={textareaRef}
+                      value={editedDescription}
+                      onChange={(e) => setEditedDescription(e.target.value)}
+                      rows={15}
+                      className="mt-2 font-mono"
+                      placeholder="Write your proposal here. Use the toolbar or Markdown syntax."
+                    />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button variant="ghost" onClick={handleCancelEditDescription}>Cancel</Button>
+                      <Button onClick={handleSaveDescription}>Save Changes</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="prose dark:prose-invert max-w-none p-4 border-t rounded-lg bg-muted/20 mt-2">
+                    {plan.description ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                    ) : (
+                      <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
+                    )}
+                  </div>
+                )}
               </CollapsibleContent>
             </Collapsible>
 
