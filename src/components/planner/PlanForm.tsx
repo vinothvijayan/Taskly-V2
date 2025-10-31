@@ -37,11 +37,26 @@ export function PlanForm({ open, onOpenChange, plan }: PlanFormProps) {
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
-    const pastedText = e.clipboardData.getData('text/plain');
+    const clipboardData = e.clipboardData;
+    let pastedText = '';
+
+    // Attempt to get the raw text content from the clipboard's HTML format.
+    // This often preserves characters like bullet points that are stripped in 'text/plain'.
+    const html = clipboardData.getData('text/html');
+    if (html) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      pastedText = tempDiv.textContent || tempDiv.innerText || '';
+    } else {
+      // Fallback for environments where HTML is not available
+      pastedText = clipboardData.getData('text/plain');
+    }
     
-    // Regex to find common bullet point characters (•, *, -, etc.) at the start of a line
+    // Automatically convert common bullet point characters (like •) into Markdown list syntax (-).
+    // The 'gm' flags ensure this works for multiple lines in the pasted text.
     const sanitizedText = pastedText.replace(/^[\s\t]*[•◦▪·*-]\s*/gm, '- ');
 
+    // Insert the sanitized text at the current cursor position
     const start = e.currentTarget.selectionStart;
     const end = e.currentTarget.selectionEnd;
     const newText = description.substring(0, start) + sanitizedText + description.substring(end);
