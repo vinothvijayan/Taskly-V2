@@ -29,7 +29,7 @@ const formatDueDateForInput = (dateString?: string): string => {
 };
 
 export function TaskForm({ task, onSubmit, onCancel, teamMembers }: TaskFormProps) {
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(!!task); // Open if editing
   const [formData, setFormData] = useState({
     title: task?.title || "",
     description: task?.description || "",
@@ -38,6 +38,7 @@ export function TaskForm({ task, onSubmit, onCancel, teamMembers }: TaskFormProp
     estimatedTime: task?.estimatedTime?.toString() || "",
     dueDate: formatDueDateForInput(task?.dueDate),
     assignedTo: task?.assignedTo || [],
+    project: task?.project || "",
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -138,6 +139,16 @@ export function TaskForm({ task, onSubmit, onCancel, teamMembers }: TaskFormProp
                   placeholder="25"
                   className="mt-2 transition-smooth focus:ring-2 focus:ring-primary/20"
                   min="1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="project" className="text-sm font-medium">Project</Label>
+                <Input
+                  id="project"
+                  value={formData.project}
+                  onChange={(e) => setFormData({ ...formData, project: e.target.value })}
+                  placeholder="e.g., Management, Design"
+                  className="mt-2 transition-smooth focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>

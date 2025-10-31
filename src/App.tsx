@@ -44,6 +44,7 @@ import { MeetlyContextProvider } from "@/contexts/MeetlyContext";
 import { ConfettiProvider } from "@/contexts/ConfettiContext";
 import { SalesOpportunityProvider } from "@/contexts/SalesOpportunityContext";
 import { ContactsProvider } from "@/contexts/ContactsContext";
+import { PlannerProvider } from "@/contexts/PlannerContext"; // Import PlannerProvider
 
 // Notification Services & Setup
 import { setGlobalAddNotification } from "./lib/notifications";
@@ -64,6 +65,7 @@ const NotesPage = lazy(() => import("./pages/NotesPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const ChatPage = lazy(() => import("./pages/ChatPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const TeamPlannerPage = lazy(() => import("./pages/TeamPlannerPage")); // Import TeamPlannerPage
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Create QueryClient instance outside component
@@ -362,6 +364,7 @@ function AppContent() {
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/tasks" element={<TasksPage />} />
+                    <Route path="/planner" element={<TeamPlannerPage />} />
                     <Route path="/team-chat" element={<TeamChatPage />} />
                     <Route path="/meetly" element={<MeetlyPage />} />
                     <Route path="/sales-tracker" element={
@@ -416,17 +419,19 @@ export default function App() {
                   <TasksContextProvider>
                     <TeamChatProvider>
                       <CommentsContextProvider>
-                        <TaskTimeTrackerProvider>
-                          <MeetlyContextProvider>
-                            <SalesOpportunityProvider>
-                              <ContactsProvider>
-                                <BrowserRouter>
-                                  <AppContent />
-                                </BrowserRouter>
-                              </ContactsProvider>
-                            </SalesOpportunityProvider>
-                          </MeetlyContextProvider>
-                        </TaskTimeTrackerProvider>
+                        <PlannerProvider>
+                          <TaskTimeTrackerProvider>
+                            <MeetlyContextProvider>
+                              <SalesOpportunityProvider>
+                                <ContactsProvider>
+                                  <BrowserRouter>
+                                    <AppContent />
+                                  </BrowserRouter>
+                                </ContactsProvider>
+                              </SalesOpportunityProvider>
+                            </MeetlyContextProvider>
+                          </TaskTimeTrackerProvider>
+                        </PlannerProvider>
                       </CommentsContextProvider>
                     </TeamChatProvider>
                   </TasksContextProvider>

@@ -52,6 +52,18 @@ export interface Task {
   createdAt: string;
   subtasks?: Subtask[]; // Array of subtasks
   lastCommentedAt?: string; // New field to track last comment activity
+  planId?: string; // ID of the plan this task belongs to
+  project?: string; // Project tag/category for the task
+}
+
+export interface Plan {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'Not Started' | 'In Progress' | 'Completed';
+  teamId: string;
+  createdBy: string;
+  createdAt: string; // ISO string
 }
 
 export interface AppNotification {

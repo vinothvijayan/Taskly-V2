@@ -1,0 +1,4 @@
+"Company Name","Phone Number","Last Status","Last Message","Spoken To Name","Duration (s)","Timestamp (YYYY-MM-DD HH:MM:SS)"
+"Acme Corp","+15551234567","Interested","Discussed next steps for Q3 contract.","Jane Doe","120","2024-10-26 10:00:00"
+"Beta Solutions","+15559876543","Follow Up","Needs a demo next week.","John Smith","300","2024-10-25 14:30:00"
+"Gamma Tech","+15551112222","Not Picked","No answer, left voicemail.","","0","2024-10-26 09:00:00"

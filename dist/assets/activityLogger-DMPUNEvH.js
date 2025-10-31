@@ -1,0 +1,1 @@
+import{bh as r,bl as s,cu as e,c2 as l}from"./index-CIyudF9t.js";const m=async(t,c,o,a)=>{if(t)try{const i=r(s,"teams",t,"activities");await e(i,{teamId:t,type:c,actor:o,...a,timestamp:l(),reactions:{}})}catch(i){console.error("Failed to log activity:",i)}};export{m as logActivity};

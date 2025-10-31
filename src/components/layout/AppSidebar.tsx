@@ -14,7 +14,8 @@ import {
   DollarSign,
   Zap,
   ChevronRight,
-  Wrench
+  Wrench,
+  ClipboardList
 } from "lucide-react"
 import {
   Sidebar,
@@ -32,11 +33,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useTeamChat } from "@/contexts/TeamChatContext"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/hooks/use-is-mobile"
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: BarChart3 },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Team Planner", url: "/planner", icon: ClipboardList, teamOnly: true },
   { title: "Team Chat", url: "/team-chat", icon: TeamChatIcon },
   { title: "Meetly", url: "/meetly", icon: Mic },
   {
@@ -64,10 +66,12 @@ export const SidebarNavContent = ({ onLinkClick, collapsed, isMobile }: { onLink
   const { userProfile } = useAuth();
 
   const isAdminOrSuperadmin = userProfile?.role === 'admin' || userProfile?.role === 'superadmin';
+  const isInTeam = !!userProfile?.teamId;
 
   const visibleItems = navItems.filter(item => 
     (!item.adminOnly || isAdminOrSuperadmin) &&
-    (!isMobile || !item.mobileHidden) // Filter out mobileHidden items on mobile
+    (!isMobile || !item.mobileHidden) &&
+    (!item.teamOnly || isInTeam)
   );
 
   const isActive = (path: string) => {
