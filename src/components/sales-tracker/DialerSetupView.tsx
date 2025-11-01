@@ -71,7 +71,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [visibleAvailableCount, setVisibleAvailableCount] = useState(DIALER_ITEMS_PER_PAGE);
   
-  const isSuperAdmin = userProfile?.role === 'superadmin'; // <-- SUPERADMIN CHECK
+  const isAdminOrSuperAdmin = userProfile?.role === 'superadmin' || userProfile?.role === 'admin';
 
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: {
@@ -380,7 +380,7 @@ export const DialerSetupView: React.FC<DialerSetupViewProps> = ({ contacts, onSa
               <CardTitle className="flex items-center gap-2"><Upload className="h-5 w-5" /> Imported Contacts</CardTitle>
               
               {/* --- SUPERADMIN MASTER DATA IMPORT SECTION --- */}
-              {isSuperAdmin && (
+              {isAdminOrSuperAdmin && (
                 <div className="space-y-3 p-3 border rounded-lg bg-background">
                   <h4 className="text-sm font-semibold flex items-center gap-2">
                     <FileDown className="h-4 w-4 text-primary" /> Master Data Import
