@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { functions } from "@/lib/firebase";
+import { httpsCallable } from "firebase/functions";
 import { PlanComments } from "./PlanComments";
 
 interface PlanDetailViewProps {
@@ -93,31 +94,17 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     }
     setIsEnhancing(true);
     try {
-      const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const enhancePlan = httpsCallable(functions, 'enhancePlanWithAI');
+      const result: any = await enhancePlan({ text: editedDescription });
 
-      const prompt = `
-        You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
-        - Ensure the output is clean, professional Markdown.
-        - Correct any spelling or grammatical errors.
-        - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
-        - Do not add any new information or change the core meaning of the text.
-        - Return only the enhanced text, with no introductory phrases like "Here is the enhanced text:".
-
-        Here is the text to enhance:
-        ---
-        ${editedDescription}
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      setEditedDescription(text);
-
-      toast({ title: "Text Enhanced!", description: "Your proposal has been improved by AI." });
+      if (result.data.status === 'success') {
+        setEditedDescription(result.data.enhancedText);
+        toast({ title: "Text Enhanced!", description: "Your proposal has been improved by AI." });
+      } else {
+        throw new Error(result.data.message || "An unknown error occurred.");
+      }
     } catch (error: any) {
-      console.error("Error enhancing text with Gemini:", error);
+      console.error("Error enhancing text with cloud function:", error);
       toast({ title: "Enhancement Failed", description: error.message || "An error occurred while contacting the AI.", variant: "destructive" });
     } finally {
       setIsEnhancing(false);
@@ -132,51 +119,17 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
     }
     setIsEnhancing(true);
     try {
-      const GEMINI_API_KEY = "AIzaSyCugeQ0xzwciuQcWwIH14YB54EqVXgTX1Q";
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const enhancePlan = httpsCallable(functions, 'enhancePlanWithAI');
+      const result: any = await enhancePlan({ text: originalDescription });
 
-      let prompt;
-      // If the description is short, treat it as a prompt to generate a full plan.
-      if (originalDescription.length < 150) {
-        prompt = `
-          You are a professional project manager. Based on the following idea, generate a detailed project plan proposal in Markdown format.
-          The plan should be comprehensive and well-structured, including sections for:
-          - ## 🎯 Objectives
-          - ## 🔑 Key Milestones
-          - ##  timeline (provide a sample timeline in a list format)
-          - ## 🛠️ Resources Needed
-          - ## 📈 Success Metrics
-
-          Here is the idea:
-          ---
-          ${originalDescription}
-        `;
+      if (result.data.status === 'success') {
+        await updatePlan(plan.id, { description: result.data.enhancedText });
+        toast({ title: "Proposal Enhanced!", description: "The proposal has been improved by AI." });
       } else {
-        // Otherwise, just enhance the existing text.
-        prompt = `
-          You are an expert editor. Please proofread and reformat the following text to improve its clarity, grammar, and structure.
-          - Ensure the output is clean, professional Markdown.
-          - Correct any spelling or grammatical errors.
-          - Organize the content logically with appropriate headings (like ## or ###) and bulleted lists (using -) if it improves readability.
-          - Do not add any new information or change the core meaning of the text.
-          - Return only the enhanced text, with no introductory phrases.
-
-          Here is the text to enhance:
-          ---
-          ${originalDescription}
-        `;
+        throw new Error(result.data.message || "An unknown error occurred.");
       }
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const enhancedText = response.text();
-      
-      await updatePlan(plan.id, { description: enhancedText });
-
-      toast({ title: "Proposal Enhanced!", description: "The proposal has been improved by AI." });
     } catch (error: any) {
-      console.error("Error enhancing text with Gemini:", error);
+      console.error("Error enhancing text with cloud function:", error);
       toast({ title: "Enhancement Failed", description: error.message || "An error occurred while contacting the AI.", variant: "destructive" });
     } finally {
       setIsEnhancing(false);
