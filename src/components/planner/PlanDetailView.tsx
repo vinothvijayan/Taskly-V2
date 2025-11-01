@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { functions } from "@/lib/firebase";
 import { httpsCallable } from "firebase/functions";
 import { PlanComments } from "./PlanComments";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface PlanDetailViewProps {
   plan: Plan;
@@ -245,7 +246,21 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                   </div>
                 )}
               </div>
-              <CollapsibleContent className="animate-in fade-in-0 zoom-in-95">
+              <CollapsibleContent className="animate-in fade-in-0 zoom-in-95 relative">
+                <AnimatePresence>
+                  {isEnhancing && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/70 backdrop-blur-sm rounded-lg"
+                    >
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                      <p className="text-sm font-semibold">Enhancing with AI...</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 {isEditingDescription ? (
                   <div className="p-4 border-t space-y-2">
                     <TooltipProvider>
