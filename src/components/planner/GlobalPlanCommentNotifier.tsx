@@ -18,10 +18,11 @@ export function GlobalPlanCommentNotifier() {
     // Reset the flag to ignore the first batch of data on a new subscription
     isInitialLoadRef.current = true;
 
+    // This query is simpler and more reliable. It gets all comments for the team.
+    // The logic below will handle only showing notifications for *new* comments.
     const commentsQuery = query(
       collectionGroup(db, 'comments'),
-      where('teamId', '==', userProfile.teamId),
-      orderBy('createdAt', 'desc')
+      where('teamId', '==', userProfile.teamId)
     );
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
@@ -31,7 +32,7 @@ export function GlobalPlanCommentNotifier() {
         return;
       }
 
-      // Process only the new changes
+      // Process only the new changes since the last snapshot
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const newComment = { id: change.doc.id, ...change.doc.data() } as PlanComment;

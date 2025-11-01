@@ -3,9 +3,7 @@ import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from 
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlanComment } from "@/types";
-import { useNotifications } from "./NotificationsContext";
 import { toast } from "sonner";
-import { CommentToast } from "@/components/ui/CommentToast";
 
 interface PlanCommentsContextType {
   comments: PlanComment[];
@@ -20,7 +18,6 @@ export function PlanCommentsProvider({ children }: { children: ReactNode }) {
   const [comments, setComments] = useState<PlanComment[]>([]);
   const [loading, setLoading] = useState(false);
   const { user, userProfile } = useAuth();
-  const { addNotification } = useNotifications();
   
   const subscribeToComments = useCallback((planId: string) => {
     if (!userProfile?.teamId) return () => {};
