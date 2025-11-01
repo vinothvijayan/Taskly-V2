@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { collectionGroup, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { useEffect } from 'react';
+import { collectionGroup, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { PlanComment } from '@/types';
@@ -8,31 +8,23 @@ import { CommentToast } from '@/components/ui/CommentToast';
 
 export function GlobalPlanCommentNotifier() {
   const { user, userProfile } = useAuth();
-  const isInitialLoadRef = useRef(true);
 
   useEffect(() => {
     if (!user || !userProfile?.teamId) {
       return;
     }
 
-    // Reset the flag to ignore the first batch of data on a new subscription
-    isInitialLoadRef.current = true;
+    // Create a timestamp for when the listener starts. We only want comments created after this point.
+    const listenerStartTime = Timestamp.now();
 
-    // This query is simpler and more reliable. It gets all comments for the team.
-    // The logic below will handle only showing notifications for *new* comments.
     const commentsQuery = query(
       collectionGroup(db, 'comments'),
-      where('teamId', '==', userProfile.teamId)
+      where('teamId', '==', userProfile.teamId),
+      where('createdAt', '>', listenerStartTime) // <-- The key change
     );
 
     const unsubscribe = onSnapshot(commentsQuery, (snapshot) => {
-      // Ignore the initial data dump when the listener first connects
-      if (isInitialLoadRef.current) {
-        isInitialLoadRef.current = false;
-        return;
-      }
-
-      // Process only the new changes since the last snapshot
+      // No need for an initial load flag, as the query itself filters out old documents.
       snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
           const newComment = { id: change.doc.id, ...change.doc.data() } as PlanComment;
@@ -50,6 +42,9 @@ export function GlobalPlanCommentNotifier() {
           }
         }
       });
+    }, (error) => {
+      // This error handler is important. It will catch missing index errors.
+      console.error("Error listening for global plan comments:", error);
     });
 
     // Cleanup the listener when the component unmounts or user changes
