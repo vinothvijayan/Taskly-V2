@@ -75,12 +75,14 @@ export default function PublicPlanPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="prose dark:prose-invert max-w-none">
-              {plan.description ? (
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
-              ) : (
-                <p className="text-muted-foreground italic">No detailed proposal has been added to this plan.</p>
-              )}
+            <div className="overflow-x-auto">
+              <div className="prose dark:prose-invert max-w-none">
+                {plan.description ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                ) : (
+                  <p className="text-muted-foreground italic">No detailed proposal has been added to this plan.</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

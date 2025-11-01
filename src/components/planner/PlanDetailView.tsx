@@ -288,12 +288,14 @@ export function PlanDetailView({ plan, tasks }: PlanDetailViewProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="prose dark:prose-invert max-w-none p-4 border-t rounded-lg bg-muted/20 mt-2">
-                    {plan.description ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
-                    ) : (
-                      <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
-                    )}
+                  <div className="overflow-x-auto">
+                    <div className="prose dark:prose-invert max-w-none p-4 border-t rounded-lg bg-muted/20 mt-2">
+                      {plan.description ? (
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{plan.description}</ReactMarkdown>
+                      ) : (
+                        <p className="text-muted-foreground italic">No detailed proposal has been added to this plan yet.</p>
+                      )}
+                    </div>
                   </div>
                 )}
               </CollapsibleContent>
