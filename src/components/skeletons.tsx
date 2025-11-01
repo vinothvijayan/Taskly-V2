@@ -219,3 +219,43 @@ export const LeaderboardSkeleton = () => (
     </CardContent>
   </Card>
 );
+
+export const PublicPlanSkeleton = () => (
+  <div className="min-h-screen bg-muted/30 p-4 sm:p-8">
+    <div className="max-w-4xl mx-auto">
+      <header className="flex items-center gap-4 mb-6">
+        <Skeleton className="h-12 w-12 rounded-lg" />
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+      </header>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3 flex-1">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-5 w-1/2" />
+            </div>
+            <Skeleton className="h-6 w-24 rounded-full" />
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 pt-4">
+          <Skeleton className="h-5 w-full" />
+          <Skeleton className="h-5 w-full" />
+          <Skeleton className="h-5 w-4/5" />
+          <div className="pt-4 space-y-3">
+            <Skeleton className="h-6 w-1/3" />
+            <Skeleton className="h-5 w-full" />
+            <Skeleton className="h-5 w-3/4" />
+          </div>
+        </CardContent>
+      </Card>
+      <footer className="text-center mt-6">
+        <Skeleton className="h-4 w-64 mx-auto" />
+        <Skeleton className="h-4 w-32 mx-auto mt-2" />
+      </footer>
+    </div>
+  </div>
+);

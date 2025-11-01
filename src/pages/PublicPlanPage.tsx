@@ -9,6 +9,7 @@ import { Loader2, Share2, ClipboardList, AlertCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { format } from 'date-fns';
+import { PublicPlanSkeleton } from '@/components/skeletons';
 
 const getPublicPlanData = httpsCallable(functions, 'getPublicPlanData');
 
@@ -35,12 +36,7 @@ export default function PublicPlanPage() {
   }, [teamId, planId]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-muted/30 text-center p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Loading plan...</p>
-      </div>
-    );
+    return <PublicPlanSkeleton />;
   }
 
   if (error || !plan) {
